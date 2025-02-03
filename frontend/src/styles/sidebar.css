@@ -1,0 +1,88 @@
+:root {
+    --sidebar-width: 250px;
+    --sidebar-bg: #f8f9fa;
+    --sidebar-border: #dee2e6;
+    --category-bg: #ffffff;
+    --item-hover: #f1f3f5;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    padding: 1rem;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--sidebar-border);
+}
+
+.element-category {
+    background: var(--category-bg);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.category-header {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+.element-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.element-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.element-item:hover {
+    background: var(--item-hover);
+}
+
+.element-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.element-label {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+/* Scrollbar stilleri */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: var(--sidebar-bg);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--sidebar-border);
+    border-radius: 3px;
+} 

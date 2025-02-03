@@ -1,0 +1,66 @@
+:root {
+    --port-size: 8px;
+    --port-border: 1px;
+    --port-color: #1a192b;
+}
+
+/* Temel port stili */
+.react-flow__handle {
+    position: relative !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+    width: var(--port-size) !important;
+    height: var(--port-size) !important;
+    border-radius: 50% !important;
+    background-color: white !important;
+    border: var(--port-border) solid var(--port-color) !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Dolu portlar için stil */
+.react-flow__handle.port-connected {
+    background-color: var(--port-color) !important;
+}
+
+/* Port hover durumu */
+.react-flow__handle:hover {
+    background-color: var(--port-color) !important;
+}
+
+/* Port container stilleri */
+.port-container-left {
+    position: absolute;
+    left: calc(var(--port-size) / -2 - var(--port-border));
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.port-container-right {
+    position: absolute;
+    right: calc(var(--port-size) / -2 - var(--port-border));
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Port indeks stili */
+.port-index {
+    font-size: 9px;
+    color: #666;
+    user-select: none;
+}
+
+.port-container-left .port-index {
+    margin-left: 4px;
+}
+
+.port-container-right .port-index {
+    margin-right: 4px;
+} 

@@ -1,0 +1,130 @@
+:root {
+    --panel-width: 300px;
+    --panel-bg: #f8f9fa;
+    --panel-border: #dee2e6;
+    --input-border: #ced4da;
+    --input-focus: #86b7fe;
+    --input-bg: #ffffff;
+}
+
+.properties-panel {
+    width: var(--panel-width);
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    padding: 1.5rem;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.panel-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--panel-border);
+}
+
+.property-group {
+    margin-bottom: 1.5rem;
+}
+
+.group-header {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.property-item {
+    margin-bottom: 1rem;
+}
+
+.property-label {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.property-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: var(--input-bg);
+    transition: all 0.2s ease;
+}
+
+.property-input:focus {
+    outline: none;
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 2px rgba(134, 183, 254, 0.25);
+}
+
+.property-select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: var(--input-bg);
+    cursor: pointer;
+}
+
+/* No element selected state */
+.no-element {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+    font-size: 0.9rem;
+}
+
+/* Scrollbar stilleri */
+.properties-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.properties-panel::-webkit-scrollbar-track {
+    background: var(--panel-bg);
+}
+
+.properties-panel::-webkit-scrollbar-thumb {
+    background: var(--panel-border);
+    border-radius: 3px;
+}
+
+.property-value {
+    padding: 0.5rem;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+}
+
+.property-value.editable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.property-value.editable:hover {
+    border-color: var(--input-focus);
+    background-color: var(--item-hover);
+}
+
+/* Disabled input stili */
+.property-input:disabled {
+    background-color: var(--panel-bg);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.parameter-unit {
+    color: var(--text-secondary);
+    font-size: 0.8em;
+    font-weight: normal;
+} 
