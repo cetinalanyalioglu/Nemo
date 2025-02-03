@@ -47,12 +47,6 @@ const LosslessDuct = ({ id, data, selected }) => {
         );
     };
 
-    // Debug için port durumlarını konsola yazdıralım
-    console.log('Node ID:', id);
-    console.log('Edges:', edges);
-    console.log('Port 0 connected:', isPortConnected(id, "port-0"));
-    console.log('Port 1 connected:', isPortConnected(id, "port-1"));
-
     const onDoubleClick = () => {
         setIsEditing(true);
     };
@@ -73,11 +67,22 @@ const LosslessDuct = ({ id, data, selected }) => {
 
     return (
         <div className={`lossless-duct-node ${selected ? 'selected' : ''}`}>
-            <div className="node-label">
-                {data.label || ''}
-            </div>
+            {isEditing ? (
+                <input
+                    value={labelText}
+                    onChange={onChange}
+                    onBlur={onBlur}
+                    onKeyDown={onKeyDown}
+                    autoFocus
+                    className="node-input"
+                />
+            ) : (
+                <div onDoubleClick={onDoubleClick} className="node-label">
+                    {data.label || ''}
+                </div>
+            )}
             <div className="node-type">
-                type: {data.type || 'losslessDuct'}
+                type: {data.type || 'LosslessDuct'}
             </div>
             <div className="port-container-left">
                 <Handle

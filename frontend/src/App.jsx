@@ -1,12 +1,12 @@
 import React from 'react';
-import ElementLibrary from './components/ElementLibrary';
+import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import './App.css';
 
 function App() {
   return (
     <div className="app">
-      <ElementLibrary />
+      <Sidebar />
       <div className="canvas-container">
         <Canvas />
       </div>

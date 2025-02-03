@@ -30,6 +30,16 @@
 }
 
 /* Port container stilleri */
+.port-container {
+    position: absolute;
+    right: calc(var(--port-size) / -2 - var(--port-border));
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .port-container-left {
     position: absolute;
     left: calc(var(--port-size) / -2 - var(--port-border));

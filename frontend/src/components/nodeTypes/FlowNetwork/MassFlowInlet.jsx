@@ -14,9 +14,9 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 1.0,
             unit: 'kg/s',
-            category: 'Flow Properties',
+            category: 'Flow',
             min: 0,
-            max: 1000
+            max: 100
         },
         temperature: {
             label: 'Temperature',
@@ -42,9 +42,8 @@ export const elementInfo = {
 const MassFlowInlet = ({ id, data, selected }) => {
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
-    const [labelText, setLabelText] = useState(data.label || '');  // data.label'ı direkt kullan
+    const [labelText, setLabelText] = useState(data.label || '');
 
-    // Label değiştiğinde state'i güncelle
     React.useEffect(() => {
         setLabelText(data.label || '');
     }, [data.label]);
@@ -92,11 +91,11 @@ const MassFlowInlet = ({ id, data, selected }) => {
                 />
             ) : (
                 <div onDoubleClick={onDoubleClick} className="node-label">
-                    {data.label || ''}  {/* data.label'ı direkt kullan */}
+                    {data.label || ''}
                 </div>
             )}
             <div className="node-type">
-                type: {data.type || 'massFlowInlet'}
+                type: {data.type || 'MassFlowInlet'}
             </div>
             <div className="port-container">
                 <span className="port-index">0</span>

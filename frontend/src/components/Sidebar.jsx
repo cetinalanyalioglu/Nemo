@@ -17,14 +17,14 @@ const Sidebar = () => {
                 <div className="element-list">
                     <div 
                         className="element-item"
-                        onDragStart={(event) => onDragStart(event, 'massFlowInlet')} 
+                        onDragStart={(event) => onDragStart(event, 'MassFlowInlet')} 
                         draggable
                     >
                         <span className="element-label">Mass Flow Inlet</span>
                     </div>
                     <div 
                         className="element-item"
-                        onDragStart={(event) => onDragStart(event, 'losslessDuct')} 
+                        onDragStart={(event) => onDragStart(event, 'LosslessDuct')} 
                         draggable
                     >
                         <span className="element-label">Lossless Duct</span>

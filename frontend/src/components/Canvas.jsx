@@ -8,7 +8,7 @@ import ReactFlow, {
   useEdgesState,
   MarkerType,
 } from "reactflow";
-import { nodeTypes } from './nodeTypes/FlowNetwork/index';
+import nodeTypes from './nodeTypes/FlowNetwork/index';
 import "reactflow/dist/style.css";
 import "./Canvas.css";
 import "../styles/ports.css";
