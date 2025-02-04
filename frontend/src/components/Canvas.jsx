@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useMemo } from "react";
 import ReactFlow, {
   addEdge,
   MiniMap,
@@ -8,7 +8,7 @@ import ReactFlow, {
   useEdgesState,
   MarkerType,
 } from "reactflow";
-import nodeTypes from './nodeTypes/FlowNetwork/index';
+import { nodeTypes as flowNodeTypes, elementInfo } from './nodeTypes/FlowNetwork/index';
 import "reactflow/dist/style.css";
 import "./Canvas.css";
 import "../styles/ports.css";
@@ -22,6 +22,11 @@ const Canvas = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
+    const [nodeStates, setNodeStates] = useState({});
+    const [nodeCounters, setNodeCounters] = useState({
+        MassFlowInlet: 0,
+        LosslessDuct: 0
+    });
 
     const onInit = (instance) => {
         setReactFlowInstance(instance);
@@ -48,22 +53,79 @@ const Canvas = () => {
                 y: event.clientY
             });
 
+            const newCounter = nodeCounters[type] + 1;
+            setNodeCounters(prev => ({
+                ...prev,
+                [type]: newCounter
+            }));
+
+            const newId = `${type}_${Date.now()}`;
+
+            const initialParameters = {};
+            Object.entries(elementInfo[type].parameters).forEach(([key, param]) => {
+                if (key === 'label') {
+                    initialParameters[key] = `${param.defaultValue}${newCounter}`;
+                } else {
+                    initialParameters[key] = param.defaultValue;
+                }
+            });
+
+            setNodeStates(prev => ({
+                ...prev,
+                [newId]: {
+                    parameters: initialParameters
+                }
+            }));
+
             const newNode = {
-                id: `${type}_${Date.now()}`,
+                id: newId,
                 type,
                 position,
-                data: { label: type }
+                data: { 
+                    type: type,
+                    stateId: newId
+                }
             };
 
             setNodes((nds) => nds.concat(newNode));
         },
-        [reactFlowInstance, setNodes]
+        [reactFlowInstance, setNodes, setNodeStates, nodeCounters]
     );
 
     const onConnect = useCallback(
         (params) => setEdges((eds) => addEdge(params, eds)),
         [setEdges]
     );
+
+    const updateNodeParameter = useCallback((nodeId, paramName, value) => {
+        setNodeStates(prev => ({
+            ...prev,
+            [nodeId]: {
+                ...prev[nodeId],
+                parameters: {
+                    ...prev[nodeId].parameters,
+                    [paramName]: value
+                }
+            }
+        }));
+    }, []);
+
+    const nodeTypes = useMemo(() => ({
+        MassFlowInlet: (props) => (
+            <flowNodeTypes.MassFlowInlet 
+                {...props} 
+                nodeState={nodeStates[props.id]} 
+                updateNodeParameter={updateNodeParameter}
+            />
+        ),
+        LosslessDuct: (props) => (
+            <flowNodeTypes.LosslessDuct 
+                {...props} 
+                nodeState={nodeStates[props.id]}
+                updateNodeParameter={updateNodeParameter}
+            />
+        )
+    }), [nodeStates, updateNodeParameter]);
 
     return (
         <div className="canvas-container" ref={reactFlowWrapper}>

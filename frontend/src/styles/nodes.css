@@ -9,18 +9,18 @@
 /* Ortak node stilleri */
 .mass-flow-inlet-node,
 .lossless-duct-node {
-    padding: 10px;
+    padding: 6px 12px;
     border-radius: 3px;
     border: var(--border-width) solid #1a192b;
     background-color: white;
-    min-width: 100px;
-    min-height: var(--node-height);
+    min-width: 110px;
+    min-height: 45px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     position: relative;
-    gap: 4px;
+    gap: 3px;
     transition: all 0.2s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
@@ -38,6 +38,12 @@
     font-size: 12px;
     text-align: center;
     font-weight: bold;
+    min-width: 100px;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 2px;
 }
 
 .node-type {
@@ -47,10 +53,35 @@
 }
 
 .node-input {
-    width: 80%;
+    width: 100px;
+    min-height: 16px;
     border: none;
-    padding: 2px;
-    font-size: 14px;
+    padding: 1px 2px;
+    font-size: 12px;
     text-align: center;
     background: transparent;
+    font-weight: bold;
+    outline: none;
+}
+
+.node-input:focus {
+    border-bottom: 1px dashed var(--highlight-color);
+}
+
+/* Port container'lar için daha fazla alan */
+.port-container,
+.port-container-left,
+.port-container-right {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.port-container-left {
+    left: -12px;
+}
+
+.port-container-right {
+    right: -12px;
 } 

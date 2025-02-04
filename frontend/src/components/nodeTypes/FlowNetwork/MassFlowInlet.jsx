@@ -39,14 +39,14 @@ export const elementInfo = {
     }
 };
 
-const MassFlowInlet = ({ id, data, selected }) => {
+const MassFlowInlet = ({ id, data, selected, nodeState, updateNodeParameter }) => {
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
-    const [labelText, setLabelText] = useState(data.label || '');
+    const [tempLabel, setTempLabel] = useState('');
 
-    React.useEffect(() => {
-        setLabelText(data.label || '');
-    }, [data.label]);
+    if (!nodeState) {
+        return <div>Loading...</div>;
+    }
 
     const isPortConnected = (nodeId, portId) => {
         return edges.some(edge => 
@@ -55,47 +55,53 @@ const MassFlowInlet = ({ id, data, selected }) => {
         );
     };
 
-    // Debug için port durumunu konsola yazdıralım
-    console.log('Node ID:', id);
-    console.log('Edges:', edges);
-    console.log('Port 0 connected:', isPortConnected(id, "port-0"));
-
-    const onDoubleClick = () => {
+    const startEditing = () => {
+        setTempLabel(nodeState.parameters.label);
         setIsEditing(true);
     };
 
     const onChange = (evt) => {
-        setLabelText(evt.target.value);
+        setTempLabel(evt.target.value);
+    };
+
+    const finishEditing = () => {
+        const newLabel = tempLabel.trim();
+        if (newLabel) {
+            updateNodeParameter(id, 'label', newLabel);
+        }
+        setIsEditing(false);
     };
 
     const onKeyDown = (evt) => {
         if (evt.key === 'Enter') {
+            finishEditing();
+        } else if (evt.key === 'Escape') {
             setIsEditing(false);
         }
-    };
-
-    const onBlur = () => {
-        setIsEditing(false);
     };
 
     return (
         <div className={`mass-flow-inlet-node ${selected ? 'selected' : ''}`}>
             {isEditing ? (
                 <input
-                    value={labelText}
+                    value={tempLabel}
                     onChange={onChange}
-                    onBlur={onBlur}
+                    onBlur={finishEditing}
                     onKeyDown={onKeyDown}
                     autoFocus
                     className="node-input"
+                    spellCheck="false"
                 />
             ) : (
-                <div onDoubleClick={onDoubleClick} className="node-label">
-                    {data.label || ''}
+                <div 
+                    className="node-label"
+                    onDoubleClick={startEditing}
+                >
+                    {nodeState.parameters.label}
                 </div>
             )}
             <div className="node-type">
-                type: {data.type || 'MassFlowInlet'}
+                type: {data.type}
             </div>
             <div className="port-container">
                 <span className="port-index">0</span>

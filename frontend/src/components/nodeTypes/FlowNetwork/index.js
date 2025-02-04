@@ -11,11 +11,14 @@ export const nodeTypes = {
 export const elementInfo = {
     MassFlowInlet: {
         type: 'MassFlowInlet',
-        label: 'Mass Flow Inlet',
         ports: {
             source: ['port-0']
         },
         parameters: {
+            label: {
+                type: 'string',
+                defaultValue: 'MassFlowInlet',
+            },
             massFlowRate: {
                 label: 'Mass Flow Rate',
                 type: 'float',
@@ -47,12 +50,15 @@ export const elementInfo = {
     },
     LosslessDuct: {
         type: 'LosslessDuct',
-        label: 'Lossless Duct',
         ports: {
             target: ['port-0'],
             source: ['port-1']
         },
         parameters: {
+            label: {
+                type: 'string',
+                defaultValue: 'LosslessDuct',
+            },
             diameter: {
                 label: 'Diameter',
                 type: 'float',
