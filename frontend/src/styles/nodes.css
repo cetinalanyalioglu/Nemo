@@ -69,21 +69,3 @@
 .node-input:focus {
     border-bottom: 1px dashed var(--highlight-color);
 }
-
-/* Port container'lar için daha fazla alan */
-.port-container,
-.port-container-left,
-.port-container-right {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.port-container-left {
-    left: -12px;
-}
-
-.port-container-right {
-    right: -12px;
-} 

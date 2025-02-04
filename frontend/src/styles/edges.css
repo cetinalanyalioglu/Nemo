@@ -1,8 +1,12 @@
 :root {
-    --edge-width: 1px;              /* Node border ile aynı kalınlık */
-    --edge-color: #1a192b;          /* Node border ile aynı renk */
-    --highlight-color: #D4A72C;     /* Node highlight ile aynı renk */
-    --highlight-width: 0.5px;       /* Node highlight ile aynı genişlik */
+    --edge-width: 1px;
+    /* Edge kalınlığı */
+    --edge-color: #000000;
+    /* Edge rengi siyah */
+    --highlight-color: #D4A72C;
+    /* Seçili edge rengi */
+    --highlight-width: 0.5px;
+    /* Seçili edge genişliği */
 }
 
 /* Edge path stilleri */
@@ -28,17 +32,6 @@
 .react-flow__edge:hover .react-flow__edge-path {
     stroke: var(--highlight-color);
     filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
-}
-
-/* Edge marker (ok) stilleri */
-.react-flow__edge-path marker {
-    fill: var(--edge-color);
-    transition: all 0.2s ease;
-}
-
-.react-flow__edge.selected .react-flow__edge-path marker,
-.react-flow__edge:hover .react-flow__edge-path marker {
-    fill: var(--highlight-color);
 }
 
 /* Edge overlay (tıklanabilir alan) */

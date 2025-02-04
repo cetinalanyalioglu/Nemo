@@ -7,6 +7,7 @@ import ReactFlow, {
     MiniMap,
     useEdgesState,
     useNodesState,
+    defaultEdgeOptions,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
@@ -18,11 +19,10 @@ import { nodeTypes } from './nodeTypes';
 import { elementInfo } from './nodeTypes/FlowNetwork/index';
 import ZoomIndicator from "./ZoomIndicator";
 
-const edgeTypes = {
-    'normal-edge': DefaultEdgeOptions,
-};
+// Edge tiplerini boş bir obje olarak bırakıyoruz
+const edgeTypes = {};
 
-const Canvas = () => {
+const Canvas = ({ onNodeSelect }) => {
     const reactFlowWrapper = useRef(null);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -88,7 +88,7 @@ const Canvas = () => {
                 id: newId,
                 type,
                 position,
-                data: {
+                data: { 
                     type: type,
                     stateId: newId
                 }
@@ -114,8 +114,7 @@ const Canvas = () => {
 
         setEdges((eds) => addEdge({
             ...params,
-            type: 'normal-edge',
-            markerEnd: {
+            markerEnd: { 
                 type: MarkerType.Arrow,
                 width: 20,
                 height: 20,
@@ -138,6 +137,12 @@ const Canvas = () => {
         }));
     }, []);
 
+    const onNodeClick = useCallback((event, node) => {
+        if (onNodeSelect) {
+            onNodeSelect(node.id);
+        }
+    }, [onNodeSelect]);
+
     return (
         <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
             <div className="canvas-container" ref={reactFlowWrapper}>
@@ -153,6 +158,7 @@ const Canvas = () => {
                     onMove={onMove}
                     nodeTypes={nodeTypes}
                     edgeTypes={edgeTypes}
+                    onNodeClick={onNodeClick}
                     defaultViewport={{ x: 0, y: 0, zoom: 1 }}
                 >
                     <Background />
