@@ -36,10 +36,12 @@
 
 .category-header {
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
-    padding-left: 0.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--sidebar-border);
 }
 
 .element-list {

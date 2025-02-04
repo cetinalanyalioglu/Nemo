@@ -8,6 +8,7 @@ export const elementInfo = {
         target: ['port-0'],
         source: ['port-1']
     },
+    category: 'Two port elements',
     parameters: {
         label: {
             type: 'string',
