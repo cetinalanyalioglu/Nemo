@@ -21,9 +21,9 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid var(--sidebar-border);
+    margin-bottom: 0.25rem;
 }
 
 .element-category {
@@ -38,22 +38,43 @@
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
-    text-align: center;
+    margin-bottom: 0.25rem;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
     border-bottom: 1px solid var(--sidebar-border);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.category-header:hover {
+    background-color: var(--item-hover);
+}
+
+.category-icon {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
 }
 
 .element-list {
+    display: none;
+    padding-left: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.element-list.expanded {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
 }
 
 .element-item {
     display: flex;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 4px;
     cursor: grab;
     transition: all 0.2s ease;
@@ -71,7 +92,8 @@
 }
 
 .element-label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--text-primary);
 }
 
@@ -87,4 +109,14 @@
 .sidebar::-webkit-scrollbar-thumb {
     background: var(--sidebar-border);
     border-radius: 3px;
+}
+
+.library-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 0.25rem 0 0.5rem 0;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--sidebar-border);
 } 
