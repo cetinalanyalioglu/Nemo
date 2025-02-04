@@ -3,7 +3,6 @@
     --edge-color: #1a192b;          /* Node border ile aynı renk */
     --highlight-color: #D4A72C;     /* Node highlight ile aynı renk */
     --highlight-width: 0.5px;       /* Node highlight ile aynı genişlik */
-    --arrow-size: 6px;  /* Ok boyutu için yeni değişken */
 }
 
 /* Edge path stilleri */
@@ -87,4 +86,4 @@
 .selected marker path {
     fill: var(--highlight-color) !important;
     stroke: none;
-} 
+}

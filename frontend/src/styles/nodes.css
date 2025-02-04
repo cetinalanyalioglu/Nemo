@@ -8,7 +8,8 @@
 
 /* Ortak node stilleri */
 .mass-flow-inlet-node,
-.lossless-duct-node {
+.lossless-duct-node,
+.pressure-outlet-node {
     padding: 6px 12px;
     border-radius: 3px;
     border: var(--border-width) solid #1a192b;
@@ -27,7 +28,8 @@
 
 /* Seçili node stilleri */
 .mass-flow-inlet-node.selected,
-.lossless-duct-node.selected {
+.lossless-duct-node.selected,
+.pressure-outlet-node.selected {
     border-color: var(--highlight-color);
     background-color: var(--highlight-bg);
     box-shadow: 0 0 0 var(--highlight-width) var(--highlight-color), 0 2px 4px rgba(0, 0, 0, 0.15);

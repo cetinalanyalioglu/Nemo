@@ -13,6 +13,7 @@ export const elementInfo = {
         label: {
             type: 'string',
             defaultValue: 'LosslessDuct',
+            category: 'General',
         },
         diameter: {
             label: 'Diameter',

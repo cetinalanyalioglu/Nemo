@@ -25,7 +25,8 @@ const Canvas = () => {
     const [nodeStates, setNodeStates] = useState({});
     const [nodeCounters, setNodeCounters] = useState({
         MassFlowInlet: 0,
-        LosslessDuct: 0
+        LosslessDuct: 0,
+        PressureOutlet: 0
     });
 
     const onInit = (instance) => {
@@ -92,10 +93,34 @@ const Canvas = () => {
         [reactFlowInstance, setNodes, setNodeStates, nodeCounters]
     );
 
-    const onConnect = useCallback(
-        (params) => setEdges((eds) => addEdge(params, eds)),
-        [setEdges]
-    );
+    const onConnect = useCallback((params) => {
+        // Hedef port için mevcut bağlantıları kontrol et
+        const targetConnections = edges.filter(
+            edge => edge.target === params.target && edge.targetHandle === params.targetHandle
+        );
+
+        // Kaynak port için mevcut bağlantıları kontrol et
+        const sourceConnections = edges.filter(
+            edge => edge.source === params.source && edge.sourceHandle === params.sourceHandle
+        );
+
+        // Eğer herhangi bir portta zaten bağlantı varsa, yeni bağlantıyı engelle
+        if (targetConnections.length > 0 || sourceConnections.length > 0) {
+            return;
+        }
+
+        setEdges((eds) => addEdge({
+            ...params,
+            type: 'normal-edge',
+            markerEnd: { 
+                type: MarkerType.Arrow,
+                width: 20,        // Ok genişliği
+                height: 20,       // Ok yüksekliği
+                color: '#1a192b', // Ok rengi
+                strokeWidth: 1    // Ok çizgi kalınlığı
+            }
+        }, eds));
+    }, [edges, setEdges]);
 
     const updateNodeParameter = useCallback((nodeId, paramName, value) => {
         setNodeStates(prev => ({
@@ -120,6 +145,13 @@ const Canvas = () => {
         ),
         LosslessDuct: (props) => (
             <flowNodeTypes.LosslessDuct 
+                {...props} 
+                nodeState={nodeStates[props.id]}
+                updateNodeParameter={updateNodeParameter}
+            />
+        ),
+        PressureOutlet: (props) => (
+            <flowNodeTypes.PressureOutlet 
                 {...props} 
                 nodeState={nodeStates[props.id]}
                 updateNodeParameter={updateNodeParameter}

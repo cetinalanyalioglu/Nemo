@@ -3,48 +3,35 @@ import { Handle, Position, useStore } from 'reactflow';
 import '../../../styles/nodes.css';
 
 export const elementInfo = {
-    type: 'MassFlowInlet',
+    type: 'PressureOutlet',
     ports: {
-        source: ['port-0']
+        target: ['port-0']
     },
     category: 'Single port elements',
     parameters: {
         label: {
             type: 'string',
-            defaultValue: 'MassFlowInlet',
+            defaultValue: 'PressureOutlet',
             category: 'General',
         },
-        massFlowRate: {
-            label: 'Mass Flow Rate',
-            type: 'float',
-            defaultValue: 1.0,
-            unit: 'kg/s',
-            category: 'Flow',
-            min: 0,
-            max: 100
-        },
-        temperature: {
-            label: 'Temperature',
-            type: 'float',
-            defaultValue: 298.15,
-            unit: 'K',
-            category: 'Flow Properties',
-            min: 0,
-            max: 1000
-        },
         pressure: {
-            label: 'Total Pressure',
+            label: 'Pressure',
             type: 'float',
             defaultValue: 101325,
             unit: 'Pa',
             category: 'Flow Properties',
             min: 0,
-            max: 1000000
+            max: Infinity
+        },
+        allowReverseFlow: {
+            label: 'Allow reverse flow',
+            type: 'boolean',
+            defaultValue: false
         }
     }
 };
 
-const MassFlowInlet = ({ id, data, selected, nodeState, updateNodeParameter }) => {
+const PressureOutlet = ({ id, data, selected, nodeState, updateNodeParameter }) => {
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
     const [tempLabel, setTempLabel] = useState('');
@@ -86,7 +73,7 @@ const MassFlowInlet = ({ id, data, selected, nodeState, updateNodeParameter }) =
     };
 
     return (
-        <div className={`mass-flow-inlet-node ${selected ? 'selected' : ''}`}>
+        <div className={`pressure-outlet-node ${selected ? 'selected' : ''}`}>
             {isEditing ? (
                 <input
                     value={tempLabel}
@@ -108,17 +95,17 @@ const MassFlowInlet = ({ id, data, selected, nodeState, updateNodeParameter }) =
             <div className="node-type">
                 type: {data.type}
             </div>
-            <div className="port-container-right">
-                <span className="port-index">0</span>
+            <div className="port-container-left">
                 <Handle
-                    type="source"
-                    position={Position.Right}
+                    type="target"
+                    position={Position.Left}
                     id="port-0"
                     className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
                 />
+                <span className="port-index">0</span>
             </div>
         </div>
     );
 };
 
-export default MassFlowInlet; 
+export default PressureOutlet; 
