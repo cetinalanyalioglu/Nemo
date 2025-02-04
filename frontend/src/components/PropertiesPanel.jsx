@@ -11,6 +11,10 @@ const formatCategoryName = (category) => {
     return upperCase.replace(/I/g, 'I');
 };
 
+const formatTitle = (title) => {
+    return title.toUpperCase().replace(/I/g, 'I');
+};
+
 const PropertiesPanel = ({ selectedNodeId }) => {
     const { nodeStates, updateNodeParameter } = useContext(NodeContext);
     const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -73,7 +77,7 @@ const PropertiesPanel = ({ selectedNodeId }) => {
         <div className="properties-panel">
             <div className="panel-header">
                 <IoSettingsOutline className="panel-icon" />
-                <span>Properties</span>
+                <span className="panel-title">{formatTitle('Node Properties')}</span>
             </div>
             
             {Object.entries(groupedParameters).map(([category, parameters]) => (
