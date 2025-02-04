@@ -24,6 +24,7 @@ const Canvas = ({ onNodeSelect, onNodesChange }) => {
 
     const onInit = (instance) => {
         setReactFlowInstance(instance);
+        setZoom(instance.getZoom());
     };
 
     const onDragOver = useCallback((event) => {
@@ -67,6 +68,10 @@ const Canvas = ({ onNodeSelect, onNodesChange }) => {
         }
     };
 
+    const onMove = useCallback((_, viewPort) => {
+        setZoom(viewPort.zoom);
+    }, []);
+
     return (
         <div 
             className="canvas-wrapper" 
@@ -84,6 +89,7 @@ const Canvas = ({ onNodeSelect, onNodesChange }) => {
                 nodeTypes={nodeTypes}
                 onNodeClick={handleNodeClick}
                 onInit={onInit}
+                onMove={onMove}
                 fitView
             >
                 <Background />
