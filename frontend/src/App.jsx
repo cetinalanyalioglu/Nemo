@@ -72,7 +72,12 @@ function App() {
     <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
       <div className="app">
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <div style={{ marginLeft: isSidebarOpen ? '300px' : '0', flex: 1, transition: 'margin 0.3s ease' }}>
+        <div 
+          className="canvas-container"
+          style={{ 
+            marginLeft: isSidebarOpen ? '300px' : '0'
+          }}
+        >
           <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
         </div>
         <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
