@@ -10,10 +10,49 @@ function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeStates, setNodeStates] = useState({});
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
+  const [nodeCounters, setNodeCounters] = useState({}); // Her tip için sayaç
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
     setIsPropertiesPanelOpen(!!nodeId);
+  }, []);
+
+  const getNextNodeId = (type) => {
+    const currentCount = nodeCounters[type] || 0;
+    const nextCount = currentCount + 1;
+    
+    setNodeCounters(prev => ({
+      ...prev,
+      [type]: nextCount
+    }));
+
+    return `${type}${nextCount}`;
+  };
+
+  const onNodeAdd = useCallback((nodes) => {
+    nodes.forEach(node => {
+      if (node.type === 'add') {
+        const nodeType = node.item.type;
+        const nodeId = getNextNodeId(nodeType);
+        const defaultParams = require(`./components/nodeTypes/FlowNetwork/${nodeType}`).elementInfo.parameters;
+        
+        setNodeStates(prev => ({
+          ...prev,
+          [nodeId]: {
+            parameters: {
+              ...Object.entries(defaultParams).reduce((acc, [key, value]) => {
+                acc[key] = value.defaultValue;
+                return acc;
+              }, {}),
+              label: nodeId // label'ı ID ile aynı yap
+            }
+          }
+        }));
+
+        // Node'un ID'sini güncelle
+        node.item.id = nodeId;
+      }
+    });
   }, []);
 
   const updateNodeParameter = useCallback((nodeId, paramName, value) => {
@@ -27,25 +66,6 @@ function App() {
         }
       }
     }));
-  }, []);
-
-  const onNodeAdd = useCallback((nodes) => {
-    nodes.forEach(node => {
-      if (node.type === 'add') {
-        const nodeType = node.item.type;
-        const defaultParams = require(`./components/nodeTypes/FlowNetwork/${nodeType}`).elementInfo.parameters;
-        
-        setNodeStates(prev => ({
-          ...prev,
-          [node.item.id]: {
-            parameters: Object.entries(defaultParams).reduce((acc, [key, value]) => {
-              acc[key] = value.defaultValue;
-              return acc;
-            }, {})
-          }
-        }));
-      }
-    });
   }, []);
 
   return (

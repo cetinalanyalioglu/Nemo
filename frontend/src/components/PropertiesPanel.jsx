@@ -2,13 +2,10 @@ import React, { useContext, useState } from 'react';
 import { NodeContext } from './NodeContext';
 import '../styles/properties-panel.css';
 import { IoSettingsOutline, IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
+import { elementInfo } from './nodeTypes/FlowNetwork/index';
 
 const formatCategoryName = (category) => {
-    // Önce tüm metni büyük harfe çevir
-    const upperCase = category.toUpperCase();
-    
-    // "I" harfini "I" ile değiştir
-    return upperCase.replace(/I/g, 'I');
+    return category.toUpperCase().replace(/I/g, 'I');
 };
 
 const formatTitle = (title) => {
@@ -25,7 +22,7 @@ const PropertiesPanel = ({ selectedNodeId }) => {
             <div className="properties-panel empty">
                 <div className="panel-header">
                     <IoSettingsOutline className="panel-icon" />
-                    <span>Properties</span>
+                    <span className="panel-title">NODE PROPERTiES</span>
                 </div>
                 <div className="no-element">
                     <p>No element selected</p>
@@ -37,8 +34,13 @@ const PropertiesPanel = ({ selectedNodeId }) => {
 
     // Parametreleri kategorilerine göre grupla
     const groupedParameters = Object.entries(nodeState.parameters).reduce((acc, [key, value]) => {
-        const parameterInfo = require(`./nodeTypes/FlowNetwork/${selectedNodeId.split('_')[0]}`).elementInfo.parameters[key];
-        const category = parameterInfo.category || 'Other';
+        // Node tipini elementInfo'dan bul
+        const nodeType = Object.entries(elementInfo).find(([_, info]) => 
+            selectedNodeId.startsWith(info.type)
+        )?.[1]?.type;
+
+        const parameterInfo = elementInfo[nodeType].parameters[key];
+        const category = parameterInfo?.category || 'Other';
         
         if (!acc[category]) {
             acc[category] = [];
