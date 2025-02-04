@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Handle, Position, useStore } from 'reactflow';
-import './MassFlowInlet.css';
+import '../../../styles/nodes.css';
 
 export const elementInfo = {
     type: 'MassFlowInlet',

@@ -8,10 +8,27 @@ NC='\033[0m'
 
 # Function to open terminal
 open_terminal() {
+    local command=$1
+    local working_dir=$(pwd)
+    
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        osascript -e "tell app \"Terminal\" to do script \"cd $(pwd) && $1\""
+        # Mac için iTerm kontrolü
+        if osascript -e 'tell application "System Events" to exists process "iTerm"' &> /dev/null; then
+            # iTerm varsa onu kullan
+            osascript -e "tell application \"iTerm\"
+                create window with default profile
+                tell current session of current window
+                    write text \"cd \\\"$working_dir\\\"\"
+                    write text \"$command\"
+                end tell
+            end tell"
+        else
+            # iTerm yoksa Terminal.app'i kullan
+            open -a Terminal.app . -e "$command"
+        fi
     else
-        gnome-terminal -- bash -c "$1"
+        # Linux/Windows için mevcut terminal'i kullan
+        eval "$command"
     fi
 }
 

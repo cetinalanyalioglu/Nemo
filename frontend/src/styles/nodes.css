@@ -1,0 +1,56 @@
+:root {
+    --border-width: 1px;
+    --node-height: 25px;
+    --highlight-color: #D4A72C;
+    --highlight-bg: #FDF7E6;
+    --highlight-width: 0.5px;
+}
+
+/* Ortak node stilleri */
+.mass-flow-inlet-node,
+.lossless-duct-node {
+    padding: 10px;
+    border-radius: 3px;
+    border: var(--border-width) solid #1a192b;
+    background-color: white;
+    min-width: 100px;
+    min-height: var(--node-height);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    gap: 4px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Seçili node stilleri */
+.mass-flow-inlet-node.selected,
+.lossless-duct-node.selected {
+    border-color: var(--highlight-color);
+    background-color: var(--highlight-bg);
+    box-shadow: 0 0 0 var(--highlight-width) var(--highlight-color), 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Label stilleri */
+.node-label {
+    font-size: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.node-type {
+    font-size: 10px;
+    color: #666;
+    font-style: italic;
+}
+
+.node-input {
+    width: 80%;
+    border: none;
+    padding: 2px;
+    font-size: 14px;
+    text-align: center;
+    background: transparent;
+} 
