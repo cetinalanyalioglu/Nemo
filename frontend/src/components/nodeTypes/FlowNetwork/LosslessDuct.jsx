@@ -12,6 +12,7 @@ export const elementInfo = {
     category: 'Two port elements',
     parameters: {
         label: {
+            label: 'Label',
             type: 'string',
             defaultValue: 'LosslessDuct',
             category: 'General',
@@ -21,7 +22,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 0.1,
             unit: 'm',
-            category: 'Geometry',
+            category: 'Parameters',
             min: 0.001,
             max: 10
         },
@@ -30,7 +31,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 1.0,
             unit: 'm',
-            category: 'Geometry',
+            category: 'Parameters',
             min: 0.001,
             max: 100
         }

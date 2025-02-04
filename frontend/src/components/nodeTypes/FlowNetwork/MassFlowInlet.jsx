@@ -21,7 +21,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 1.0,
             unit: 'kg/s',
-            category: 'Flow Properties',
+            category: 'Parameters',
             min: 0,
             max: 100
         },
@@ -30,7 +30,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 298.15,
             unit: 'K',
-            category: 'Flow Properties',
+            category: 'Parameters',
             min: 0,
             max: 1000
         },
@@ -39,7 +39,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 101325,
             unit: 'Pa',
-            category: 'Flow Properties',
+            category: 'Parameters',
             min: 0,
             max: 1000000
         }

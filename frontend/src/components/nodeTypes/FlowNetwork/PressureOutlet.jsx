@@ -11,6 +11,7 @@ export const elementInfo = {
     category: 'Single port elements',
     parameters: {
         label: {
+            label: 'Label',
             type: 'string',
             defaultValue: 'PressureOutlet',
             category: 'General',
@@ -20,13 +21,14 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 101325,
             unit: 'Pa',
-            category: 'Flow Properties',
+            category: 'Parameters',
             min: 0,
             max: Infinity
         },
         allowReverseFlow: {
             label: 'Allow reverse flow',
             type: 'boolean',
+            category: 'Parameters',
             defaultValue: false
         }
     }
