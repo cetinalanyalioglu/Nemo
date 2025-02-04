@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Handle, Position, useStore } from 'reactflow';
 import '../../../styles/nodes.css';
+import { NodeContext } from '../../NodeContext';
 
 export const elementInfo = {
     type: 'PressureOutlet',
@@ -31,10 +32,13 @@ export const elementInfo = {
     }
 };
 
-const PressureOutlet = ({ id, data, selected, nodeState, updateNodeParameter }) => {
+const PressureOutlet = ({ id, data, selected }) => {
+    const { nodeStates, updateNodeParameter } = useContext(NodeContext);
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
     const [tempLabel, setTempLabel] = useState('');
+
+    const nodeState = nodeStates[id];
 
     if (!nodeState) {
         return <div>Loading...</div>;

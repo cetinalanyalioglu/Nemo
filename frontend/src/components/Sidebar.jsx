@@ -6,7 +6,7 @@ import {
     IoChevronForwardCircleOutline as IoChevronRightCircleOutline  // Sağa bakan chevron için
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
-import { elementInfo } from './nodeTypes/FlowNetwork';
+import { elementInfo } from './nodeTypes/FlowNetwork/index';
 
 const Sidebar = ({ isOpen, onToggle }) => {
     // Kategorilerin açık/kapalı durumunu tutacak state
@@ -55,26 +55,23 @@ const Sidebar = ({ isOpen, onToggle }) => {
                     <div className="library-name">
                         Flow Network
                     </div>
-                    {Object.entries(categorizedElements).map(([category, elements]) => (
-                        <div key={category} className="element-category">
-                            <div 
-                                className={`category-header ${expandedCategories[category] ? 'expanded' : ''}`}
-                                onClick={() => toggleCategory(category)}
-                            >
-                                {expandedCategories[category] ? 
-                                    <IoChevronDownCircleOutline size={20} className="category-icon" /> : 
-                                    <IoChevronRightCircleOutline size={20} className="category-icon" />
-                                }
+                    {Object.keys(categorizedElements).map(category => (
+                        <div key={category}>
+                            <div className="category-header" onClick={() => toggleCategory(category)}>
+                                <span className="category-icon">
+                                    {expandedCategories[category] ? <IoChevronDownCircleOutline /> : <IoChevronRightCircleOutline />}
+                                </span>
                                 {category}
                             </div>
                             <div className={`element-list ${expandedCategories[category] ? 'expanded' : ''}`}>
-                                {expandedCategories[category] && elements.map(element => (
-                                    <div
+                                {categorizedElements[category].map(element => (
+                                    <div 
                                         key={element.type}
                                         className="element-item"
                                         onDragStart={(event) => onDragStart(event, element.type)}
                                         draggable
                                     >
+                                        <span className="element-icon">{/* İkon eklemek isterseniz buraya */}</span>
                                         <span className="element-label">{element.type}</span>
                                     </div>
                                 ))}

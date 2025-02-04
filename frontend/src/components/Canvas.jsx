@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useMemo } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import ReactFlow, {
   addEdge,
   MiniMap,
@@ -8,13 +8,15 @@ import ReactFlow, {
   useEdgesState,
   MarkerType,
 } from "reactflow";
-import { nodeTypes as flowNodeTypes, elementInfo } from './nodeTypes/FlowNetwork/index';
+import { nodeTypes } from './nodeTypes';
 import "reactflow/dist/style.css";
 import "./Canvas.css";
 import "../styles/ports.css";
 import "../styles/edges.css";
 import "../styles/sidebar.css";
 import ZoomIndicator from "./ZoomIndicator";
+import { NodeProvider } from './NodeContext';
+import { elementInfo } from './nodeTypes/FlowNetwork/index';
 
 const Canvas = () => {
     const reactFlowWrapper = useRef(null);
@@ -49,9 +51,9 @@ const Canvas = () => {
             if (!reactFlowInstance) return;
 
             const type = event.dataTransfer.getData('application/reactflow');
-            const position = reactFlowInstance.screenToFlowPosition({
-                x: event.clientX,
-                y: event.clientY
+            const position = reactFlowInstance.project({
+                x: event.clientX - reactFlowWrapper.current.getBoundingClientRect().left,
+                y: event.clientY - reactFlowWrapper.current.getBoundingClientRect().top,
             });
 
             const newCounter = nodeCounters[type] + 1;
@@ -94,17 +96,14 @@ const Canvas = () => {
     );
 
     const onConnect = useCallback((params) => {
-        // Hedef port için mevcut bağlantıları kontrol et
         const targetConnections = edges.filter(
             edge => edge.target === params.target && edge.targetHandle === params.targetHandle
         );
 
-        // Kaynak port için mevcut bağlantıları kontrol et
         const sourceConnections = edges.filter(
             edge => edge.source === params.source && edge.sourceHandle === params.sourceHandle
         );
 
-        // Eğer herhangi bir portta zaten bağlantı varsa, yeni bağlantıyı engelle
         if (targetConnections.length > 0 || sourceConnections.length > 0) {
             return;
         }
@@ -114,10 +113,10 @@ const Canvas = () => {
             type: 'normal-edge',
             markerEnd: { 
                 type: MarkerType.Arrow,
-                width: 20,        // Ok genişliği
-                height: 20,       // Ok yüksekliği
-                color: '#1a192b', // Ok rengi
-                strokeWidth: 1    // Ok çizgi kalınlığı
+                width: 20,
+                height: 20,
+                color: '#1a192b',
+                strokeWidth: 1
             }
         }, eds));
     }, [edges, setEdges]);
@@ -135,51 +134,29 @@ const Canvas = () => {
         }));
     }, []);
 
-    const nodeTypes = useMemo(() => ({
-        MassFlowInlet: (props) => (
-            <flowNodeTypes.MassFlowInlet 
-                {...props} 
-                nodeState={nodeStates[props.id]} 
-                updateNodeParameter={updateNodeParameter}
-            />
-        ),
-        LosslessDuct: (props) => (
-            <flowNodeTypes.LosslessDuct 
-                {...props} 
-                nodeState={nodeStates[props.id]}
-                updateNodeParameter={updateNodeParameter}
-            />
-        ),
-        PressureOutlet: (props) => (
-            <flowNodeTypes.PressureOutlet 
-                {...props} 
-                nodeState={nodeStates[props.id]}
-                updateNodeParameter={updateNodeParameter}
-            />
-        )
-    }), [nodeStates, updateNodeParameter]);
-
     return (
-        <div className="canvas-container" ref={reactFlowWrapper}>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onInit={onInit}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onMove={onMove}
-                nodeTypes={nodeTypes}
-                defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-            >
-                <Background />
-                <Controls />
-                <MiniMap />
-            </ReactFlow>
-            <ZoomIndicator zoom={zoom} />
-        </div>
+        <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
+            <div className="canvas-container" ref={reactFlowWrapper}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onInit={onInit}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onMove={onMove}
+                    nodeTypes={nodeTypes}
+                    defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+                >
+                    <Background />
+                    <Controls />
+                    <MiniMap />
+                </ReactFlow>
+                <ZoomIndicator zoom={zoom} />
+            </div>
+        </NodeProvider>
     );
 };
 
