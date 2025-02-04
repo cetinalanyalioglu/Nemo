@@ -20,6 +20,7 @@
     top: 0;
     transform: translateX(0);
     z-index: 1000;
+    overflow: hidden;
 }
 
 .sidebar:not(.open) {
@@ -36,7 +37,6 @@
     color: #666;
     display: flex;
     align-items: center;
-    z-index: 1000;
 }
 
 .sidebar:not(.open) .toggle-button {
@@ -70,7 +70,6 @@
     align-items: center;
     gap: 8px;
     background: #fafafa;
-    position: relative;
 }
 
 .panel-title {
@@ -89,10 +88,6 @@
     margin: 0;
     padding: 16px;
     border-bottom: 1px solid #eaeaea;
-}
-
-.elements-group:last-child {
-    border-bottom: none;
 }
 
 .group-header {
@@ -150,8 +145,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px;
-    margin: 4px 0;
+    padding: 6px 8px;
+    margin: 2px 0;
     border-radius: 4px;
     cursor: move;
     transition: all 0.2s ease;
@@ -159,16 +154,22 @@
 }
 
 .element-item:hover {
-    background: #f5f5f5;
+    background: #FDF7E6;
+    color: #D4A72C;
 }
 
 .element-icon {
-    font-size: 18px;
+    font-size: 16px;
     color: #D4A72C;
+    flex-shrink: 0;
 }
 
 .element-label {
     font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
 }
 
 /* Scrollbar stilleri */
