@@ -15,10 +15,10 @@ import "./Canvas.css";
 import { nodeTypes } from './nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 
-const Canvas = ({ onNodeSelect, onNodesChange }) => {
+const Canvas = ({ onNodeSelect, onNodeAdd }) => {
     const reactFlowWrapper = useRef(null);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
-    const [nodes, setNodes, handleNodesChange] = useNodesState([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
 
@@ -52,11 +52,10 @@ const Canvas = ({ onNodeSelect, onNodesChange }) => {
 
         setNodes((nds) => {
             const updatedNodes = nds.concat(newNode);
-            // Parent'a node eklendiğini bildir
-            onNodesChange([{ item: newNode, type: 'add' }]);
+            onNodeAdd([{ item: newNode, type: 'add' }]);
             return updatedNodes;
         });
-    }, [reactFlowInstance, onNodesChange, setNodes]);
+    }, [reactFlowInstance, onNodeAdd, setNodes]);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge(params, eds));
@@ -83,7 +82,7 @@ const Canvas = ({ onNodeSelect, onNodesChange }) => {
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
-                onNodesChange={handleNodesChange}
+                onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}

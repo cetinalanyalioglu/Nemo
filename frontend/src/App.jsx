@@ -30,11 +30,10 @@ function App() {
   }, []);
 
   // Yeni node eklendiğinde nodeStates'i güncelle
-  const onNodesChange = useCallback((nodes) => {
+  const onNodeAdd = useCallback((nodes) => {
     nodes.forEach(node => {
       if (node.type === 'add') {
         const nodeType = node.item.type;
-        // elementInfo'dan varsayılan parametreleri al
         const defaultParams = require(`./components/nodeTypes/FlowNetwork/${nodeType}`).elementInfo.parameters;
         
         setNodeStates(prev => ({
@@ -57,7 +56,7 @@ function App() {
     <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
       <div className="app" style={{ display: 'flex', width: '100vw', height: '100vh' }}>
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <Canvas onNodeSelect={onNodeSelect} onNodesChange={onNodesChange} />
+        <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
         <div style={{ 
           width: '300px', 
           borderLeft: '2px solid red',
