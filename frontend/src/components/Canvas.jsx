@@ -1,22 +1,26 @@
 import React, { useCallback, useRef, useState } from "react";
 import ReactFlow, {
-  addEdge,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  MarkerType,
+    addEdge,
+    Background,
+    Controls,
+    MarkerType,
+    MiniMap,
+    useEdgesState,
+    useNodesState,
 } from "reactflow";
-import { nodeTypes } from './nodeTypes';
 import "reactflow/dist/style.css";
-import "./Canvas.css";
-import "../styles/ports.css";
 import "../styles/edges.css";
+import "../styles/ports.css";
 import "../styles/sidebar.css";
-import ZoomIndicator from "./ZoomIndicator";
+import "./Canvas.css";
 import { NodeProvider } from './NodeContext';
+import { nodeTypes } from './nodeTypes';
 import { elementInfo } from './nodeTypes/FlowNetwork/index';
+import ZoomIndicator from "./ZoomIndicator";
+
+const edgeTypes = {
+    'normal-edge': DefaultEdgeOptions,
+};
 
 const Canvas = () => {
     const reactFlowWrapper = useRef(null);
@@ -51,9 +55,9 @@ const Canvas = () => {
             if (!reactFlowInstance) return;
 
             const type = event.dataTransfer.getData('application/reactflow');
-            const position = reactFlowInstance.project({
-                x: event.clientX - reactFlowWrapper.current.getBoundingClientRect().left,
-                y: event.clientY - reactFlowWrapper.current.getBoundingClientRect().top,
+            const position = reactFlowInstance.screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY
             });
 
             const newCounter = nodeCounters[type] + 1;
@@ -84,7 +88,7 @@ const Canvas = () => {
                 id: newId,
                 type,
                 position,
-                data: { 
+                data: {
                     type: type,
                     stateId: newId
                 }
@@ -111,7 +115,7 @@ const Canvas = () => {
         setEdges((eds) => addEdge({
             ...params,
             type: 'normal-edge',
-            markerEnd: { 
+            markerEnd: {
                 type: MarkerType.Arrow,
                 width: 20,
                 height: 20,
@@ -148,6 +152,7 @@ const Canvas = () => {
                     onDragOver={onDragOver}
                     onMove={onMove}
                     nodeTypes={nodeTypes}
+                    edgeTypes={edgeTypes}
                     defaultViewport={{ x: 0, y: 0, zoom: 1 }}
                 >
                     <Background />
