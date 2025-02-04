@@ -4,12 +4,15 @@ import '../../../styles/nodes.css';
 
 export const elementInfo = {
     type: 'LosslessDuct',
-    label: 'Lossless Duct',
     ports: {
         target: ['port-0'],
         source: ['port-1']
     },
     parameters: {
+        label: {
+            type: 'string',
+            defaultValue: 'LosslessDuct',
+        },
         diameter: {
             label: 'Diameter',
             type: 'float',

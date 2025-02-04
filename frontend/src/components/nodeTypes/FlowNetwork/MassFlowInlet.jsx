@@ -4,11 +4,14 @@ import '../../../styles/nodes.css';
 
 export const elementInfo = {
     type: 'MassFlowInlet',
-    label: 'Mass Flow Inlet',
     ports: {
         source: ['port-0']
     },
     parameters: {
+        label: {
+            type: 'string',
+            defaultValue: 'MassFlowInlet',
+        },
         massFlowRate: {
             label: 'Mass Flow Rate',
             type: 'float',
