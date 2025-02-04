@@ -6,6 +6,7 @@
     --item-hover: #f1f3f5;
     --text-primary: #212529;
     --text-secondary: #6c757d;
+    --header-bg: #f1f3f5;
 }
 
 .sidebar {
@@ -54,6 +55,7 @@
     border-bottom: 2px solid var(--sidebar-border);
     margin-bottom: 0.25rem;
     height: 24px;
+    background-color: var(--header-bg);
 }
 
 .toggle-button {
@@ -77,10 +79,11 @@
 
 .element-category {
     background: var(--category-bg);
-    border-radius: 8px;
-    padding: 0.5rem;
+    border-radius: 0;
+    padding: 0.25rem 0;
     margin-bottom: 1rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    width: 100%;
 }
 
 .category-header {
@@ -88,7 +91,7 @@
     font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 0.25rem;
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.75rem;
     text-align: left;
     border-bottom: 1px solid var(--sidebar-border);
     cursor: pointer;
@@ -115,8 +118,7 @@
 
 .element-list {
     display: none;
-    padding-left: 0.5rem;
-    margin-top: 0.25rem;
+    padding: 0 0.75rem;
 }
 
 .element-list.expanded {
@@ -173,6 +175,7 @@
     padding: 0.25rem 0 0.5rem 0;
     margin-bottom: 1rem;
     border-bottom: 2px solid var(--sidebar-border);
+    background-color: var(--sidebar-bg);
 }
 
 .sidebar-header span {

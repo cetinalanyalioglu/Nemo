@@ -7,7 +7,7 @@ export const elementInfo = {
     ports: {
         source: ['port-0']
     },
-    category: 'Boundary Conditions',
+    category: 'Single port elements',
     parameters: {
         label: {
             type: 'string',
