@@ -1,7 +1,18 @@
+.properties-panel-container {
+    width: 0;
+    transition: width 0.3s ease;
+    overflow: hidden;
+    border-left: 1px solid #e0e0e0;
+}
+
+.properties-panel-container.open {
+    width: 300px;
+}
+
 .properties-panel {
+    width: 300px; /* Sabit genişlik */
     height: 100%;
     background: white;
-    border-left: 1px solid #e0e0e0;
     overflow-y: auto;
     font-size: 14px;
 }

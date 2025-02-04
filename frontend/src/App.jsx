@@ -9,9 +9,11 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeStates, setNodeStates] = useState({});
+  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
+    setIsPropertiesPanelOpen(!!nodeId);
   }, []);
 
   const updateNodeParameter = useCallback((nodeId, paramName, value) => {
@@ -51,14 +53,8 @@ function App() {
       <div className="app" style={{ display: 'flex', width: '100vw', height: '100vh' }}>
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
         <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
-        <div style={{ width: '300px' }}>
-          {selectedNodeId ? (
-            <PropertiesPanel selectedNodeId={selectedNodeId} />
-          ) : (
-            <div className="properties-panel">
-              <div className="no-element">No element selected</div>
-            </div>
-          )}
+        <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
+          <PropertiesPanel selectedNodeId={selectedNodeId} />
         </div>
       </div>
     </NodeProvider>

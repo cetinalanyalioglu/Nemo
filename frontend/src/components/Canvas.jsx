@@ -71,6 +71,12 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
         }
     };
 
+    const handlePaneClick = (event) => {
+        if (typeof onNodeSelect === 'function') {
+            onNodeSelect(null);
+        }
+    };
+
     return (
         <div 
             className="canvas-wrapper" 
@@ -87,6 +93,7 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 onNodeClick={handleNodeClick}
+                onPaneClick={handlePaneClick}
                 onInit={onInit}
                 onMove={onMove}
                 fitView

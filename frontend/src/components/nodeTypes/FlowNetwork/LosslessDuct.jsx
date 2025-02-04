@@ -24,7 +24,7 @@ export const elementInfo = {
             unit: 'm',
             category: 'Parameters',
             min: 0.001,
-            max: 10
+            max: 100
         },
         length: {
             label: 'Length',
