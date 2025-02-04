@@ -1,85 +1,87 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
-    IoChevronBackCircleOutline, 
-    IoChevronForwardCircleOutline,
-    IoChevronDownCircleOutline,
+    IoChevronBackCircleOutline,
+    IoLibrary,
+    IoChevronDown
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodeTypes/FlowNetwork/index';
 
+const formatCategoryName = (category) => {
+    return category.toUpperCase().replace(/I/g, 'I');
+};
+
 const Sidebar = ({ isOpen, onToggle }) => {
-    // Kategorilerin açık/kapalı durumunu tutacak state
-    const [expandedCategories, setExpandedCategories] = useState({});
-
-    // ElementInfo'dan kategorilere göre gruplandırılmış elemanları oluştur
-    const categorizedElements = useMemo(() => {
-        const categories = {};
-        
-        Object.entries(elementInfo).forEach(([elementType, info]) => {
-            const category = info.category || 'Uncategorized';
-            if (!categories[category]) {
-                categories[category] = [];
-            }
-            categories[category].push({
-                type: elementType,
-                ...info
-            });
-        });
-
-        return categories;
-    }, []);
+    const [collapsedGroups, setCollapsedGroups] = useState({});
 
     const onDragStart = (event, nodeType) => {
         event.dataTransfer.setData('application/reactflow', nodeType);
         event.dataTransfer.effectAllowed = 'move';
     };
 
-    const toggleCategory = (category) => {
-        setExpandedCategories(prev => ({
+    const toggleGroup = (category) => {
+        setCollapsedGroups(prev => ({
             ...prev,
             [category]: !prev[category]
         }));
     };
 
+    const groupedElements = Object.entries(elementInfo).reduce((acc, [type, info]) => {
+        const category = info.category;
+        if (!acc[category]) {
+            acc[category] = [];
+        }
+        acc[category].push({ type, info });
+        return acc;
+    }, {});
+
     return (
-        <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
-            <div className="sidebar-header">
-                <span>Element Library</span>
-                <button className="toggle-button" onClick={onToggle}>
-                    {isOpen ? <IoChevronBackCircleOutline size={24} /> : <IoChevronForwardCircleOutline size={24} />}
+        <>
+            {/* Panel kapalıyken görünecek kütüphane ikonu */}
+            {!isOpen && (
+                <button className="library-button" onClick={onToggle}>
+                    <IoLibrary />
                 </button>
-            </div>
-            {isOpen && (
-                <>
-                    <div className="library-name">
-                        Flow Network
-                    </div>
-                    {Object.keys(categorizedElements).map(category => (
-                        <div key={category}>
-                            <div className="category-header" onClick={() => toggleCategory(category)}>
-                                <span className="category-icon">
-                                    {expandedCategories[category] ? <IoChevronDownCircleOutline /> : <IoChevronForwardCircleOutline />}
-                                </span>
-                                {category}
-                            </div>
-                            <div className={`element-list ${expandedCategories[category] ? 'expanded' : ''}`}>
-                                {categorizedElements[category].map(element => (
-                                    <div 
-                                        key={element.type}
-                                        className="element-item"
-                                        onDragStart={(event) => onDragStart(event, element.type)}
-                                        draggable
-                                    >
-                                        <span className="element-icon">{/* İkon eklemek isterseniz buraya */}</span>
-                                        <span className="element-label">{element.type}</span>
-                                    </div>
-                                ))}
+            )}
+            
+            {/* Ana sidebar */}
+            <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+                <div className="panel-header">
+                    <IoLibrary className="panel-icon" />
+                    <span className="panel-title">ELEMENT LIBRARY</span>
+                    <button className="toggle-button" onClick={onToggle}>
+                        <IoChevronBackCircleOutline />
+                    </button>
+                </div>
+
+                {Object.entries(groupedElements).map(([category, elements]) => (
+                    <div key={category} className={`elements-group ${collapsedGroups[category] ? 'collapsed' : ''}`}>
+                        <div 
+                            className="group-header"
+                            onClick={() => toggleGroup(category)}
+                        >
+                            <div className="group-header-content">
+                                <span>{formatCategoryName(category)}</span>
+                                <IoChevronDown className="group-collapse-icon" />
                             </div>
                         </div>
-                    ))}
-                </>
-            )}
-        </div>
+                        <div className="group-content">
+                            {elements.map(({ type, info }) => (
+                                <div
+                                    key={type}
+                                    className="element-item"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, type)}
+                                >
+                                    {info.icon && <info.icon className="element-icon" />}
+                                    <span className="element-label">{type}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
     );
 };
 

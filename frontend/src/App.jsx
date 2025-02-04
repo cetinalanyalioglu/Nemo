@@ -50,9 +50,11 @@ function App() {
 
   return (
     <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
-      <div className="app" style={{ display: 'flex', width: '100vw', height: '100vh' }}>
+      <div className="app">
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
+        <div style={{ marginLeft: isSidebarOpen ? '300px' : '0', flex: 1, transition: 'margin 0.3s ease' }}>
+          <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
+        </div>
         <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
           <PropertiesPanel selectedNodeId={selectedNodeId} />
         </div>
