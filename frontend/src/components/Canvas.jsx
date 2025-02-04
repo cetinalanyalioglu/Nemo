@@ -27,6 +27,10 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
         setZoom(instance.getZoom());
     };
 
+    const onMove = useCallback((_, viewPort) => {
+        setZoom(viewPort.zoom);
+    }, []);
+
     const onDragOver = useCallback((event) => {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
@@ -47,7 +51,7 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
             id: `${type}_${Date.now()}`,
             type,
             position,
-            data: { label: `${type}`, type }
+            data: { label: `${type}` }
         };
 
         setNodes((nds) => {
@@ -66,10 +70,6 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
             onNodeSelect(node.id);
         }
     };
-
-    const onMove = useCallback((_, viewPort) => {
-        setZoom(viewPort.zoom);
-    }, []);
 
     return (
         <div 

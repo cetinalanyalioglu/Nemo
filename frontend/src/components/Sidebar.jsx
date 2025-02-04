@@ -3,7 +3,6 @@ import {
     IoChevronBackCircleOutline, 
     IoChevronForwardCircleOutline,
     IoChevronDownCircleOutline,
-    IoChevronForwardCircleOutline as IoChevronRightCircleOutline  // Sağa bakan chevron için
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodeTypes/FlowNetwork/index';
@@ -59,7 +58,7 @@ const Sidebar = ({ isOpen, onToggle }) => {
                         <div key={category}>
                             <div className="category-header" onClick={() => toggleCategory(category)}>
                                 <span className="category-icon">
-                                    {expandedCategories[category] ? <IoChevronDownCircleOutline /> : <IoChevronRightCircleOutline />}
+                                    {expandedCategories[category] ? <IoChevronDownCircleOutline /> : <IoChevronForwardCircleOutline />}
                                 </span>
                                 {category}
                             </div>

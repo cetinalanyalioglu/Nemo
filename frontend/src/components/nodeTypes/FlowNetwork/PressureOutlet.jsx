@@ -32,7 +32,7 @@ export const elementInfo = {
     }
 };
 
-const PressureOutlet = ({ id, data, selected }) => {
+const PressureOutlet = ({ id, data, selected, type }) => {
     const { nodeStates, updateNodeParameter } = useContext(NodeContext);
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
@@ -78,6 +78,15 @@ const PressureOutlet = ({ id, data, selected }) => {
 
     return (
         <div className={`pressure-outlet-node ${selected ? 'selected' : ''}`}>
+            <div className="port-container-left">
+                <Handle
+                    type="target"
+                    position={Position.Left}
+                    id="port-0"
+                    className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
+                />
+                <span className="port-index">0</span>
+            </div>
             {isEditing ? (
                 <input
                     value={tempLabel}
@@ -97,16 +106,7 @@ const PressureOutlet = ({ id, data, selected }) => {
                 </div>
             )}
             <div className="node-type">
-                type: {data.type}
-            </div>
-            <div className="port-container-left">
-                <Handle
-                    type="target"
-                    position={Position.Left}
-                    id="port-0"
-                    className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
-                />
-                <span className="port-index">0</span>
+                type: {type}
             </div>
         </div>
     );

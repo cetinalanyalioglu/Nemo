@@ -10,9 +10,7 @@ function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeStates, setNodeStates] = useState({});
 
-  // useCallback ile fonksiyonu memorize edelim
   const onNodeSelect = useCallback((nodeId) => {
-    console.log('App - onNodeSelect called with:', nodeId);
     setSelectedNodeId(nodeId);
   }, []);
 
@@ -29,7 +27,6 @@ function App() {
     }));
   }, []);
 
-  // Yeni node eklendiğinde nodeStates'i güncelle
   const onNodeAdd = useCallback((nodes) => {
     nodes.forEach(node => {
       if (node.type === 'add') {
@@ -49,9 +46,6 @@ function App() {
     });
   }, []);
 
-  // Her render'da mevcut state'i görelim
-  console.log('App rendering, selectedNodeId:', selectedNodeId);
-
   return (
     <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
       <div className="app" style={{ display: 'flex', width: '100vw', height: '100vh' }}>
@@ -66,7 +60,7 @@ function App() {
             <PropertiesPanel selectedNodeId={selectedNodeId} />
           ) : (
             <div className="properties-panel">
-              <div className="no-element">No element selected (ID: {selectedNodeId})</div>
+              <div className="no-element">No element selected</div>
             </div>
           )}
         </div>

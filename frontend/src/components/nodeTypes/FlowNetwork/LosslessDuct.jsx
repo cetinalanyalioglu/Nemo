@@ -37,7 +37,7 @@ export const elementInfo = {
     }
 };
 
-const LosslessDuct = ({ id, data, selected }) => {
+const LosslessDuct = ({ id, data, selected, type }) => {
     const { nodeStates, updateNodeParameter } = useContext(NodeContext);
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
@@ -83,6 +83,15 @@ const LosslessDuct = ({ id, data, selected }) => {
 
     return (
         <div className={`lossless-duct-node ${selected ? 'selected' : ''}`}>
+            <div className="port-container-left">
+                <Handle
+                    type="target"
+                    position={Position.Left}
+                    id="port-0"
+                    className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
+                />
+                <span className="port-index">0</span>
+            </div>
             {isEditing ? (
                 <input
                     value={tempLabel}
@@ -102,16 +111,7 @@ const LosslessDuct = ({ id, data, selected }) => {
                 </div>
             )}
             <div className="node-type">
-                type: {data.type}
-            </div>
-            <div className="port-container-left">
-                <Handle
-                    type="target"
-                    position={Position.Left}
-                    id="port-0"
-                    className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
-                />
-                <span className="port-index">0</span>
+                type: {type}
             </div>
             <div className="port-container-right">
                 <span className="port-index">1</span>

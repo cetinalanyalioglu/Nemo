@@ -45,7 +45,7 @@ export const elementInfo = {
     }
 };
 
-const MassFlowInlet = ({ id, data, selected }) => {
+const MassFlowInlet = ({ id, data, selected, type }) => {
     const { nodeStates, updateNodeParameter } = useContext(NodeContext);
     const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
@@ -110,7 +110,7 @@ const MassFlowInlet = ({ id, data, selected }) => {
                 </div>
             )}
             <div className="node-type">
-                type: {data.type}
+                type: {type}
             </div>
             <div className="port-container-right">
                 <span className="port-index">0</span>
