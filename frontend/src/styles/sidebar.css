@@ -9,21 +9,70 @@
 }
 
 .sidebar {
-    width: var(--sidebar-width);
     background: var(--sidebar-bg);
     border-right: 1px solid var(--sidebar-border);
-    padding: 1rem;
     height: 100vh;
     overflow-y: auto;
+    transition: width 0.3s ease;
+    width: var(--sidebar-width);
+}
+
+.sidebar.closed {
+    width: 32px;
+    overflow: visible;
+    border-right: 1px solid var(--sidebar-border);
+}
+
+.sidebar.closed .sidebar-header {
+    height: 24px;
+    padding: 0.5rem 0;
+}
+
+.sidebar.closed .sidebar-header span {
+    transform: rotate(-90deg);
+    transform-origin: left center;
+    white-space: nowrap;
+    position: fixed;
+    left: 15px;
+    top: 160px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.sidebar.closed .toggle-button {
+    position: fixed;
+    left: 4px;
+    top: 8px;
+    padding: 0;
 }
 
 .sidebar-header {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    padding-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
     border-bottom: 2px solid var(--sidebar-border);
     margin-bottom: 0.25rem;
+    height: 24px;
+}
+
+.toggle-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+    margin-right: -0.25rem;
+}
+
+.toggle-button:hover {
+    opacity: 1;
+    color: var(--text-primary);
 }
 
 .element-category {
@@ -54,9 +103,14 @@
 }
 
 .category-icon {
-    font-size: 0.8rem;
     color: var(--text-secondary);
-    transition: transform 0.2s ease;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+}
+
+.category-header:hover .category-icon {
+    opacity: 1;
+    color: var(--text-primary);
 }
 
 .element-list {
@@ -119,4 +173,8 @@
     padding: 0.25rem 0 0.5rem 0;
     margin-bottom: 1rem;
     border-bottom: 2px solid var(--sidebar-border);
+}
+
+.sidebar-header span {
+    font-weight: 600;
 } 

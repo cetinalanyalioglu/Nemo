@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from 'react';
+import { 
+    IoChevronBackCircleOutline, 
+    IoChevronForwardCircleOutline,
+    IoChevronDownCircleOutline,
+    IoChevronForwardCircleOutline as IoChevronRightCircleOutline  // Sağa bakan chevron için
+} from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodeTypes/FlowNetwork';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onToggle }) => {
     // Kategorilerin açık/kapalı durumunu tutacak state
     const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -37,38 +43,46 @@ const Sidebar = () => {
     };
 
     return (
-        <div className="sidebar">
+        <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
             <div className="sidebar-header">
-                Element Library
+                <span>Element Library</span>
+                <button className="toggle-button" onClick={onToggle}>
+                    {isOpen ? <IoChevronBackCircleOutline size={24} /> : <IoChevronForwardCircleOutline size={24} />}
+                </button>
             </div>
-            <div className="library-name">
-                Flow Network
-            </div>
-            {Object.entries(categorizedElements).map(([category, elements]) => (
-                <div key={category} className="element-category">
-                    <div 
-                        className={`category-header ${expandedCategories[category] ? 'expanded' : ''}`}
-                        onClick={() => toggleCategory(category)}
-                    >
-                        <span className="category-icon">
-                            {expandedCategories[category] ? '▼' : '▶'}
-                        </span>
-                        {category}
+            {isOpen && (
+                <>
+                    <div className="library-name">
+                        Flow Network
                     </div>
-                    <div className={`element-list ${expandedCategories[category] ? 'expanded' : ''}`}>
-                        {expandedCategories[category] && elements.map(element => (
-                            <div
-                                key={element.type}
-                                className="element-item"
-                                onDragStart={(event) => onDragStart(event, element.type)}
-                                draggable
+                    {Object.entries(categorizedElements).map(([category, elements]) => (
+                        <div key={category} className="element-category">
+                            <div 
+                                className={`category-header ${expandedCategories[category] ? 'expanded' : ''}`}
+                                onClick={() => toggleCategory(category)}
                             >
-                                <span className="element-label">{element.type}</span>
+                                {expandedCategories[category] ? 
+                                    <IoChevronDownCircleOutline size={20} className="category-icon" /> : 
+                                    <IoChevronRightCircleOutline size={20} className="category-icon" />
+                                }
+                                {category}
                             </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
+                            <div className={`element-list ${expandedCategories[category] ? 'expanded' : ''}`}>
+                                {expandedCategories[category] && elements.map(element => (
+                                    <div
+                                        key={element.type}
+                                        className="element-item"
+                                        onDragStart={(event) => onDragStart(event, element.type)}
+                                        draggable
+                                    >
+                                        <span className="element-label">{element.type}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </>
+            )}
         </div>
     );
 };
