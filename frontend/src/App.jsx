@@ -51,11 +51,7 @@ function App() {
       <div className="app" style={{ display: 'flex', width: '100vw', height: '100vh' }}>
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
         <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
-        <div style={{ 
-          width: '300px', 
-          borderLeft: '2px solid red',
-          background: 'white'
-        }}>
+        <div style={{ width: '300px' }}>
           {selectedNodeId ? (
             <PropertiesPanel selectedNodeId={selectedNodeId} />
           ) : (

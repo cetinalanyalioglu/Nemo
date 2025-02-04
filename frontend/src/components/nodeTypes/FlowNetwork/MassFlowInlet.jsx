@@ -11,6 +11,7 @@ export const elementInfo = {
     category: 'Single port elements',
     parameters: {
         label: {
+            label: 'Label',
             type: 'string',
             defaultValue: 'MassFlowInlet',
             category: 'General',
@@ -20,7 +21,7 @@ export const elementInfo = {
             type: 'float',
             defaultValue: 1.0,
             unit: 'kg/s',
-            category: 'Flow',
+            category: 'Flow Properties',
             min: 0,
             max: 100
         },
