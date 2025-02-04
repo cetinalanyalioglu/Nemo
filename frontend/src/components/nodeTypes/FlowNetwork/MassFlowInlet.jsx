@@ -5,6 +5,7 @@ import { NodeContext } from '../../NodeContext';
 
 export const elementInfo = {
     type: 'MassFlowInlet',
+    displayName: 'Mass Flow Inlet',
     ports: {
         source: ['port-0']
     },

@@ -5,6 +5,7 @@ import { NodeContext } from '../../NodeContext';
 
 export const elementInfo = {
     type: 'LosslessDuct',
+    displayName: 'Lossless Duct',
     ports: {
         target: ['port-0'],
         source: ['port-1']

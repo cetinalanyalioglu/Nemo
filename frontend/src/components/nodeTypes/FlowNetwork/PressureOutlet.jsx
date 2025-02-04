@@ -5,6 +5,7 @@ import { NodeContext } from '../../NodeContext';
 
 export const elementInfo = {
     type: 'PressureOutlet',
+    displayName: 'Pressure Outlet',
     ports: {
         target: ['port-0']
     },

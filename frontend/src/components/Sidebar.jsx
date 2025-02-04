@@ -74,7 +74,7 @@ const Sidebar = ({ isOpen, onToggle }) => {
                                     onDragStart={(e) => onDragStart(e, type)}
                                 >
                                     {info.icon && <info.icon className="element-icon" />}
-                                    <span className="element-label">{type}</span>
+                                    <span className="element-label">{info.displayName || type}</span>
                                 </div>
                             ))}
                         </div>
