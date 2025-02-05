@@ -1,7 +1,7 @@
 /* Node Container */
 .custom-node {
   background: white;
-  border: 1px solid #dee2e6;
+  border: 1.5px solid #dee2e6;
   border-radius: 4px;
   /* padding: top right bottom left */
   padding: 8px 24px 8px 24px;
@@ -131,23 +131,23 @@
 
 /* Sol taraftaki portlar için */
 .custom-port-left .port-icon-source {
-  left: -8px;
+  left: -10px;
   transform: rotate(180deg);  /* Dışa dönük */
 }
 
 .custom-port-left .port-icon-target {
-  left: -8px;
+  left: -10px;
   transform: rotate(0deg);   /* İçe dönük */
 }
 
 /* Sağ taraftaki portlar için */
 .custom-port-right .port-icon-source {
-  right: -8px;
+  right: -10px;
   transform: rotate(180deg);  /* İçe dönük */
 }
 
 .custom-port-right .port-icon-target {
-  right: -8px;
+  right: -10px;
   transform: rotate(0deg);   /* Dışa dönük */
 }
 
@@ -162,9 +162,9 @@
 }
 
 .port-icon-target ~ .port-index {
-  left: 8px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
+  left: 7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
 }
 
 .port-icon-source ~ .port-index {
-  right: 8px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
+  right:7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
 }
