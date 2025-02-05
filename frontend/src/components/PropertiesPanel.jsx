@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import { NodeContext } from './NodeContext';
 import '../styles/properties-panel.css';
 import { IoSettingsOutline, IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
-import { elementInfo } from './nodeTypes/FlowNetwork/index';
+import { elementInfo } from './nodes/nodeTypes';
 
 const formatCategoryName = (category) => {
     return category.toUpperCase().replace(/I/g, 'I');

@@ -1,9 +1,16 @@
-import React, { createContext } from 'react';
+import React, { createContext, useContext } from 'react';
 
-export const NodeContext = createContext();
+export const NodeContext = createContext({
+  nodeStates: {},
+  updateNodeParameter: () => {},
+});
 
-export const NodeProvider = ({ children, nodeStates, updateNodeParameter }) => (
-    <NodeContext.Provider value={{ nodeStates, updateNodeParameter }}>
-        {children}
-    </NodeContext.Provider>
-); 
+export const useNodeContext = () => {
+  const context = useContext(NodeContext);
+  if (!context) {
+    throw new Error('useNodeContext must be used within a NodeProvider');
+  }
+  return context;
+};
+
+export const NodeProvider = NodeContext.Provider; 

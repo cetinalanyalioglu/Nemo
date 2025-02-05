@@ -1,7 +1,6 @@
 import React, { useState, useContext } from 'react';
-import { Handle, Position, useStore } from 'reactflow';
-import '../../../styles/nodes.css';
-import { NodeContext } from '../../NodeContext';
+import { NodeContext } from '../NodeContext';
+import BaseCustomNode from './BaseCustomNode';
 
 export const elementInfo = {
     type: 'PressureOutlet',
@@ -37,7 +36,6 @@ export const elementInfo = {
 
 const PressureOutlet = ({ id, data, selected, type }) => {
     const { nodeStates, updateNodeParameter } = useContext(NodeContext);
-    const edges = useStore((store) => store.edges);
     const [isEditing, setIsEditing] = useState(false);
     const [tempLabel, setTempLabel] = useState('');
 
@@ -46,13 +44,6 @@ const PressureOutlet = ({ id, data, selected, type }) => {
     if (!nodeState) {
         return <div>Loading...</div>;
     }
-
-    const isPortConnected = (nodeId, portId) => {
-        return edges.some(edge => 
-            (edge.source === nodeId && edge.sourceHandle === portId) ||
-            (edge.target === nodeId && edge.targetHandle === portId)
-        );
-    };
 
     const startEditing = () => {
         setTempLabel(nodeState.parameters.label);
@@ -80,38 +71,21 @@ const PressureOutlet = ({ id, data, selected, type }) => {
     };
 
     return (
-        <div className={`pressure-outlet-node ${selected ? 'selected' : ''}`}>
-            <div className="port-container-left">
-                <Handle
-                    type="target"
-                    position={Position.Left}
-                    id="port-0"
-                    className={`react-flow__handle ${isPortConnected(id, "port-0") ? "port-connected" : ""}`}
-                />
-                <span className="port-index">0</span>
-            </div>
-            {isEditing ? (
-                <input
-                    value={tempLabel}
-                    onChange={onChange}
-                    onBlur={finishEditing}
-                    onKeyDown={onKeyDown}
-                    autoFocus
-                    className="node-input"
-                    spellCheck="false"
-                />
-            ) : (
-                <div 
-                    className="node-label"
-                    onDoubleClick={startEditing}
-                >
-                    {nodeState.parameters.label}
-                </div>
-            )}
-            <div className="node-type">
-                type: {type}
-            </div>
-        </div>
+        <BaseCustomNode
+            id={id}
+            data={{
+                label: nodeState.parameters.label,
+                isEditing,
+                tempLabel,
+                onChange,
+                finishEditing,
+                onKeyDown,
+                startEditing
+            }}
+            selected={selected}
+            type={type}
+            ports={elementInfo.ports}
+        />
     );
 };
 

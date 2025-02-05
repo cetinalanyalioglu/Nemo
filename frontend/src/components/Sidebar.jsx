@@ -5,7 +5,7 @@ import {
     IoChevronDown
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
-import { elementInfo } from './nodeTypes/FlowNetwork/index';
+import { elementInfo } from './nodes/nodeTypes';
 
 const formatCategoryName = (category) => {
     return category.toUpperCase().replace(/I/g, 'I');
@@ -62,10 +62,10 @@ const Sidebar = ({ isOpen, onToggle }) => {
                         >
                             <div className="group-header-content">
                                 <span>{formatCategoryName(category)}</span>
-                                <IoChevronDown className="group-collapse-icon" />
+                                <IoChevronDown className="group-collapse-icon" style={{ transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} />
                             </div>
                         </div>
-                        <div className="group-content">
+                        <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>
                             {elements.map(({ type, info }) => (
                                 <div
                                     key={type}

@@ -4,6 +4,7 @@ import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
 import { NodeProvider } from './components/NodeContext';
 import './App.css';
+import { elementInfo } from './components/nodes/nodeTypes';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -15,6 +16,19 @@ function App() {
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
     setIsPropertiesPanelOpen(!!nodeId);
+  }, []);
+
+  const updateNodeParameter = useCallback((nodeId, paramName, value) => {
+    setNodeStates(prev => ({
+      ...prev,
+      [nodeId]: {
+        ...prev[nodeId],
+        parameters: {
+          ...prev[nodeId].parameters,
+          [paramName]: value
+        }
+      }
+    }));
   }, []);
 
   const getNextNodeId = (type) => {
@@ -33,58 +47,44 @@ function App() {
     nodes.forEach(node => {
       if (node.type === 'add') {
         const nodeType = node.item.type;
-        const nodeId = getNextNodeId(nodeType);
-        const defaultParams = require(`./components/nodeTypes/FlowNetwork/${nodeType}`).elementInfo.parameters;
+        const nodeId = node.item.id;
         
+        const defaultParams = elementInfo[nodeType]?.parameters;
+
+        if (!defaultParams) {
+          console.error(`ElementInfo for nodeType "${nodeType}" bulunamadı.`);
+          return;
+        }
+
         setNodeStates(prev => ({
           ...prev,
           [nodeId]: {
-            parameters: {
-              ...Object.entries(defaultParams).reduce((acc, [key, value]) => {
-                acc[key] = value.defaultValue;
-                return acc;
-              }, {}),
-              label: nodeId // label'ı ID ile aynı yap
-            }
+            parameters: Object.keys(defaultParams).reduce((acc, key) => {
+              acc[key] = defaultParams[key].defaultValue;
+              return acc;
+            }, {}),
           }
         }));
-
-        // Node'un ID'sini güncelle
-        node.item.id = nodeId;
       }
     });
   }, []);
 
-  const updateNodeParameter = useCallback((nodeId, paramName, value) => {
-    setNodeStates(prev => ({
-      ...prev,
-      [nodeId]: {
-        ...prev[nodeId],
-        parameters: {
-          ...(prev[nodeId]?.parameters || {}),
-          [paramName]: value
-        }
-      }
-    }));
-  }, []);
-
   return (
-    <NodeProvider nodeStates={nodeStates} updateNodeParameter={updateNodeParameter}>
-      <div className="app">
+    <div className="app">
+      <NodeProvider value={{ nodeStates, updateNodeParameter }}>
         <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <div 
-          className="canvas-container"
-          style={{ 
-            marginLeft: isSidebarOpen ? '300px' : '0'
-          }}
-        >
-          <Canvas onNodeSelect={onNodeSelect} onNodeAdd={onNodeAdd} />
+        <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+          <Canvas 
+            onNodeSelect={onNodeSelect} 
+            onNodeAdd={onNodeAdd} 
+            getNextNodeId={getNextNodeId}
+          />
         </div>
         <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
           <PropertiesPanel selectedNodeId={selectedNodeId} />
         </div>
-      </div>
-    </NodeProvider>
+      </NodeProvider>
+    </div>
   );
 }
 

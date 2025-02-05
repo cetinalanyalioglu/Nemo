@@ -12,10 +12,10 @@ import "../styles/edges.css";
 import "../styles/ports.css";
 import "../styles/sidebar.css";
 import "./Canvas.css";
-import { nodeTypes } from './nodeTypes';
+import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 
-const Canvas = ({ onNodeSelect, onNodeAdd }) => {
+const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
     const reactFlowWrapper = useRef(null);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -39,27 +39,27 @@ const Canvas = ({ onNodeSelect, onNodeAdd }) => {
     const onDrop = useCallback((event) => {
         event.preventDefault();
 
+        const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
         const type = event.dataTransfer.getData('application/reactflow');
-        if (!type) return;
 
-        const position = reactFlowInstance.screenToFlowPosition({
-            x: event.clientX,
-            y: event.clientY,
+        if (typeof type === 'undefined' || !type) {
+            return;
+        }
+
+        const position = reactFlowInstance.project({
+            x: event.clientX - reactFlowBounds.left,
+            y: event.clientY - reactFlowBounds.top,
         });
-
         const newNode = {
-            id: `${type}_${Date.now()}`,
+            id: getNextNodeId(type),
             type,
             position,
-            data: { label: `${type}` }
+            data: { label: `${type}` },
         };
-
-        setNodes((nds) => {
-            const updatedNodes = nds.concat(newNode);
-            onNodeAdd([{ item: newNode, type: 'add' }]);
-            return updatedNodes;
-        });
-    }, [reactFlowInstance, onNodeAdd, setNodes]);
+        setNodes((nds) => nds.concat(newNode));
+        onNodeAdd([{ item: newNode, type: 'add' }]);
+        onNodeSelect(newNode.id);
+    }, [reactFlowInstance, onNodeAdd, setNodes, onNodeSelect, getNextNodeId]);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge(params, eds));
