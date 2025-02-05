@@ -12,17 +12,22 @@ import {
 import '../../styles/custom-node.css';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
+  // Önce target ve source portlarının sayısını güvenli bir şekilde alalım
+  const targetPorts = ports?.target || [];
+  const sourcePorts = ports?.source || [];
+
   return (
     <div className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}>
-      {/* Sol Portlar - SADECE TARGET */}
+      {/* Sol Portlar - Target */}
       <div className="custom-port-container custom-port-left">
-        {ports.target && ports.target.map((portId) => (
+        {targetPorts.map((portId, idx) => (
           <div key={portId} className="port-wrapper">
             <IoChevronForward className="port-icon port-icon-target" />
+            <span className="port-index">{idx}</span>
             <Handle
               type="target"
               position="left"
-              id={portId}
+              id={`${id}-port-${idx}`}
               className="react-flow__handle custom-handle"
             />
           </div>
@@ -49,19 +54,23 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         <div className="custom-node-type">type: {type}</div>
       </div>
 
-      {/* Sağ Portlar - SADECE SOURCE */}
+      {/* Sağ Portlar - Source */}
       <div className="custom-port-container custom-port-right">
-        {ports.source && ports.source.map((portId) => (
-          <div key={portId} className="port-wrapper">
-            <IoChevronBack className="port-icon port-icon-source" />
-            <Handle
-              type="source"
-              position="right"
-              id={portId}
-              className="react-flow__handle custom-handle"
-            />
-          </div>
-        ))}
+        {sourcePorts.map((portId, idx) => {
+          const portIndex = targetPorts.length + idx;
+          return (
+            <div key={portId} className="port-wrapper">
+              <IoChevronBack className="port-icon port-icon-source" />
+              <span className="port-index">{portIndex}</span>
+              <Handle
+                type="source"
+                position="right"
+                id={`${id}-port-${portIndex}`}
+                className="react-flow__handle custom-handle"
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
