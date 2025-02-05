@@ -51,7 +51,7 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
             {data.label}
           </div>
         )}
-        <div className="custom-node-type">type: {type}</div>
+        <div className="custom-node-type">{type}</div>
       </div>
 
       {/* Sağ Portlar - Source */}
