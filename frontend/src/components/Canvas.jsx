@@ -86,6 +86,13 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
         }
     };
 
+    // Bağlantı validasyonu
+    const isValidConnection = (connection) => {
+        // Source porttan target porta bağlantı yapılabilir
+        // Target porttan source porta veya source'tan source'a yapılamaz
+        return connection.sourceHandle && connection.targetHandle;
+    };
+
     return (
         <div 
             className="canvas-wrapper" 
@@ -106,6 +113,7 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
                 onInit={onInit}
                 onMove={onMove}
                 fitView
+                isValidConnection={isValidConnection}
             >
                 <Background />
                 <Controls />

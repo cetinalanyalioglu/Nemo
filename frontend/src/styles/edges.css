@@ -1,82 +1,58 @@
 :root {
     --edge-width: 1px;
-    /* Edge kalınlığı */
-    --edge-color: #000000;
-    /* Edge rengi siyah */
+    --edge-color: #4a4a4a;
     --highlight-color: #D4A72C;
-    /* Seçili edge rengi */
-    --highlight-width: 0.5px;
-    /* Seçili edge genişliği */
+    --highlight-width: 1px;
 }
 
-/* Edge path stilleri */
 .react-flow__edge-path {
     stroke-width: var(--edge-width);
     stroke: var(--edge-color);
     transition: all 0.2s ease;
 }
 
-/* Edge'lerin node'ların altında kalmaması için */
-.react-flow__edge {
-    z-index: 1;
-    pointer-events: all;
-}
-
-/* Edge seçili durumu */
 .react-flow__edge.selected .react-flow__edge-path {
     stroke: var(--highlight-color);
     filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
 }
 
-/* Edge hover durumu */
 .react-flow__edge:hover .react-flow__edge-path {
     stroke: var(--highlight-color);
     filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
 }
 
-/* Edge overlay (tıklanabilir alan) */
 .react-flow__edge-interaction {
     stroke-width: 10;
     stroke: transparent;
     fill: none;
 }
 
-/* Edge'lerin node'ların üzerinde görünmesi için */
-.react-flow__edges {
-    z-index: 2;
-}
-
-/* Node'ların edge'lerin üzerinde görünmesi için */
-.react-flow__node {
+/* .react-flow__node {
     z-index: 3;
-}
+} */
 
-/* Edge stilleri */
-.normal-edge {
-    transition: all 0.2s ease;
-}
-
-.normal-edge:hover path {
-    stroke: var(--highlight-color);
-    filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
-}
-
-.normal-edge:hover marker path {
-    fill: var(--highlight-color);
-    stroke: none;
-}
-
-/* Edge seçili durumu */
-.selected {
+/* .selected {
     z-index: 1000;
-}
+} */
 
-.selected path {
+/* .selected path {
     stroke: var(--highlight-color) !important;
     filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
-}
+} */
 
-.selected marker path {
+/* .selected marker path {
     fill: var(--highlight-color) !important;
     stroke: none;
-}
+} */
+
+/* .react-flow__connection-path {
+    stroke: #D4A72C;
+  } */
+  
+  .react-flow__connection.valid path {
+    stroke: #4CAF50;
+  }
+  
+  .react-flow__connection.invalid path {
+    stroke: #f44336;
+  }
