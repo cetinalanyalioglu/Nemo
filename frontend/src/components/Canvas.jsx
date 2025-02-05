@@ -39,23 +39,28 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
     const onDrop = useCallback((event) => {
         event.preventDefault();
 
-        const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+        if (!reactFlowInstance) {
+            return;
+        }
+
         const type = event.dataTransfer.getData('application/reactflow');
 
         if (typeof type === 'undefined' || !type) {
             return;
         }
 
-        const position = reactFlowInstance.project({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
+        const position = reactFlowInstance.screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
         });
+
         const newNode = {
             id: getNextNodeId(type),
             type,
             position,
             data: { label: `${type}` },
         };
+
         setNodes((nds) => nds.concat(newNode));
         onNodeAdd([{ item: newNode, type: 'add' }]);
         onNodeSelect(newNode.id);

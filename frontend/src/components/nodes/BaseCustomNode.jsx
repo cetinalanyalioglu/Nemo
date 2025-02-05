@@ -3,7 +3,6 @@ import { Handle } from 'reactflow';
 import '../../styles/custom-node.css';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
-  console.log(`Rendering BaseCustomNode for type: ${type}, ports:`, ports);
   return (
     <div className={`base-custom-node ${selected ? 'selected' : ''}`}>
       {/* Sol Portlar */}
