@@ -10,6 +10,7 @@ function AppContent() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
+  const [nodeCounts, setNodeCounts] = useState({}); // Her tip için sayaç
   const { addNodes } = useNodeContext();
 
   const onNodeSelect = useCallback((nodeId) => {
@@ -21,9 +22,21 @@ function AppContent() {
     addNodes(nodes);
   }, [addNodes]);
 
-  const getNextNodeId = (type) => {
-    return `${type}_${Date.now()}`;
-  };
+  const getNextNodeId = useCallback((type) => {
+    // Mevcut sayacı al ve 1 artır
+    const nextCount = (nodeCounts[type] || 0) + 1;
+    
+    // Sayacı güncelle
+    setNodeCounts(prev => ({
+      ...prev,
+      [type]: nextCount
+    }));
+
+    console.log(nextCount);
+
+    // Timestamp yerine sayaç kullanalım
+    return `${type}_${nextCount}`;
+  }, [nodeCounts]);
 
   return (
     <div className="app">

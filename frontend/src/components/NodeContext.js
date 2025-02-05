@@ -19,8 +19,8 @@ export const NodeProvider = ({ children }) => {
   const addNodes = (nodes) => {
     nodes.forEach(node => {
       if (node.type === 'add') {
-        const nodeType = node.item.type;
         const nodeId = node.item.id;
+        const nodeType = node.item.type;
         
         const defaultParams = elementInfo[nodeType]?.parameters;
 
@@ -32,10 +32,15 @@ export const NodeProvider = ({ children }) => {
         setNodeStates(prev => ({
           ...prev,
           [nodeId]: {
-            parameters: Object.keys(defaultParams).reduce((acc, key) => {
-              acc[key] = defaultParams[key].defaultValue;
-              return acc;
-            }, {}),
+            parameters: {
+              label: nodeId,
+              ...Object.keys(defaultParams).reduce((acc, key) => {
+                if (key !== 'label') {
+                  acc[key] = defaultParams[key].defaultValue;
+                }
+                return acc;
+              }, {})
+            }
           }
         }));
       }

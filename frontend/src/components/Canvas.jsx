@@ -54,11 +54,15 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
             y: event.clientY,
         });
 
+        const id = getNextNodeId(type);
+
+        console.log(id);
+
         const newNode = {
-            id: getNextNodeId(type),
+            id,
             type,
             position,
-            data: { label: `${type}` },
+            data: { label: id },
         };
 
         setNodes((nds) => nds.concat(newNode));
