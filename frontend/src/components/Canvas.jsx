@@ -86,11 +86,25 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
         }
     };
 
-    // Bağlantı validasyonu
     const isValidConnection = (connection) => {
-        // Source porttan target porta bağlantı yapılabilir
-        // Target porttan source porta veya source'tan source'a yapılamaz
-        return connection.sourceHandle && connection.targetHandle;
+        if (!connection.sourceHandle || !connection.targetHandle) {
+            return false;
+        }
+
+        if (connection.source === connection.target) {
+            return false;
+        }
+
+        const existingEdges = edges.filter(edge => 
+            edge.sourceHandle === connection.sourceHandle ||
+            edge.targetHandle === connection.targetHandle
+        );
+
+        if (existingEdges.length > 0) {
+            return false;
+        }
+
+        return true;
     };
 
     return (
