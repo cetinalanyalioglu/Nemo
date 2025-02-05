@@ -1,25 +1,36 @@
 import React from 'react';
 import { Handle } from 'reactflow';
+import { 
+  IoChevronBack,    // Zarif chevron
+  IoChevronForward,
+  // Alternatifler:
+  IoCaretBack,    // Üçgen
+  IoCaretForward,
+  IoPlayBack,     // Play button stili
+  IoPlayForward,
+} from 'react-icons/io5';
 import '../../styles/custom-node.css';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
   return (
-    <div className={`base-custom-node ${type} ${selected ? 'selected' : ''}`}>
+    <div className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}>
       {/* Sol Portlar */}
-      <div className="port-container left">
+      <div className="custom-port-container custom-port-left">
         {ports.target && ports.target.map((portId) => (
-          <Handle
-            key={portId}
-            type="target"
-            position="left"
-            id={portId}
-            className={`node-handle ${portId}_handle`}
-          />
+          <div key={portId} className="port-wrapper">
+            <IoChevronBack className="port-icon port-icon-target" />
+            <Handle
+              type="target"
+              position="left"
+              id={portId}
+              className="react-flow__handle custom-handle"
+            />
+          </div>
         ))}
       </div>
 
       {/* İçerik */}
-      <div className="node-content">
+      <div className="custom-node-content">
         {data.isEditing ? (
           <input
             value={data.tempLabel}
@@ -27,27 +38,29 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
             onBlur={() => data.finishEditing(id)}
             onKeyDown={(e) => data.onKeyDown(e)}
             autoFocus
-            className="node-input"
+            className="custom-node-input"
             spellCheck="false"
           />
         ) : (
-          <div className="node-label" onDoubleClick={() => data.startEditing(id)}>
+          <div className="custom-node-label" onDoubleClick={() => data.startEditing(id)}>
             {data.label}
           </div>
         )}
-        <div className="node-type">type: {type}</div>
+        <div className="custom-node-type">type: {type}</div>
       </div>
 
       {/* Sağ Portlar */}
-      <div className="port-container right">
+      <div className="custom-port-container custom-port-right">
         {ports.source && ports.source.map((portId) => (
-          <Handle
-            key={portId}
-            type="source"
-            position="right"
-            id={portId}
-            className={`node-handle ${portId}_handle`}
-          />
+          <div key={portId} className="port-wrapper">
+            <IoChevronForward className="port-icon port-icon-source" />
+            <Handle
+              type="source"
+              position="right"
+              id={portId}
+              className="react-flow__handle custom-handle"
+            />
+          </div>
         ))}
       </div>
     </div>

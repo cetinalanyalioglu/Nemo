@@ -1,184 +1,102 @@
-/* Base styles for all nodes */
-.base-custom-node {
-    padding: 6px 12px;
-    border-radius: 3px;
-    border: 1px solid #1a192b;
-    background-color: white;
-    min-width: 110px;
-    min-height: 45px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    gap: 3px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+/* Node Container */
+.custom-node {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 8px 16px;  /* Sağ ve sol padding'i artıralım */
+  min-width: 150px;
+  position: relative;
 }
 
-/* Common selected state */
-.base-custom-node.selected {
-    border-color: #D4A72C;
-    background-color: #FDF7E6;
-    box-shadow: 0 0 0 0.5px #D4A72C, 0 2px 4px rgba(0, 0, 0, 0.15);
+/* Seçili Node Durumu */
+.custom-node.custom-node-selected {
+  border-color: #D4A72C;
+  box-shadow: 0 0 0 2px rgba(212, 167, 44, 0.2);
 }
 
-/* Port containers */
-.port-container {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    top: 50%;
-    transform: translateY(-50%);
+/* Node İçeriği */
+.custom-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.port-container.left {
-    left: 0;
+.custom-node-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #212529;
 }
 
-.port-container.right {
-    right: 0;
+.custom-node-type {
+  font-size: 11px;
+  color: #6c757d;
 }
 
-/* Node content */
-.node-content {
-    text-align: center;
-    margin: 0 15px;
+/* Port Container'lar */
+.custom-port-container {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  top: 0;
 }
 
-.node-label {
-    font-size: 12px;
-    text-align: center;
-    font-weight: bold;
-    min-width: 100px;
-    min-height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1px 2px;
+.custom-port-left {
+  left: -1px;  /* Border'a hizala */
 }
 
-.node-type {
-    font-size: 10px;
-    color: #666;
-    font-style: italic;
+.custom-port-right {
+  right: -1px;  /* Border'a hizala */
 }
 
-.node-input {
-    width: 100px;
-    min-height: 16px;
-    border: none;
-    padding: 1px 2px;
-    font-size: 12px;
-    text-align: center;
-    background: transparent;
-    font-weight: bold;
-    outline: none;
+/* Port wrapper ve ikon stilleri */
+.port-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 4px 0;
+  cursor: pointer;
 }
 
-.node-input:focus {
-    border-bottom: 1px dashed #D4A72C;
+.port-icon {
+  position: absolute;
+  font-size: 16px;
+  color: #D4A72C;
+  z-index: 1;
+  background: white;  /* İkon arkası beyaz olsun */
 }
 
-/* Specific node styles */
-.base-custom-node.MassFlowInlet {
-    border-left: 4px solid #2196F3;
+.port-icon-target {
+  left: -8px;  /* Border'ı kesecek şekilde konumlandır */
+  padding: 0 4px;  /* Beyaz background için padding */
 }
 
-.base-custom-node.PressureOutlet {
-    border-left: 4px solid #4CAF50;
+.port-icon-source {
+  right: -8px;  /* Border'ı kesecek şekilde konumlandır */
+  padding: 0 4px;  /* Beyaz background için padding */
 }
 
-.base-custom-node.LosslessDuct {
-    border-left: 4px solid #FFC107;
+/* Handle'ı chevron'un üzerine konumlandır */
+.react-flow__handle.custom-handle {
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+  z-index: 2;
+  cursor: pointer;
 }
 
-.base-custom-node.SuddenExpansion {
-    border-left: 4px solid #FF9800;
-    background-color: #FFF3E0;
+/* Hover efektleri */
+.port-wrapper:hover .port-icon {
+  color: #b38a24;
 }
 
-/* Handle styles */
-.react-flow__handle {
-    width: 8px !important;
-    height: 8px !important;
-    border-radius: 50% !important;
-    background-color: white !important;
-    border: 1px solid #1a192b !important;
-    transition: all 0.2s ease !important;
-}
+/* Port Positioning */
+.custom-ports-1 .react-flow__handle.custom-handle { top: 50%; }
 
-.react-flow__handle:hover {
-    background-color: #1a192b !important;
-}
+.custom-ports-2 .react-flow__handle.custom-handle:nth-child(1) { top: 33%; }
+.custom-ports-2 .react-flow__handle.custom-handle:nth-child(2) { top: 67%; }
 
-.react-flow__handle-connecting {
-    background-color: #ff6b6b !important;
-}
-
-.react-flow__handle-valid {
-    background-color: #4CAF50 !important;
-}
-
-.node-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 4px;
-}
-
-.port-index {
-    font-size: 10px;
-    color: #666;
-}
-
-.port-container.left .port-index {
-    margin-left: 8px;
-}
-
-.port-container.right .port-index {
-    margin-right: 8px;
-}
-
-.node-handle {
-    width: 0 !important;
-    height: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    position: relative !important;
-}
-
-/* Giriş portu (sol) - içeri bakan üçgen */
-.port-container.left .node-handle::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-left: 8px solid #666;
-    left: 0;
-    top: -6px;
-}
-
-/* Çıkış portu (sağ) - dışarı bakan üçgen */
-.port-container.right .node-handle::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    border-left: 8px solid #666;
-    right: 0;
-    top: -6px;
-}
-
-/* Bağlantı durumları için özel stiller */
-.react-flow__handle-connecting::after {
-    border-left-color: #ff6b6b !important;
-}
-
-.react-flow__handle-valid::after {
-    border-left-color: #4CAF50 !important;
-} 
+.custom-ports-3 .react-flow__handle.custom-handle:nth-child(1) { top: 25%; }
+.custom-ports-3 .react-flow__handle.custom-handle:nth-child(2) { top: 50%; }
+.custom-ports-3 .react-flow__handle.custom-handle:nth-child(3) { top: 75%; }
