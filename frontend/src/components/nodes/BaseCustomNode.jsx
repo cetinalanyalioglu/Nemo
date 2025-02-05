@@ -4,7 +4,7 @@ import '../../styles/custom-node.css';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
   return (
-    <div className={`base-custom-node ${selected ? 'selected' : ''}`}>
+    <div className={`base-custom-node ${type} ${selected ? 'selected' : ''}`}>
       {/* Sol Portlar */}
       <div className="port-container left">
         {ports.target && ports.target.map((portId) => (
