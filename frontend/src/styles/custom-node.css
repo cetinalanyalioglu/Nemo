@@ -32,52 +32,76 @@
   color: #6c757d;
 }
 
-/* Port Container'lar */
+/* Port Container'lar - Ana stiller */
 .custom-port-container {
   position: absolute;
+  height: 100%;  /* Node yüksekliğine göre */
+  top: 0;
+  width: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  height: 100%;
-  top: 0;
 }
 
 .custom-port-left {
-  left: -1px;  /* Border'a hizala */
+  left: -1px;
 }
 
 .custom-port-right {
-  right: -1px;  /* Border'a hizala */
+  right: -1px;
 }
 
-/* Port wrapper ve ikon stilleri */
+/* Port wrapper temel stili */
 .port-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  margin: 4px 0;
-  cursor: pointer;
+  flex: 1;  /* Eşit yükseklik dağılımı */
 }
 
+/* Port sayısına göre konumlandırma */
+/* 1 Port */
+.custom-ports-1 .port-wrapper {
+  margin: auto 0;  /* Dikeyde ortala */
+}
+
+/* 2 Port */
+.custom-ports-2 {
+  padding: 10% 0;  /* Yüzdesel padding */
+}
+
+.custom-ports-2 .port-wrapper {
+  flex: 1;
+}
+
+/* 3 Port */
+.custom-ports-3 {
+  padding: 8% 0;  /* Yüzdesel padding */
+}
+
+.custom-ports-3 .port-wrapper {
+  flex: 1;
+}
+
+/* Port ikonları */
 .port-icon {
   position: absolute;
   font-size: 16px;
   color: #D4A72C;
   z-index: 1;
-  background: white;  /* İkon arkası beyaz olsun */
+  background: white;
 }
 
 .port-icon-target {
-  left: -8px;  /* Border'ı kesecek şekilde konumlandır */
-  padding: 0 4px;  /* Beyaz background için padding */
+  left: -8px;
+  padding: 0 4px;
 }
 
 .port-icon-source {
-  right: -8px;  /* Border'ı kesecek şekilde konumlandır */
-  padding: 0 4px;  /* Beyaz background için padding */
+  right: -8px;
+  padding: 0 4px;
 }
 
-/* Handle'ı chevron'un üzerine konumlandır */
+/* Handle pozisyonları */
 .react-flow__handle.custom-handle {
   width: 16px;
   height: 16px;
