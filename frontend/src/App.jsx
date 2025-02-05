@@ -9,13 +9,13 @@ import './App.css';
 function AppContent() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
+  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);  // Başlangıçta kapalı
   const [nodeCounts, setNodeCounts] = useState({}); // Her tip için sayaç
   const { addNodes } = useNodeContext();
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
-    setIsPropertiesPanelOpen(true);
+    setIsPropertiesPanelOpen(!!nodeId);  // nodeId varsa aç, yoksa kapat
   }, []);
 
   const onNodeAdd = useCallback((nodes) => {
