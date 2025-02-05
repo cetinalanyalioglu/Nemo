@@ -14,11 +14,11 @@ import '../../styles/custom-node.css';
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
   return (
     <div className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}>
-      {/* Sol Portlar */}
+      {/* Sol Portlar - SADECE TARGET */}
       <div className="custom-port-container custom-port-left">
         {ports.target && ports.target.map((portId) => (
           <div key={portId} className="port-wrapper">
-            <IoChevronBack className="port-icon port-icon-target" />
+            <IoChevronForward className="port-icon port-icon-target" />
             <Handle
               type="target"
               position="left"
@@ -49,11 +49,11 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         <div className="custom-node-type">type: {type}</div>
       </div>
 
-      {/* Sağ Portlar */}
+      {/* Sağ Portlar - SADECE SOURCE */}
       <div className="custom-port-container custom-port-right">
         {ports.source && ports.source.map((portId) => (
           <div key={portId} className="port-wrapper">
-            <IoChevronForward className="port-icon port-icon-source" />
+            <IoChevronBack className="port-icon port-icon-source" />
             <Handle
               type="source"
               position="right"

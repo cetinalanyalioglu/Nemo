@@ -100,3 +100,25 @@
 .custom-ports-3 .react-flow__handle.custom-handle:nth-child(1) { top: 25%; }
 .custom-ports-3 .react-flow__handle.custom-handle:nth-child(2) { top: 50%; }
 .custom-ports-3 .react-flow__handle.custom-handle:nth-child(3) { top: 75%; }
+
+/* Sol taraftaki portlar için */
+.custom-port-left .port-icon-source {
+  left: -8px;
+  transform: rotate(180deg);  /* Dışa dönük */
+}
+
+.custom-port-left .port-icon-target {
+  left: -8px;
+  transform: rotate(0deg);   /* İçe dönük */
+}
+
+/* Sağ taraftaki portlar için */
+.custom-port-right .port-icon-source {
+  right: -8px;
+  transform: rotate(180deg);  /* İçe dönük */
+}
+
+.custom-port-right .port-icon-target {
+  right: -8px;
+  transform: rotate(0deg);   /* Dışa dönük */
+}
