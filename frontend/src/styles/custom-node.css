@@ -3,10 +3,11 @@
   background: white;
   border: 1.5px solid #dee2e6;
   border-radius: 4px;
-  /* padding: top right bottom left */
-  padding: 8px 20px 8px 20px;
+  padding: 8px 20px;
   min-width: 25px;
   position: relative;
+  display: flex;
+  align-items: center;
   box-sizing: content-box;
 }
 
@@ -23,6 +24,7 @@
   gap: 4px;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .custom-node-label {
@@ -171,24 +173,33 @@
   right:7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
 }
 
+/* Resize handle için yeni stiller */
 .custom-node .resize-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  bottom: 2px;
-  right: 2px;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #D4A72C; /* Node seçili iken kullanılan sarı renk */
   cursor: se-resize;
-  z-index: 10; /* Handle'ın diğer öğelerin üzerinde görünmesini sağlar */
-  pointer-events: auto;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  z-index: 10;
 }
 
-.custom-node .resize-handle::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  border-right: 2px solid #dee2e6;
-  border-bottom: 2px solid #dee2e6;
-  width: 12px;
-  height: 12px;
+/* Hover efekti */
+.custom-node .resize-handle:hover {
+  transform: scale(1.2);
+  background-color: #b38a24; /* Biraz daha koyu ton */
+}
+
+/* Aktif (basılı) durumda */
+.custom-node .resize-handle:active {
+  transform: scale(0.95);
+  background-color: #8c6d1c; /* Daha da koyu ton */
+}
+
+/* Node seçili değilken handle gizli */
+.custom-node:not(.custom-node-selected) .resize-handle {
+  display: none;
 }

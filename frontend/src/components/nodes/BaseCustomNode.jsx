@@ -161,8 +161,14 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         })}
       </div>
 
-      {/* Resizable handle: Pointer event kullanılarak */}
-      <div className="resize-handle" onPointerDown={handleResizeStart} onDoubleClick={resetSize} />
+      {/* Resize handle sadece node seçili iken görünür */}
+      {selected && (
+        <div 
+          className="resize-handle" 
+          onPointerDown={handleResizeStart} 
+          onDoubleClick={resetSize}
+        />
+      )}
     </div>
   );
 };
