@@ -16,11 +16,10 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
 
   // İlk render'da content box boyutlarını kaydet
   useLayoutEffect(() => {
-    if (nodeRef.current && !initialSizeRef.current) {
+    if (nodeRef.current) {
       const element = nodeRef.current;
       const computedStyle = window.getComputedStyle(element);
       
-      // Padding ve border değerlerini çıkararak gerçek content boyutunu al
       const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
       const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
       const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
@@ -33,7 +32,7 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         height: rect.height - paddingY - borderY
       };
     }
-  }, []);
+  }, [id]);
 
   const resetSize = () => {
     setNodeSize(null);
