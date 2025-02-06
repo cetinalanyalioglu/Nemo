@@ -1,17 +1,24 @@
 /* Node Container */
 .custom-node {
   background: white;
-  border: 1.5px solid #dee2e6;
-  border-radius: 5px;
-  padding-top: 10px;
-  padding-right: 8px;
-  padding-bottom: 10px;
-  padding-left: 8px;
-  min-width: 25px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
   position: relative;
   display: flex;
   align-items: center;
   box-sizing: content-box;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.custom-node:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.custom-node.selected {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  border-color: #D4A72C;
 }
 
 /* Sol portu olan nodlar için */

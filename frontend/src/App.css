@@ -4,22 +4,40 @@
   position: relative;
 }
 
+/* Ana wrapper ekleyelim */
+.main-content {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
 .canvas-container {
   flex: 1;
   position: relative;
   height: 100vh;
   overflow: hidden;
   margin-left: 0;
-  transition: margin-left 0.3s ease;
+  margin-right: 0;
+  transition: all 0.3s ease;
 }
 
-/* Sidebar açıkken canvas'i kaydır */
+/* Sidebar açıkken canvas'i sola kaydır */
 .sidebar.open ~ .canvas-container {
   margin-left: 250px;
 }
 
+/* Properties panel açıkken canvas'i sağa kaydır */
+.canvas-container.properties-open {
+  margin-right: 300px;
+}
+
+/* ReactFlow container'ının boyutunu güncelle */
+.canvas-container.properties-open .react-flow {
+  width: 100% !important;
+}
+
 .properties-panel-container {
-  position: fixed;
+  position: fixed;  /* Tekrar fixed yaptık */
   top: 0;
   right: 0;
   width: 300px;
@@ -33,6 +51,14 @@
 
 .properties-panel-container.open {
   transform: translateX(0);
+}
+
+.properties-panel-content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
 }
 
 .element-library {

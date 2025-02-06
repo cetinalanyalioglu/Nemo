@@ -58,13 +58,13 @@ function AppContent() {
     <div className="app">
       <Sidebar 
         isOpen={isSidebarOpen} 
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
         onExport={handleExport}
       />
-      <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+      <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''} ${isPropertiesPanelOpen ? 'properties-open' : ''}`}>
         <Canvas 
-          onNodeSelect={onNodeSelect} 
-          onNodeAdd={onNodeAdd} 
+          onNodeSelect={onNodeSelect}
+          onNodeAdd={onNodeAdd}
           getNextNodeId={getNextNodeId}
           updateNodes={setNodes}
           updateEdges={setEdges}
