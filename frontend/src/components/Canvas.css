@@ -30,10 +30,27 @@
 
 .react-flow__controls {
   z-index: 101;
+  position: absolute;
+  right: 10px;
+  left: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  background: white;
+  border-bottom: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+  border-radius: 4px;
 }
 
 .react-flow__minimap {
   z-index: 101;
+  position: absolute;
+  right: 10px;
+  left: auto;
 }
 
 .react-flow__attribution {

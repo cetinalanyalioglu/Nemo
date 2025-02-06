@@ -4,6 +4,20 @@
   position: relative;
 }
 
+.canvas-container {
+  flex: 1;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  margin-left: 0;
+  transition: margin-left 0.3s ease;
+}
+
+/* Sidebar açıkken canvas'i kaydır */
+.sidebar.open ~ .canvas-container {
+  margin-left: 250px;
+}
+
 .properties-panel-container {
   position: fixed;
   top: 0;
@@ -19,18 +33,6 @@
 
 .properties-panel-container.open {
   transform: translateX(0);
-}
-
-/* Canvas container için düzeltilmiş stiller */
-.canvas-container {
-  flex: 1;
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.canvas-container.sidebar-closed {
-  margin-left: 64px; /* Sidebar kapalıyken ikonlar için yer bırak */
 }
 
 .element-library {
