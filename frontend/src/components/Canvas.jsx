@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import ReactFlow, {
     Background,
     Controls,
@@ -16,7 +16,13 @@ import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
 
-const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
+const Canvas = ({ 
+    onNodeSelect, 
+    onNodeAdd, 
+    getNextNodeId,
+    updateNodes,
+    updateEdges
+}) => {
     const reactFlowWrapper = useRef(null);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -24,6 +30,14 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
     const [zoom, setZoom] = useState(1);
 
     const { nodeStates } = useNodeContext();
+
+    useEffect(() => {
+        updateNodes(nodes);
+    }, [nodes, updateNodes]);
+
+    useEffect(() => {
+        updateEdges(edges);
+    }, [edges, updateEdges]);
 
     const onInit = (instance) => {
         setReactFlowInstance(instance);

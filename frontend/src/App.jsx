@@ -12,7 +12,9 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);  // Başlangıçta kapalı
   const [nodeCounts, setNodeCounts] = useState({}); // Her tip için sayaç
-  const { addNodes } = useNodeContext();
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const { addNodes, nodeStates } = useNodeContext();
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
@@ -39,24 +41,18 @@ function AppContent() {
     return `${type}_${nextCount}`;
   }, [nodeCounts]);
 
-  const handleExport = () => {
-    // Canvas bileşeninden nodes ve edges bilgisini almamız gerekiyor
-    // Bu yüzden bir ref kullanabiliriz
-    if (canvasRef.current) {
-      const { nodes, edges } = canvasRef.current.getNodesAndEdges();
-      const dataStr = exportTopology({ nodes, edges, nodeStates });
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "topology.json";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-  };
+  const handleExport = useCallback(() => {
+    const dataStr = exportTopology({ nodes, edges, nodeStates });
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "topology.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [nodes, edges, nodeStates]);
 
   return (
     <div className="app">
@@ -70,6 +66,8 @@ function AppContent() {
           onNodeSelect={onNodeSelect} 
           onNodeAdd={onNodeAdd} 
           getNextNodeId={getNextNodeId}
+          updateNodes={setNodes}
+          updateEdges={setEdges}
         />
       </div>
       <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
