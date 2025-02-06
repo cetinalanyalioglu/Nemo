@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Handle } from 'reactflow';
 import { 
   IoChevronBack,    // Zarif chevron
@@ -12,12 +12,97 @@ import {
 import '../../styles/custom-node.css';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
-  // Önce target ve source portlarının sayısını güvenli bir şekilde alalım
+  // Portları alıyoruz
   const targetPorts = ports?.target || [];
   const sourcePorts = ports?.source || [];
 
+  // Node referansı, boyut state'i ve başlangıç (doğal) boyutları tutacak ref'ler
+  const nodeRef = useRef(null);
+  const [nodeSize, setNodeSize] = useState(null);
+  const initialSizeRef = useRef(null);
+
+  // İlk render'da content box boyutlarını kaydet
+  useLayoutEffect(() => {
+    if (nodeRef.current && !initialSizeRef.current) {
+      const element = nodeRef.current;
+      const computedStyle = window.getComputedStyle(element);
+      
+      // Padding ve border değerlerini çıkararak gerçek content boyutunu al
+      const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
+      const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
+      const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
+      const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
+
+      const rect = element.getBoundingClientRect();
+      
+      initialSizeRef.current = {
+        width: rect.width - paddingX - borderX,
+        height: rect.height - paddingY - borderY
+      };
+    }
+  }, []);
+
+  const resetSize = () => {
+    setNodeSize(null);
+  };
+
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const element = nodeRef.current;
+    const computedStyle = window.getComputedStyle(element);
+    
+    // Padding ve border değerlerini hesapla
+    const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
+    const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
+    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
+    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
+
+    const rect = element.getBoundingClientRect();
+    const startWidth = rect.width - paddingX - borderX;
+    const startHeight = rect.height - paddingY - borderY;
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const onPointerMove = (eMove) => {
+      const deltaX = eMove.clientX - startX;
+      const deltaY = eMove.clientY - startY;
+
+      // Content box boyutlarını hesapla
+      const newWidth = Math.max(startWidth + deltaX, initialSizeRef.current.width);
+      const newHeight = Math.max(startHeight + deltaY, initialSizeRef.current.height);
+
+      if (newWidth === initialSizeRef.current.width && newHeight === initialSizeRef.current.height) {
+        setNodeSize(null);
+      } else {
+        setNodeSize({ width: newWidth, height: newHeight });
+      }
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  // Style'da content-box kullan ve sadece content boyutlarını ayarla
+  const style = nodeSize ? {
+    width: `${nodeSize.width}px`,
+    height: `${nodeSize.height}px`,
+    boxSizing: 'content-box'
+  } : { boxSizing: 'content-box' };
+
   return (
-    <div className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}>
+    <div 
+      className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}
+      ref={nodeRef}
+      style={style}
+    >
       {/* Sol Portlar - Target */}
       <div className="custom-port-container custom-port-left">
         {targetPorts.map((portId, idx) => (
@@ -47,7 +132,10 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
             spellCheck="false"
           />
         ) : (
-          <div className="custom-node-label" onDoubleClick={() => data.startEditing(id)}>
+          <div 
+            className="custom-node-label" 
+            onDoubleClick={() => data.startEditing(id)}
+          >
             {data.label}
           </div>
         )}
@@ -72,6 +160,9 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
           );
         })}
       </div>
+
+      {/* Resizable handle: Pointer event kullanılarak */}
+      <div className="resize-handle" onPointerDown={handleResizeStart} onDoubleClick={resetSize} />
     </div>
   );
 };

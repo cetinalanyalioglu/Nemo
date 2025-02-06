@@ -9,7 +9,6 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
-// import "../styles/ports.css";
 import "../styles/sidebar.css";
 import "./Canvas.css";
 import { nodeTypes } from './nodes/nodeTypes';

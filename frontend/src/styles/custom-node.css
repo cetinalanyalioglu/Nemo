@@ -7,6 +7,7 @@
   padding: 8px 20px 8px 20px;
   min-width: 25px;
   position: relative;
+  box-sizing: content-box;
 }
 
 /* Seçili Node Durumu */
@@ -168,4 +169,26 @@
 
 .port-icon-source ~ .port-index {
   right:7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
+}
+
+.custom-node .resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  bottom: 2px;
+  right: 2px;
+  cursor: se-resize;
+  z-index: 10; /* Handle'ın diğer öğelerin üzerinde görünmesini sağlar */
+  pointer-events: auto;
+}
+
+.custom-node .resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid #dee2e6;
+  border-bottom: 2px solid #dee2e6;
+  width: 12px;
+  height: 12px;
 }
