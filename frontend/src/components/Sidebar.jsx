@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
     IoChevronBackCircleOutline,
     IoLibrary,
-    IoChevronDown
+    IoChevronDown,
+    IoSaveOutline
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodes/nodeTypes';
@@ -11,7 +12,7 @@ const formatCategoryName = (category) => {
     return category.toUpperCase().replace(/I/g, 'I');
 };
 
-const Sidebar = ({ isOpen, onToggle }) => {
+const Sidebar = ({ isOpen, onToggle, onExport }) => {
     const [collapsedGroups, setCollapsedGroups] = useState({});
 
     const onDragStart = (event, nodeType) => {
@@ -37,20 +38,39 @@ const Sidebar = ({ isOpen, onToggle }) => {
 
     return (
         <>
-            {/* Panel kapalıyken görünecek kütüphane ikonu */}
+            {/* Panel kapalıyken görünecek ikonlar */}
             {!isOpen && (
-                <button className="library-button" onClick={onToggle}>
-                    <IoLibrary />
-                </button>
+                <div className="sidebar-closed-icons">
+                    <button className="library-button" onClick={onToggle}>
+                        <IoLibrary />
+                    </button>
+                    <button className="library-button save-button" onClick={onExport} title="Export Topology">
+                        <IoSaveOutline />
+                    </button>
+                </div>
             )}
             
             {/* Ana sidebar */}
             <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-                <div className="panel-header">
-                    <IoLibrary className="panel-icon" />
-                    <span className="panel-title">ELEMENT LIBRARY</span>
-                    <button className="toggle-button" onClick={onToggle}>
-                        <IoChevronBackCircleOutline />
+                <div className="sidebar-header">
+                    <div className="panel-icon-wrapper">
+                        <IoLibrary className="panel-icon" />
+                        <span className="panel-title">ELEMENT LiBRARY</span>
+                    </div>
+                    <IoChevronBackCircleOutline
+                        className={`toggle-icon ${!isOpen ? 'closed' : ''}`}
+                        onClick={onToggle}
+                    />
+                </div>
+                
+                {/* Yeni: Export ikonu - sadece sidebar kapalıyken görünür */}
+                <div className="action-icons">
+                    <button 
+                        className="action-button" 
+                        onClick={onExport}
+                        title="Export Topology"
+                    >
+                        <IoSaveOutline className="action-icon" />
                     </button>
                 </div>
 

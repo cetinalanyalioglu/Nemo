@@ -20,11 +20,16 @@
   right: 0;
 }
 
-/* Canvas container için transition */
+/* Canvas container için düzeltilmiş stiller */
 .canvas-container {
   flex: 1;
-  transition: margin 0.3s ease;
   position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.canvas-container.sidebar-closed {
+  margin-left: 64px; /* Sidebar kapalıyken ikonlar için yer bırak */
 }
 
 .element-library {

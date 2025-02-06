@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
 import './App.css';
+import exportTopology from './utils/exportTopology';
 
 // Ana uygulama mantığını içeren bileşen
 function AppContent() {
@@ -38,9 +39,32 @@ function AppContent() {
     return `${type}_${nextCount}`;
   }, [nodeCounts]);
 
+  const handleExport = () => {
+    // Canvas bileşeninden nodes ve edges bilgisini almamız gerekiyor
+    // Bu yüzden bir ref kullanabiliriz
+    if (canvasRef.current) {
+      const { nodes, edges } = canvasRef.current.getNodesAndEdges();
+      const dataStr = exportTopology({ nodes, edges, nodeStates });
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "topology.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   return (
     <div className="app">
-      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        onExport={handleExport}
+      />
       <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
         <Canvas 
           onNodeSelect={onNodeSelect} 

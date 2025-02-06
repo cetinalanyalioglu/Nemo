@@ -13,6 +13,8 @@ import "../styles/sidebar.css";
 import "./Canvas.css";
 import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
+import { useNodeContext } from "./NodeContext";
+import exportTopology from "../utils/exportTopology";
 
 const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
     const reactFlowWrapper = useRef(null);
@@ -20,6 +22,8 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
+
+    const { nodeStates } = useNodeContext();
 
     const onInit = (instance) => {
         setReactFlowInstance(instance);
@@ -106,6 +110,20 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
         return true;
     };
 
+    const handleExport = useCallback(() => {
+        const dataStr = exportTopology({ nodes, edges, nodeStates });
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "topology.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, [nodes, edges, nodeStates]);
+
     return (
         <div 
             className="canvas-wrapper" 
@@ -133,6 +151,9 @@ const Canvas = ({ onNodeSelect, onNodeAdd, getNextNodeId }) => {
                 <MiniMap />
             </ReactFlow>
             <ZoomIndicator zoom={zoom} />
+            <button onClick={handleExport} className="export-btn">
+                Export Topology
+            </button>
         </div>
     );
 };
