@@ -23,14 +23,16 @@ export const elementInfo = {
     leftPorts: {
       label: 'Left Ports',
       type: 'number',
-      defaultValue: 0,
+      defaultValue: 1,
+      min: 1,
       category: 'Ports',
       description: 'Number of left ports'
     },
     rightPorts: {
       label: 'Right Ports',
       type: 'number',
-      defaultValue: 0,
+      defaultValue: 1,
+      min: 1,
       category: 'Ports',
       description: 'Number of right ports'
     }
