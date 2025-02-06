@@ -5,9 +5,9 @@ import '../../styles/custom-node.css';
 import { elementIcons } from './nodeTypes';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
-  // Portları alıyoruz
-  const targetPorts = ports?.target || [];
-  const sourcePorts = ports?.source || [];
+  // Portları alıyoruz; eğer dizi değilse, varsayılan olarak boş dizi kullanıyoruz.
+  const targetPorts = Array.isArray(ports?.target) ? ports.target : [];
+  const sourcePorts = Array.isArray(ports?.source) ? ports.source : [];
 
   // Node referansı, boyut state'i ve başlangıç (doğal) boyutları tutacak ref'ler
   const nodeRef = useRef(null);
