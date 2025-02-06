@@ -26,4 +26,16 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
+}
+
+.react-flow__controls {
+  z-index: 101;
+}
+
+.react-flow__minimap {
+  z-index: 101;
+}
+
+.react-flow__attribution {
+  z-index: 101;
 } 
