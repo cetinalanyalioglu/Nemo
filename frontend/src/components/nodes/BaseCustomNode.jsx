@@ -1,15 +1,8 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Handle } from 'reactflow';
-import { 
-  IoChevronBack,    // Zarif chevron
-  IoChevronForward,
-  // Alternatifler:
-  IoCaretBack,    // Üçgen
-  IoCaretForward,
-  IoPlayBack,     // Play button stili
-  IoPlayForward,
-} from 'react-icons/io5';
+import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
+import { elementIcons } from './nodeTypes';
 
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
   // Portları alıyoruz
@@ -90,19 +83,33 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  // Style'da content-box kullan ve sadece content boyutlarını ayarla
+  const TypeIcon = elementIcons[type];
+
   const style = nodeSize ? {
     width: `${nodeSize.width}px`,
     height: `${nodeSize.height}px`,
     boxSizing: 'content-box'
-  } : { boxSizing: 'content-box' };
+  } : {};
+
+  // Port durumuna göre class isimleri oluştur
+  const hasLeftPort = ports.target && ports.target.length > 0;
+  const hasRightPort = ports.source && ports.source.length > 0;
+  const nodeClasses = [
+    'custom-node',
+    type,
+    selected ? 'custom-node-selected' : '',
+    hasLeftPort ? 'has-left-port' : '',
+    hasRightPort ? 'has-right-port' : ''
+  ].join(' ');
 
   return (
-    <div 
-      className={`custom-node ${type} ${selected ? 'custom-node-selected' : ''}`}
+    <div
+      className={nodeClasses}
       ref={nodeRef}
       style={style}
     >
+      {TypeIcon && <TypeIcon className="node-type-icon" />}
+
       {/* Sol Portlar - Target */}
       <div className="custom-port-container custom-port-left">
         {targetPorts.map((portId, idx) => (

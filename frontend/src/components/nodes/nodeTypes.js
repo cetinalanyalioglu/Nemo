@@ -1,8 +1,8 @@
-import MassFlowInlet, { elementInfo as massFlowInletInfo } from './MassFlowInlet';
-import PressureOutlet, { elementInfo as pressureOutletInfo } from './PressureOutlet';
-import LosslessDuct, { elementInfo as losslessDuctInfo } from './LosslessDuct';
-import SuddenExpansion, { elementInfo as suddenExpansionInfo } from './SuddenExpansion';
-import LosslessSplitter, { elementInfo as losslessSplitterInfo } from './LosslessSplitter';
+import MassFlowInlet, { elementInfo as massFlowInletInfo, elementIcon as massFlowInletIcon } from './MassFlowInlet';
+import PressureOutlet, { elementInfo as pressureOutletInfo, elementIcon as pressureOutletIcon } from './PressureOutlet';
+import LosslessDuct, { elementInfo as losslessDuctInfo, elementIcon as losslessDuctIcon } from './LosslessDuct';
+import SuddenExpansion, { elementInfo as suddenExpansionInfo, elementIcon as suddenExpansionIcon } from './SuddenExpansion';
+import LosslessSplitter, { elementInfo as losslessSplitterInfo, elementIcon as losslessSplitterIcon } from './LosslessSplitter';
 
 export const nodeTypes = {
   MassFlowInlet,
@@ -18,4 +18,12 @@ export const elementInfo = {
   LosslessDuct: losslessDuctInfo,
   SuddenExpansion: suddenExpansionInfo,
   LosslessSplitter: losslessSplitterInfo
+};
+
+export const elementIcons = {
+  MassFlowInlet: massFlowInletIcon,
+  PressureOutlet: pressureOutletIcon,
+  LosslessDuct: losslessDuctIcon,
+  SuddenExpansion: suddenExpansionIcon,
+  LosslessSplitter: losslessSplitterIcon
 };

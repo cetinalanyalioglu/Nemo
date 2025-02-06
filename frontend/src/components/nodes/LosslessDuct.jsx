@@ -1,6 +1,9 @@
 import React, { useState, useContext } from 'react';
 import { useNodeContext } from '../NodeContext';
 import BaseCustomNode from './BaseCustomNode';
+import { BsArrowLeftRight } from 'react-icons/bs';
+
+export const elementIcon = BsArrowLeftRight;
 
 export const elementInfo = {
     type: 'LosslessDuct',

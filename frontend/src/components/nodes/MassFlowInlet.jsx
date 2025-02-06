@@ -1,6 +1,9 @@
 import React, { useState, useContext } from 'react';
 import { useNodeContext } from '../NodeContext';
 import BaseCustomNode from './BaseCustomNode';
+import { BsArrowDownCircle } from 'react-icons/bs';
+
+export const elementIcon = BsArrowDownCircle;
 
 export const elementInfo = {
     type: 'MassFlowInlet',

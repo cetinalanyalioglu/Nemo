@@ -1,6 +1,9 @@
 import React from 'react';
 import { useNodeContext } from '../NodeContext';
 import BaseCustomNode from './BaseCustomNode';
+import { BsArrowUpCircle } from 'react-icons/bs';
+
+export const elementIcon = BsArrowUpCircle;
 
 export const elementInfo = {
     type: 'PressureOutlet',

@@ -1,6 +1,9 @@
 import React, { useState, useContext } from 'react';
 import { useNodeContext } from '../NodeContext';
 import BaseCustomNode from './BaseCustomNode';
+import { BsDiagram2 } from 'react-icons/bs';
+
+export const elementIcon = BsDiagram2;
 
 export const elementInfo = {
     type: 'LosslessSplitter',

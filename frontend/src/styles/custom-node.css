@@ -2,13 +2,26 @@
 .custom-node {
   background: white;
   border: 1.5px solid #dee2e6;
-  border-radius: 4px;
-  padding: 8px 20px;
+  border-radius: 5px;
+  padding-top: 10px;
+  padding-right: 8px;
+  padding-bottom: 10px;
+  padding-left: 8px;
   min-width: 25px;
   position: relative;
   display: flex;
   align-items: center;
   box-sizing: content-box;
+}
+
+/* Sol portu olan nodlar için */
+.custom-node.has-left-port {
+  padding-left: 16px;  /* Sol port için extra padding */
+}
+
+/* Sağ portu olan nodlar için */
+.custom-node.has-right-port {
+  padding-right: 16px;  /* Sağ port için extra padding */
 }
 
 /* Seçili Node Durumu */
@@ -202,4 +215,23 @@
 /* Node seçili değilken handle gizli */
 .custom-node:not(.custom-node-selected) .resize-handle {
   display: none;
+}
+
+/* Tip ikonu için stil */
+.node-type-icon {
+  position: relative;
+  margin: 0 5px 0 2px;
+  font-size: 16px;
+  color: #6c757d;
+  opacity: 0.75;
+}
+
+/* Hover durumunda hafif opaklık artışı */
+.custom-node:hover .node-type-icon {
+  opacity: 0.9;
+}
+
+/* Seçili durumda daha belirgin */
+.custom-node-selected .node-type-icon {
+  opacity: 0.9;
 }

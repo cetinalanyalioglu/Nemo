@@ -1,6 +1,9 @@
 import React, { useState, useContext } from 'react';
 import { NodeContext, useNodeContext } from '../NodeContext';
 import BaseCustomNode from './BaseCustomNode';
+import { BsArrowsExpand } from 'react-icons/bs';
+
+export const elementIcon = BsArrowsExpand;
 
 export const elementInfo = {
     type: 'SuddenExpansion',
