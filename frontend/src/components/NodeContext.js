@@ -1,52 +1,81 @@
 import React, { createContext, useContext, useState } from 'react';
 import { elementInfo } from './nodes/nodeTypes';
 
-export const NodeContext = createContext({
-  nodeStates: {},
-  updateNodeParameter: () => {},
-  editingStates: {},
-  startEditing: () => {},
-  onChange: () => {},
-  finishEditing: () => {},
-  onKeyDown: () => {},
-  addNodes: () => {}
-});
+/**
+ * NodeContext is used to share node-related state and functions 
+ * throughout the component tree.
+ */
+const NodeContext = createContext();
 
+/**
+ * NodeProvider wraps the application (or parts of it) that need access 
+ * to node states (parameters and editing states) along with functions 
+ * that allow modifications.
+ *
+ * The provider maintains two main pieces of state:
+ *  1. nodeStates: Stores parameters for each node.
+ *  2. editingStates: Tracks if a node is currently being edited and 
+ *     holds temporary values (e.g., temporary label inputs) during editing.
+ *
+ * It also provides functions to:
+ *  - registerNode: To register a node and initialize its parameters.
+ *  - updateNodeParameter: To update a specific parameter of a node.
+ *  - startEditing: To begin editing a node (setting editing flag and initial temporary value).
+ *  - onChange: To update temporary editing values as the user enters new data.
+ *  - finishEditing: To finalize editing by updating the node parameters and resetting editing state.
+ */
 export const NodeProvider = ({ children }) => {
+  // This state holds the parameters of nodes.
   const [nodeStates, setNodeStates] = useState({});
+  // This state holds the editing statuses and temporary values of nodes.
   const [editingStates, setEditingStates] = useState({});
 
-  const addNodes = (nodes) => {
-    nodes.forEach(node => {
-      if (node.type === 'add') {
-        const nodeId = node.item.id;
-        const nodeType = node.item.type;
-        
-        const defaultParams = elementInfo[nodeType]?.parameters;
-
-        if (!defaultParams) {
-          console.error(`ElementInfo for nodeType "${nodeType}" bulunamadı.`);
-          return;
-        }
-
-        setNodeStates(prev => ({
-          ...prev,
-          [nodeId]: {
-            parameters: {
-              label: nodeId,
-              ...Object.keys(defaultParams).reduce((acc, key) => {
-                if (key !== 'label') {
-                  acc[key] = defaultParams[key].defaultValue;
-                }
-                return acc;
-              }, {})
-            }
-          }
-        }));
+  /**
+   * registerNode function receives a node registration event and initializes its parameters
+   * based on default values defined in elementInfo. It expects a single node object with the 
+   * property type set to 'add' and an 'item' field containing the new node.
+   *
+   * @param {Object} node - A node registration event object.
+   */
+  const registerNode = (node) => {
+    if (node.type === 'add') {
+      // Extract the node ID and type from the provided node item.
+      const nodeId = node.item.id;
+      const nodeType = node.item.type;
+      
+      // Retrieve default parameters from elementInfo for the given nodeType.
+      const defaultParams = elementInfo[nodeType]?.parameters;
+      if (!defaultParams) {
+        console.error(`ElementInfo not found for nodeType "${nodeType}"`);
+        return;
       }
-    });
+
+      // Initialize the node's parameters with a default label and every other parameter's default value.
+      setNodeStates(prev => ({
+        ...prev,
+        [nodeId]: {
+          parameters: {
+            // Default label is set as the node ID.
+            label: nodeId,
+            ...Object.keys(defaultParams).reduce((acc, key) => {
+              if (key !== 'label') {
+                acc[key] = defaultParams[key].defaultValue;
+              }
+              return acc;
+            }, {})
+          }
+        }
+      }));
+    }
   };
 
+  /**
+   * updateNodeParameter updates a specific parameter of a node.
+   *
+   * @param {string} nodeId - The id of the node to update.
+   * @param {string} paramName - The name of the parameter to update.
+   * @param {*} value - The new value for the parameter.
+   */
   const updateNodeParameter = (nodeId, paramName, value) => {
     setNodeStates(prev => ({
       ...prev,
@@ -60,6 +89,11 @@ export const NodeProvider = ({ children }) => {
     }));
   };
 
+  /**
+   * startEditing marks a node as being edited and initializes its temporary value.
+   *
+   * @param {string} nodeId - The id of the node that is starting to be edited.
+   */
   const startEditing = (nodeId) => {
     setEditingStates(prev => ({
       ...prev,
@@ -70,6 +104,12 @@ export const NodeProvider = ({ children }) => {
     }));
   };
 
+  /**
+   * onChange updates the temporary editing value as the user modifies it.
+   *
+   * @param {string} nodeId - The id of the node being edited.
+   * @param {Object} evt - The event object containing the new value.
+   */
   const onChange = (nodeId, evt) => {
     setEditingStates(prev => ({
       ...prev,
@@ -80,6 +120,12 @@ export const NodeProvider = ({ children }) => {
     }));
   };
 
+  /**
+   * finishEditing finalizes the editing process by updating the node's label if a new non-empty 
+   * value exists, and then resets the editing state for that node.
+   *
+   * @param {string} nodeId - The id of the node finishing editing.
+   */
   const finishEditing = (nodeId) => {
     const newLabel = editingStates[nodeId]?.tempLabel?.trim();
     if (newLabel) {
@@ -94,41 +140,26 @@ export const NodeProvider = ({ children }) => {
     }));
   };
 
-  const onKeyDown = (nodeId, evt) => {
-    if (evt.key === 'Enter' && !evt.shiftKey) {
-      evt.preventDefault();
-      finishEditing(nodeId);
-    } else if (evt.key === 'Escape') {
-      setEditingStates(prev => ({
-        ...prev,
-        [nodeId]: {
-          isEditing: false,
-          tempLabel: ''
-        }
-      }));
-    }
-  };
-
   return (
     <NodeContext.Provider value={{
       nodeStates,
-      updateNodeParameter,
       editingStates,
+      registerNode,
+      updateNodeParameter,
       startEditing,
       onChange,
-      finishEditing,
-      onKeyDown,
-      addNodes
+      finishEditing
     }}>
       {children}
     </NodeContext.Provider>
   );
 };
 
+/**
+ * useNodeContext is a custom hook that lets components access the node context.
+ *
+ * @returns {Object} The context value containing node states and CRUD functions.
+ */
 export const useNodeContext = () => {
-  const context = useContext(NodeContext);
-  if (!context) {
-    throw new Error('useNodeContext must be used within a NodeProvider');
-  }
-  return context;
+  return useContext(NodeContext);
 }; 

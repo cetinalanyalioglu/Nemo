@@ -14,16 +14,16 @@ function AppContent() {
   const [nodeCounts, setNodeCounts] = useState({}); // Her tip için sayaç
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  const { addNodes, nodeStates } = useNodeContext();
+  const { registerNode, nodeStates } = useNodeContext();
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
     setIsPropertiesPanelOpen(!!nodeId);  // nodeId varsa aç, yoksa kapat
   }, []);
 
-  const onNodeAdd = useCallback((nodes) => {
-    addNodes(nodes);
-  }, [addNodes]);
+  const onNodeAdd = useCallback((node) => {
+    registerNode(node);
+  }, [registerNode]);
 
   const getNextNodeId = useCallback((type) => {
     // Mevcut sayacı al ve 1 artır

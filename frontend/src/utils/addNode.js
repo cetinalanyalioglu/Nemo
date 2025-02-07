@@ -13,7 +13,7 @@ import { elementInfo } from '../components/nodes/nodeTypes';
  * @param {Object} callbacks - An object containing the callback functions.
  * @param {Function} callbacks.getNextNodeId - A function that generates a new id for the node.
  * @param {Function} callbacks.setNodes - A function to update the nodes state.
- * @param {Function} callbacks.onNodeAdd - A function to notify that a node has been added.
+ * @param {Function} callbacks.onNodeAdd - A function to notify that a node has been registered.
  * @param {Function} callbacks.onNodeSelect - A function to update the selected node id.
  * @param {Function} [callbacks.updateCounter] - A function to update counters for node types.
  *
@@ -67,13 +67,13 @@ export function addNode(
   // 1. Update the nodes state.
   setNodes(prevNodes => [...prevNodes, newNode]);
 
-  // 2. Notify that a new node has been added (this may trigger context updates or side effects).
-  onNodeAdd([{ type: 'add', item: newNode }]);
+  // 2. Notify that a new node has been registered.
+  onNodeAdd({ type: 'add', item: newNode });
 
   // 3. Update the selected node id.
   onNodeSelect(newNode.id);
 
-  // 4. Update the counter for the specific node type if the function is provided.
+  // 4. Update the counter for the specific node type if provided.
   if (typeof updateCounter === 'function') {
     updateCounter(type);
   }
