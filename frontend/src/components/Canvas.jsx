@@ -15,6 +15,7 @@ import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
+import addNode from '../utils/addNode';
 
 const Canvas = ({ 
     onNodeSelect, 
@@ -56,36 +57,29 @@ const Canvas = ({
     const onDrop = useCallback((event) => {
         event.preventDefault();
 
-        if (!reactFlowInstance) {
-            return;
-        }
+        if (!reactFlowInstance) return;
 
         const type = event.dataTransfer.getData('application/reactflow');
-
-        if (typeof type === 'undefined' || !type) {
-            return;
-        }
+        if (!type) return;
 
         const position = reactFlowInstance.screenToFlowPosition({
             x: event.clientX,
-            y: event.clientY,
+            y: event.clientY
         });
 
-        const id = getNextNodeId(type);
-
-        console.log(id);
-
-        const newNode = {
-            id,
-            type,
-            position,
-            data: { label: id },
-        };
-
-        setNodes((nds) => nds.concat(newNode));
-        onNodeAdd([{ item: newNode, type: 'add' }]);
-        onNodeSelect(newNode.id);
-    }, [reactFlowInstance, onNodeAdd, setNodes, onNodeSelect, getNextNodeId]);
+        addNode(
+            { type, position }, 
+            { 
+                getNextNodeId, 
+                setNodes, 
+                onNodeAdd, 
+                onNodeSelect, 
+                updateCounter: (nodeType) => {
+                    console.log(`"${nodeType}" tipi için sayaç güncellendi.`);
+                }
+            }
+        );
+    }, [reactFlowInstance, getNextNodeId, setNodes, onNodeAdd, onNodeSelect]);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge(params, eds));
