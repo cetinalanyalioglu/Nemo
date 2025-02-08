@@ -132,6 +132,21 @@ const Canvas = ({
         URL.revokeObjectURL(url);
     }, [nodes, edges, nodeStates]);
 
+    const handleKeyDown = useCallback((event) => {
+        if ((event.key === 'Delete' || event.key === 'Backspace') && nodes.some(node => node.selected)) {
+            console.log('Seçili node siliniyor...');
+            const selectedNodes = nodes.filter(node => node.selected);
+            console.log('Silinecek node\'lar:', selectedNodes);
+        }
+    }, [nodes]);
+
+    useEffect(() => {
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleKeyDown]);
+
     return (
         <div 
             className="canvas-wrapper" 
@@ -153,6 +168,7 @@ const Canvas = ({
                 onMove={onMove}
                 fitView
                 isValidConnection={isValidConnection}
+                deleteKeyCode={null}
             >
                 <Background />
                 <Controls />
