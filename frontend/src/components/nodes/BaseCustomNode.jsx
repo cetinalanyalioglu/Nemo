@@ -12,12 +12,13 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   // Node referansı, boyut state'i ve başlangıç (doğal) boyutları tutacak ref'ler
   const nodeRef = useRef(null);
   const [nodeSize, setNodeSize] = useState(null);
-  const initialSizeRef = useRef(null);
   const [isResizing, setIsResizing] = useState(false);
+  const initialSizeRef = useRef(null);
+  const hasInitializedRef = useRef(false);
 
   // İlk render'da content box boyutlarını kaydet
   useLayoutEffect(() => {
-    if (nodeRef.current) {
+    if (nodeRef.current && !hasInitializedRef.current) {
       const element = nodeRef.current;
       const computedStyle = window.getComputedStyle(element);
       
@@ -32,8 +33,10 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         width: rect.width - paddingX - borderX,
         height: rect.height - paddingY - borderY
       };
+      
+      hasInitializedRef.current = true;
     }
-  }, [id]);
+  }, []);
 
   const resetSize = () => {
     setNodeSize(null);
@@ -42,12 +45,11 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   const handleResizeStart = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    setIsResizing(true);  // Resize başladığında flag'i set et
+    setIsResizing(true);
 
     const element = nodeRef.current;
     const rect = element.getBoundingClientRect();
     
-    // Direkt olarak border-box boyutlarını kullan
     const startWidth = rect.width;
     const startHeight = rect.height;
     
@@ -55,26 +57,26 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     const startY = e.clientY;
 
     const onPointerMove = (eMove) => {
-        const deltaX = eMove.clientX - startX;
-        const deltaY = eMove.clientY - startY;
+      const deltaX = eMove.clientX - startX;
+      const deltaY = eMove.clientY - startY;
 
-        // Minimum boyutları border-box cinsinden hesapla
-        const minWidth = initialSizeRef.current.width;
-        const minHeight = initialSizeRef.current.height;
+      // Minimum boyutları kontrol et
+      const minWidth = initialSizeRef.current?.width || 100; // Fallback değeri
+      const minHeight = initialSizeRef.current?.height || 50; // Fallback değeri
 
-        const newWidth = Math.max(startWidth + deltaX, minWidth);
-        const newHeight = Math.max(startHeight + deltaY, minHeight);
+      const newWidth = Math.max(startWidth + deltaX, minWidth);
+      const newHeight = Math.max(startHeight + deltaY, minHeight);
 
-        setNodeSize({
-            width: newWidth,
-            height: newHeight
-        });
+      setNodeSize({
+        width: newWidth,
+        height: newHeight
+      });
     };
 
     const onPointerUp = () => {
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', onPointerUp);
-        setIsResizing(false);  // Resize bittiğinde flag'i kaldır
+      setIsResizing(false);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
     };
 
     window.addEventListener('pointermove', onPointerMove);
