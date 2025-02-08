@@ -16,6 +16,7 @@ import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
 import addNode from '../utils/addNode';
+import { deleteNode } from '../utils/deleteNode';
 
 const Canvas = ({ 
     onNodeSelect, 
@@ -30,7 +31,7 @@ const Canvas = ({
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
 
-    const { nodeStates } = useNodeContext();
+    const { nodeStates, unregisterNode } = useNodeContext();
 
     useEffect(() => {
         updateNodes(nodes);
@@ -133,12 +134,44 @@ const Canvas = ({
     }, [nodes, edges, nodeStates]);
 
     const handleKeyDown = useCallback((event) => {
-        if ((event.key === 'Delete' || event.key === 'Backspace') && nodes.some(node => node.selected)) {
-            console.log('Seçili node siliniyor...');
-            const selectedNodes = nodes.filter(node => node.selected);
-            console.log('Silinecek node\'lar:', selectedNodes);
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+            // Handle node deletion
+            if (nodes.some(node => node.selected)) {
+                const selectedNodes = nodes.filter(node => node.selected);
+                console.log('Deleting nodes:', selectedNodes);
+                
+                const { deletedNodes } = deleteNode(
+                    {
+                        nodeIds: selectedNodes.map(node => node.id),
+                        nodes,
+                        edges
+                    },
+                    {
+                        setNodes,
+                        setEdges,
+                        onNodeDelete: ({ item }) => {
+                            unregisterNode(item.id);
+                        },
+                        onNodeSelect
+                    }
+                );
+                
+                console.log('Deleted nodes:', deletedNodes);
+            }
+            
+            // Handle edge deletion
+            const selectedEdges = edges.filter(edge => edge.selected);
+            if (selectedEdges.length > 0) {
+                console.log('Deleting edges:', selectedEdges);
+                
+                setEdges(prevEdges => 
+                    prevEdges.filter(edge => !edge.selected)
+                );
+                
+                console.log('Deleted edges:', selectedEdges);
+            }
         }
-    }, [nodes]);
+    }, [nodes, edges, setNodes, setEdges, onNodeSelect, unregisterNode]);
 
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { elementInfo } from './nodes/nodeTypes';
 
 /**
@@ -140,11 +140,30 @@ export const NodeProvider = ({ children }) => {
     }));
   };
 
+  /**
+   * Unregisters a node from the context when it's deleted
+   * @param {string} nodeId - The id of the node to unregister
+   */
+  const unregisterNode = useCallback((nodeId) => {
+    setNodeStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[nodeId];
+      return newStates;
+    });
+    
+    setEditingStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[nodeId];
+      return newStates;
+    });
+  }, []);
+
   return (
     <NodeContext.Provider value={{
       nodeStates,
       editingStates,
       registerNode,
+      unregisterNode,
       updateNodeParameter,
       startEditing,
       onChange,
