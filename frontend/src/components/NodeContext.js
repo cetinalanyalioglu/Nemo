@@ -141,6 +141,26 @@ export const NodeProvider = ({ children }) => {
   };
 
   /**
+   * Handles keyboard events during label editing
+   */
+  const onKeyDown = useCallback((nodeId, event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      finishEditing(nodeId);
+    }
+    // Escape tuşu ile düzenlemeyi iptal et
+    if (event.key === 'Escape') {
+      setEditingStates(prev => ({
+        ...prev,
+        [nodeId]: {
+          isEditing: false,
+          tempLabel: ''
+        }
+      }));
+    }
+  }, [finishEditing]);
+
+  /**
    * Unregisters a node from the context when it's deleted
    * @param {string} nodeId - The id of the node to unregister
    */
@@ -167,6 +187,7 @@ export const NodeProvider = ({ children }) => {
       updateNodeParameter,
       startEditing,
       onChange,
+      onKeyDown,
       finishEditing
     }}>
       {children}

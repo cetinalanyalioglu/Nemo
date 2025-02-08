@@ -65,8 +65,8 @@ const Junction = ({ id, data, selected, type }) => {
   const rightPorts = Array.from({ length: rightPortCount }, (_, index) => `port-right-${index}`);
 
   const dynamicPorts = {
-    target: leftPorts,  // BaseCustomNode'da sol portlar target olarak render ediliyor.
-    source: rightPorts  // Sağ portlar source olarak render ediliyor.
+    target: leftPorts,
+    source: rightPorts
   };
 
   return (
@@ -77,8 +77,8 @@ const Junction = ({ id, data, selected, type }) => {
         isEditing: editingState.isEditing,
         tempLabel: editingState.tempLabel,
         onChange: (e) => contextOnChange(id, e),
-        finishEditing: () => contextFinishEditing(id),
         onKeyDown: (e) => contextOnKeyDown(id, e),
+        finishEditing: () => contextFinishEditing(id),
         startEditing: () => contextStartEditing(id)
       }}
       selected={selected}

@@ -62,8 +62,8 @@ const PressureOutlet = ({ id, data, selected, type }) => {
                 isEditing: editingState.isEditing,
                 tempLabel: editingState.tempLabel,
                 onChange: (e) => contextOnChange(id, e),
-                finishEditing: () => contextFinishEditing(id),
                 onKeyDown: (e) => contextOnKeyDown(id, e),
+                finishEditing: () => contextFinishEditing(id),
                 startEditing: () => contextStartEditing(id)
             }}
             selected={selected}
