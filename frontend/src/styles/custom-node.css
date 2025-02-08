@@ -7,18 +7,18 @@
   position: relative;
   display: flex;
   align-items: center;
-  box-sizing: content-box;
+  box-sizing: border-box;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  transition: width 0.2s ease, height 0.2s ease;
 }
 
 .custom-node:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.2s ease;
 }
 
 .custom-node.selected {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  border-color: #D4A72C;
+  box-shadow: 0 0 0 2px #D4A72C;
 }
 
 /* Sol portu olan nodlar için */
@@ -241,4 +241,10 @@
 /* Seçili durumda daha belirgin */
 .custom-node-selected .node-type-icon {
   opacity: 0.9;
+}
+
+/* Resize sırasında tüm transition'ları devre dışı bırak */
+.custom-node.resizing {
+  transition: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }

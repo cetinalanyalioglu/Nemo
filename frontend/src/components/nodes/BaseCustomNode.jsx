@@ -13,6 +13,7 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   const nodeRef = useRef(null);
   const [nodeSize, setNodeSize] = useState(null);
   const initialSizeRef = useRef(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   // İlk render'da content box boyutlarını kaydet
   useLayoutEffect(() => {
@@ -41,41 +42,39 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   const handleResizeStart = (e) => {
     e.stopPropagation();
     e.preventDefault();
+    setIsResizing(true);  // Resize başladığında flag'i set et
 
     const element = nodeRef.current;
-    const computedStyle = window.getComputedStyle(element);
-    
-    // Padding ve border değerlerini hesapla
-    const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
-    const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
-    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
-    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
-
     const rect = element.getBoundingClientRect();
-    const startWidth = rect.width - paddingX - borderX;
-    const startHeight = rect.height - paddingY - borderY;
+    
+    // Direkt olarak border-box boyutlarını kullan
+    const startWidth = rect.width;
+    const startHeight = rect.height;
     
     const startX = e.clientX;
     const startY = e.clientY;
 
     const onPointerMove = (eMove) => {
-      const deltaX = eMove.clientX - startX;
-      const deltaY = eMove.clientY - startY;
+        const deltaX = eMove.clientX - startX;
+        const deltaY = eMove.clientY - startY;
 
-      // Content box boyutlarını hesapla
-      const newWidth = Math.max(startWidth + deltaX, initialSizeRef.current.width);
-      const newHeight = Math.max(startHeight + deltaY, initialSizeRef.current.height);
+        // Minimum boyutları border-box cinsinden hesapla
+        const minWidth = initialSizeRef.current.width;
+        const minHeight = initialSizeRef.current.height;
 
-      if (newWidth === initialSizeRef.current.width && newHeight === initialSizeRef.current.height) {
-        setNodeSize(null);
-      } else {
-        setNodeSize({ width: newWidth, height: newHeight });
-      }
+        const newWidth = Math.max(startWidth + deltaX, minWidth);
+        const newHeight = Math.max(startHeight + deltaY, minHeight);
+
+        setNodeSize({
+            width: newWidth,
+            height: newHeight
+        });
     };
 
     const onPointerUp = () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        setIsResizing(false);  // Resize bittiğinde flag'i kaldır
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -98,7 +97,8 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     type,
     selected ? 'custom-node-selected' : '',
     hasLeftPort ? 'has-left-port' : '',
-    hasRightPort ? 'has-right-port' : ''
+    hasRightPort ? 'has-right-port' : '',
+    isResizing ? 'resizing' : ''
   ].join(' ');
 
   return (
