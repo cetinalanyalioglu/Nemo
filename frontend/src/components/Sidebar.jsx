@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen, onToggle, onExport }) => {
                 <div className="sidebar-header">
                     <div className="panel-icon-wrapper">
                         <IoLibrary className="panel-icon" />
-                        <span className="panel-title">ELEMENT LiBRARY</span>
+                        <span className="panel-title">ELEMENT LIBRARY</span>
                     </div>
                     <IoChevronBackCircleOutline
                         className={`toggle-icon ${!isOpen ? 'closed' : ''}`}

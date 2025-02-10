@@ -7,3 +7,5 @@ backend/venv
 
 # OS
 .DS_Store
+
+*.log
