@@ -3,7 +3,7 @@ import { NodeProvider } from './components/NodeContext';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
-import './App.css';
+import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 
 // Main application logic component

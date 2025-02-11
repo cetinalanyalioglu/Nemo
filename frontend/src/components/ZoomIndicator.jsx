@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './ZoomIndicator.css';
+import '../styles/zoom-indicator.css';
 
 const ZoomIndicator = ({ zoom }) => {
     const [isVisible, setIsVisible] = useState(false);

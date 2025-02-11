@@ -84,6 +84,37 @@ export const NodeProvider = ({ children }) => {
     };
 
     /**
+     * Validates if a connection between two nodes is allowed
+     * 
+     * @param {Object} connection - The connection parameters
+     * @returns {boolean} - Whether the connection is valid
+     */
+    const isValidConnection = useCallback((connection) => {
+
+        if (!connection.sourceHandle || !connection.targetHandle) {
+            console.debug("Invalid connection: No source or target handle");
+            return false;
+        }
+
+        if (connection.source === connection.target) {
+            console.debug("Invalid connection: Source and target are the same");
+            return false;
+        }
+
+        const existingEdges = edges.filter(edge =>
+            edge.sourceHandle === connection.sourceHandle ||
+            edge.targetHandle === connection.targetHandle
+        );
+
+        if (existingEdges.length > 0) {
+            console.debug("Invalid connection: Port is not empty");
+            return false;
+        }
+
+        return true;
+    }, [edges]);
+
+    /**
      * updateNodeParameter updates a specific parameter of a node.
      *
      * @param {string} nodeId - The id of the node to update.
@@ -351,7 +382,8 @@ export const NodeProvider = ({ children }) => {
             onKeyDown,
             finishEditing,
             selectedNodeId,
-            setSelectedNodeId
+            setSelectedNodeId,
+            isValidConnection
         }}>
             {children}
         </NodeContext.Provider>

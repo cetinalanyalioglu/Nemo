@@ -8,7 +8,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
 import "../styles/sidebar.css";
-import "./Canvas.css";
+import "../styles/canvas.css";
 import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "./NodeContext";
@@ -20,7 +20,7 @@ const Canvas = () => {
     // ReactFlow wrapper (canvas wrapper)
     const reactFlowWrapper = useRef(null);
 
-    // Zoom state, used for zoom indicator, starts at 100%
+    // Create a state for the zoom level
     const [zoom, setZoom] = useState(1);
 
     // Get the ReactFlow instance setter from the context
@@ -35,7 +35,8 @@ const Canvas = () => {
         onEdgesChange,
         addNode,
         deleteNode,
-        setSelectedNodeId
+        setSelectedNodeId,
+        isValidConnection
     } = useNodeContext();
 
     /**
@@ -45,7 +46,10 @@ const Canvas = () => {
      */
     const onInit = useCallback((instance) => {
         setReactFlowInstance(instance);
-        console.log("ReactFlow instance initialized.");
+        if (!instance) {
+            console.error("Can not initialize ReactFlow instance.");
+            return;
+        }
     }, [setReactFlowInstance]);
 
     const onMove = useCallback((_, viewPort) => {
@@ -95,27 +99,6 @@ const Canvas = () => {
     const handlePaneClick = (event) => {
         // Clear the selected node id when the pane is clicked
         setSelectedNodeId(null);
-    };
-
-    const isValidConnection = (connection) => {
-        if (!connection.sourceHandle || !connection.targetHandle) {
-            return false;
-        }
-
-        if (connection.source === connection.target) {
-            return false;
-        }
-
-        const existingEdges = edges.filter(edge =>
-            edge.sourceHandle === connection.sourceHandle ||
-            edge.targetHandle === connection.targetHandle
-        );
-
-        if (existingEdges.length > 0) {
-            return false;
-        }
-
-        return true;
     };
 
     const handleExport = useCallback(() => {
@@ -180,7 +163,9 @@ const Canvas = () => {
                 onPaneClick={handlePaneClick}
                 onInit={onInit}
                 onMove={onMove}
-                fitView
+                minZoom={0.5}
+                maxZoom={4}
+                defaultViewport={{ x: 0, y: 0, zoom: 1.0 }}
                 isValidConnection={isValidConnection}
                 deleteKeyCode={null}
             >
