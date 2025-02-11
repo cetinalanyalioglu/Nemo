@@ -16,7 +16,7 @@ export const elementInfo = {
     parameters: {
         label: {
             type: 'string',
-            defaultValue: 'Pressure Outlet',
+            defaultValue: 'PressureOutlet',
             category: 'GENERAL'
         },
         pressure: {

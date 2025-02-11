@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { elementInfo } from './nodes/nodeTypes';
 
 /**
@@ -34,6 +35,15 @@ export const NodeProvider = ({ children }) => {
     acc[type] = 0;
     return acc;
   }, {}));
+
+  /**
+   * Private function to generate unique node id
+   */
+  const getNewNodeId = (type) => {
+    const id = `${type}-${uuidv4()}`; 
+    console.log("Generated ID: ", id);
+    return id;
+  };
 
   /**
    * Private function to generate new node label
@@ -200,7 +210,7 @@ export const NodeProvider = ({ children }) => {
   }, []);
 
   // Add node function that handles both node creation and registration
-  const addNode = useCallback(({ id: providedId, type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
+  const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
     { reactFlowInstance, onNodeSelect }) => {
     
     if (!type) {
@@ -211,16 +221,13 @@ export const NodeProvider = ({ children }) => {
       throw new Error('ReactFlow instance is required!');
     }
 
-    // Generate node ID using counter
-    const nextCount = nodeCounters[type] + 1;
-    const id = providedId || `${type}_${nextCount}`;
+    // Generate unique node ID
+    const id = getNewNodeId(type);
 
-    console.log(`Node ID: ${id}`);
-
-    // Update counter for this node type
+    // Update counter for this node type (for label generation)
     setNodeCounters(prev => ({
       ...prev,
-      [type]: nextCount
+      [type]: prev[type] + 1
     }));
 
     // Get node template from elementInfo
@@ -239,7 +246,7 @@ export const NodeProvider = ({ children }) => {
     const mergedParameters = { 
       ...defaultParameters, 
       ...parameters,
-      label: getNewNodeLabel(type)  // Construct a new label for the node
+      label: getNewNodeLabel(type)
     };
 
     // Create the new node
