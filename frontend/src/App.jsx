@@ -11,8 +11,6 @@ function AppContent() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);  // Başlangıçta kapalı
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
 
   const onNodeSelect = useCallback((nodeId) => {
     setSelectedNodeId(nodeId);
@@ -26,11 +24,7 @@ function AppContent() {
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
       />
       <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''} ${isPropertiesPanelOpen ? 'properties-open' : ''}`}>
-        <Canvas
-          onNodeSelect={onNodeSelect}
-          updateNodes={setNodes}
-          updateEdges={setEdges}
-        />
+        <Canvas onNodeSelect={onNodeSelect} />
       </div>
       <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
         <PropertiesPanel selectedNodeId={selectedNodeId} />

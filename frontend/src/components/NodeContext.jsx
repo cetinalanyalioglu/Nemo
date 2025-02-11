@@ -250,15 +250,18 @@ export const NodeProvider = ({ children }) => {
     }, [setNodes, setNodeStates, setNodeCounters, totalNodeCounters, setTotalNodeCounters]);
 
     const deleteNode = useCallback((nodeId) => {
+
+        console.debug("Deleting node with id: ", nodeId);
+
         if (!nodeId) {
-            console.warn('Cannot delete node: No node ID provided');
+            console.error('Cannot delete node: No node ID provided');
             return;
         }
 
         // Get node info before deletion
         const nodeState = nodeStates[nodeId];
         if (!nodeState) {
-            console.warn(`Cannot delete node: Node state not found for ID ${nodeId}`);
+            console.error(`Cannot delete node: Node state not found for ID ${nodeId}`);
             return;
         }
 
@@ -286,6 +289,9 @@ export const NodeProvider = ({ children }) => {
 
         // Remove node from ReactFlow
         setNodes(nodes => nodes.filter(node => node.id !== nodeId));
+
+        console.debug("Successfully deleted node: ", nodeId);
+
     }, [nodeStates, setNodes]);
 
     return (

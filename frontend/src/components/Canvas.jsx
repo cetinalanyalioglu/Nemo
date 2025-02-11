@@ -15,11 +15,7 @@ import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
 import { useReactFlow } from '../context/ReactFlowContext';
 
-const Canvas = ({
-    onNodeSelect,
-    updateNodes,
-    updateEdges
-}) => {
+const Canvas = ({ onNodeSelect }) => {
     const reactFlowWrapper = useRef(null);
     const [zoom, setZoom] = useState(1);
     const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
@@ -33,14 +29,6 @@ const Canvas = ({
         addNode,
         deleteNode
     } = useNodeContext();
-
-    useEffect(() => {
-        updateNodes(nodes);
-    }, [nodes, updateNodes]);
-
-    useEffect(() => {
-        updateEdges(edges);
-    }, [edges, updateEdges]);
 
     /**
      * Initializes the ReactFlow instance. After that the ReactFlow instance can be obtained from the context.
