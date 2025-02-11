@@ -40,14 +40,13 @@ const Canvas = ({
     }, [edges, updateEdges]);
 
     /**
-     * Initializes the ReactFlow instance and sets initial zoom level. After that the ReactFlow instance can be obtained from the context.
+     * Initializes the ReactFlow instance. After that the ReactFlow instance can be obtained from the context.
      * 
      * @param {ReactFlowInstance} instance - The ReactFlow instance being initialized
      */
     const onInit = (instance) => {
         setReactFlowInstance(instance);
-        console.log("ReactFlow instance initialized:", instance);
-        setZoom(instance.getZoom());
+        console.log("ReactFlow instance initialized.");
     };
 
     const onMove = useCallback((_, viewPort) => {
@@ -60,13 +59,23 @@ const Canvas = ({
     }, []);
 
     const onDrop = useCallback((event) => {
+
         event.preventDefault();
 
-        if (!reactFlowInstance) return;
+        // Check if the ReactFlow instance is initialized
+        if (!reactFlowInstance) {
+            console.error("ReactFlow instance is not initialized.");
+            return;
+        }
 
+        // Get the node type from the data transfer
         const type = event.dataTransfer.getData('application/reactflow');
-        if (!type) return;
+        if (!type) {
+            console.error("No node type provided.");
+            return;
+        }
 
+        // Get the position of the drop event
         const position = reactFlowInstance.screenToFlowPosition({
             x: event.clientX,
             y: event.clientY
