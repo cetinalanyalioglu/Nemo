@@ -1,14 +1,11 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { elementInfo } from '../components/nodes/nodeTypes';
-import { useReactFlow } from './ReactFlowContext';
 import { useNodesState, useEdgesState } from 'reactflow';
 
 const NodeContext = createContext();
 
 export const NodeProvider = ({ children }) => {
-    const { reactFlowInstance } = useReactFlow();
-
     // Add selected node state
     const [selectedNodeId, setSelectedNodeId] = useState(null);
 
@@ -205,8 +202,29 @@ export const NodeProvider = ({ children }) => {
         }
     }, [finishEditing]);
 
+    const updateNodeSize = useCallback((nodeId, size) => {
+
+        if (!nodeId || !size) {
+            console.error("Invalid node id or size");
+            return;
+        }
+
+        // Update the node state
+        setNodeStates(prev => ({
+            ...prev,
+            [nodeId]: {
+                ...prev[nodeId],
+                size: {
+                    width: size.width,
+                    height: size.height
+                }
+            }
+        }));
+
+    }, []);
+
     // Add node function that handles both node creation and registration
-    const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} }) => {
+    const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {}, size = null }) => {
         console.debug("Adding node with type: ", type);
 
         if (!type) {
@@ -246,19 +264,27 @@ export const NodeProvider = ({ children }) => {
             label: label
         };
 
-        // Create the new node
         const newNode = {
             id,
             type,
             position,
-            data: { ...data }
+            data: { ...data },
+            // Add style property with size if provided
+            style: size ? {
+                width: `${size.width}px`,
+                height: `${size.height}px`
+            } : undefined
         };
 
         // Register node state
         setNodeStates(prev => ({
             ...prev,
             [id]: {
-                parameters: mergedParameters
+                parameters: mergedParameters,
+                size: size || {
+                    width: null,
+                    height: null
+                }
             }
         }));
 
@@ -336,16 +362,16 @@ export const NodeProvider = ({ children }) => {
 
         // Clear all nodes
         setNodes([]);
-        
+
         // Clear all edges
         setEdges([]);
-        
+
         // Reset node states
         setNodeStates({});
-        
+
         // Reset editing states
         setEditingStates({});
-        
+
         // Reset current node counters
         setNodeCounters(prev => {
             return Object.keys(prev).reduce((acc, key) => {
@@ -353,10 +379,10 @@ export const NodeProvider = ({ children }) => {
                 return acc;
             }, {});
         });
-        
+
         // Clear selected node
         setSelectedNodeId(null);
-        
+
         console.debug("All nodes and states have been cleared");
 
     }, [setNodes, setEdges]);
@@ -377,6 +403,7 @@ export const NodeProvider = ({ children }) => {
             deleteNode,
             reset,
             updateNodeParameter,
+            updateNodeSize,
             startEditing,
             onChange,
             onKeyDown,
