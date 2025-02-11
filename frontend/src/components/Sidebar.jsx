@@ -7,13 +7,20 @@ import {
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodes/nodeTypes';
+import { useNodeContext } from './NodeContext';
+import exportTopology from '../utils/exportTopology';
 
 const formatCategoryName = (category) => {
     return category.toUpperCase().replace(/I/g, 'I');
 };
 
-const Sidebar = ({ isOpen, onToggle, onExport }) => {
+const Sidebar = () => {
+    // Internal state management
+    const [isOpen, setIsOpen] = useState(true);
     const [collapsedGroups, setCollapsedGroups] = useState({});
+
+    // Get nodes and edges from context for export
+    const { nodes, edges } = useNodeContext();
 
     const onDragStart = (event, nodeType) => {
         event.dataTransfer.setData('application/reactflow', nodeType);
@@ -25,6 +32,24 @@ const Sidebar = ({ isOpen, onToggle, onExport }) => {
             ...prev,
             [category]: !prev[category]
         }));
+    };
+
+    const toggleSidebar = () => {
+        setIsOpen(!isOpen);
+    };
+
+    const handleExport = () => {
+        const dataStr = exportTopology({ nodes, edges });
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "topology.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     const groupedElements = Object.entries(elementInfo).reduce((acc, [type, info]) => {
@@ -41,10 +66,10 @@ const Sidebar = ({ isOpen, onToggle, onExport }) => {
             {/* Panel kapalıyken görünecek ikonlar */}
             {!isOpen && (
                 <div className="sidebar-closed-icons">
-                    <button className="library-button" onClick={onToggle}>
+                    <button className="library-button" onClick={toggleSidebar}>
                         <IoLibrary />
                     </button>
-                    <button className="library-button save-button" onClick={onExport} title="Export Topology">
+                    <button className="library-button save-button" onClick={handleExport} title="Export Topology">
                         <IoSaveOutline />
                     </button>
                 </div>
@@ -59,15 +84,14 @@ const Sidebar = ({ isOpen, onToggle, onExport }) => {
                     </div>
                     <IoChevronBackCircleOutline
                         className={`toggle-icon ${!isOpen ? 'closed' : ''}`}
-                        onClick={onToggle}
+                        onClick={toggleSidebar}
                     />
                 </div>
                 
-                {/* Yeni: Export ikonu - sadece sidebar kapalıyken görünür */}
                 <div className="action-icons">
                     <button 
                         className="action-button" 
-                        onClick={onExport}
+                        onClick={handleExport}
                         title="Export Topology"
                     >
                         <IoSaveOutline className="action-icon" />

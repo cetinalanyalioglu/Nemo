@@ -48,7 +48,7 @@ export const NodeProvider = ({ children }) => {
         return nodeStates.hasOwnProperty(id);
     };
 
-    /**
+    /** 
      * Private function to generate unique node id
      */
     const getNewNodeId = (type) => {
