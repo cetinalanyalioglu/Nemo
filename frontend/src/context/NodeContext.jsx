@@ -387,6 +387,129 @@ export const NodeProvider = ({ children }) => {
 
     }, [setNodes, setEdges]);
 
+    /**
+     * Generates a complete state object for saving
+     * @returns {Object} The complete state object
+     */
+    const generateSaveData = useCallback(() => {
+        const saveData = {
+            nodes: nodes.map(node => {
+                // Get the node's state
+                const nodeState = nodeStates[node.id];
+                
+                // Get the node's type info
+                const typeInfo = elementInfo[node.type];
+                
+                return {
+                    id: node.id,
+                    type: node.type,
+                    position: node.position,
+                    data: node.data,
+                    style: node.style,
+                    state: nodeState,
+                    ports: {
+                        target: typeInfo?.ports?.target || [],
+                        source: typeInfo?.ports?.source || []
+                    }
+                };
+            }),
+            edges: edges,
+            nodeCounters: nodeCounters,
+            totalNodeCounters: totalNodeCounters
+        };
+
+        return saveData;
+    }, [nodes, edges, nodeStates, nodeCounters, totalNodeCounters]);
+
+    /**
+     * Saves the current state to a JSON file
+     */
+    const saveToFile = useCallback(() => {
+        try {
+            const saveData = generateSaveData();
+            
+            // Convert the data to a JSON string
+            const jsonString = JSON.stringify(saveData, null, 2);
+            
+            // Create a blob with the JSON data
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            
+            // Create a URL for the blob
+            const url = URL.createObjectURL(blob);
+            
+            // Create a temporary link element
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'canvas-state.json';
+            
+            // Append the link to the document, click it, and remove it
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up the URL
+            URL.revokeObjectURL(url);
+
+            console.debug("Successfully saved canvas state to file");
+        } catch (error) {
+            console.error("Error saving canvas state:", error);
+        }
+    }, [generateSaveData]);
+
+    /**
+     * Loads and restores the canvas state from a JSON file
+     * @param {File} file - The JSON file to load
+     */
+    const loadFromFile = useCallback((file) => {
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+            try {
+                const saveData = JSON.parse(event.target.result);
+                
+                // Reset current state
+                reset();
+                
+                // Restore node states first
+                const newNodeStates = {};
+                saveData.nodes.forEach(node => {
+                    if (node.state) {
+                        newNodeStates[node.id] = node.state;
+                    }
+                });
+                setNodeStates(newNodeStates);
+                
+                // Restore nodes
+                setNodes(saveData.nodes.map(node => ({
+                    id: node.id,
+                    type: node.type,
+                    position: node.position,
+                    data: node.data,
+                    style: node.style
+                })));
+                
+                // Restore edges
+                setEdges(saveData.edges);
+                
+                // Restore counters
+                setNodeCounters(saveData.nodeCounters);
+                setTotalNodeCounters(saveData.totalNodeCounters);
+                
+                console.debug("Successfully loaded canvas state from file");
+            } catch (error) {
+                console.error("Error loading canvas state:", error);
+                alert("Error loading file: Invalid format");
+            }
+        };
+        
+        reader.onerror = () => {
+            console.error("Error reading file");
+            alert("Error reading file");
+        };
+        
+        reader.readAsText(file);
+    }, [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters]);
+
     return (
         <NodeContext.Provider value={{
             nodeStates,
@@ -410,7 +533,10 @@ export const NodeProvider = ({ children }) => {
             finishEditing,
             selectedNodeId,
             setSelectedNodeId,
-            isValidConnection
+            isValidConnection,
+            saveToFile,
+            generateSaveData,
+            loadFromFile,
         }}>
             {children}
         </NodeContext.Provider>

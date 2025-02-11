@@ -12,7 +12,6 @@ import "../styles/canvas.css";
 import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "../context/NodeContext";
-import exportTopology from "../utils/exportTopology";
 import { useReactFlow } from '../context/ReactFlowContext';
 
 const Canvas = () => {
@@ -101,20 +100,6 @@ const Canvas = () => {
         setSelectedNodeId(null);
     };
 
-    const handleExport = useCallback(() => {
-        const dataStr = exportTopology({ nodes, edges });
-        const blob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "topology.json";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, [nodes, edges]);
-
     const handleKeyDown = useCallback((event) => {
         if (!reactFlowInstance) return;
 
@@ -174,9 +159,6 @@ const Canvas = () => {
                 <MiniMap />
             </ReactFlow>
             <ZoomIndicator zoom={zoom} />
-            <button onClick={handleExport} className="export-btn">
-                Export Topology
-            </button>
         </div>
     );
 };

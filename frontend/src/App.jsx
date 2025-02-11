@@ -1,16 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NodeProvider } from './context/NodeContext';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
+import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 
 // Main application logic component
 function AppContent() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const handleExport = () => {
+    console.log('Exporting topology...');
+  };
+
   return (
     <div className="app">
-      <Sidebar />
+      <NavigationControls 
+        isSidebarOpen={isSidebarOpen}
+        toggleSidebar={() => setIsSidebarOpen(true)}
+        handleExport={handleExport}
+      />
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen}
+        onExport={handleExport}
+      />
       <div className="canvas-container">
         <Canvas />
       </div>
