@@ -2,29 +2,8 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { elementInfo } from './nodes/nodeTypes';
 
-/**
- * NodeContext is used to share node-related state and functions 
- * throughout the component tree.
- */
 const NodeContext = createContext();
 
-/**
- * NodeProvider wraps the application (or parts of it) that need access 
- * to node states (parameters and editing states) along with functions 
- * that allow modifications.
- *
- * The provider maintains two main pieces of state:
- *  1. nodeStates: Stores parameters for each node.
- *  2. editingStates: Tracks if a node is currently being edited and 
- *     holds temporary values (e.g., temporary label inputs) during editing.
- *
- * It also provides functions to:
- *  - registerNode: To register a node and initialize its parameters.
- *  - updateNodeParameter: To update a specific parameter of a node.
- *  - startEditing: To begin editing a node (setting editing flag and initial temporary value).
- *  - onChange: To update temporary editing values as the user enters new data.
- *  - finishEditing: To finalize editing by updating the node parameters and resetting editing state.
- */
 export const NodeProvider = ({ children }) => {
   // This state holds the parameters of nodes.
   const [nodeStates, setNodeStates] = useState({});
@@ -81,46 +60,14 @@ export const NodeProvider = ({ children }) => {
       throw new Error(`Default label not found for node type: ${type}`);
     }
 
-    return `${defaultLabel}${nextCount}`;
-  };
+    let newLabel = `${defaultLabel}${nextCount}`;
 
-  /**
-   * registerNode function receives a node registration event and initializes its parameters
-   * based on default values defined in elementInfo. It expects a single node object with the 
-   * property type set to 'add' and an 'item' field containing the new node.
-   *
-   * @param {Object} node - A node registration event object.
-   */
-  const registerNode = (node) => {
-    if (node.type === 'add') {
-      // Extract the node ID and type from the provided node item.
-      const nodeId = node.item.id;
-      const nodeType = node.item.type;
-
-      // Retrieve default parameters from elementInfo for the given nodeType.
-      const defaultParams = elementInfo[nodeType]?.parameters;
-      if (!defaultParams) {
-        console.error(`ElementInfo not found for nodeType "${nodeType}"`);
-        return;
-      }
-
-      // Initialize the node's parameters with a default label and every other parameter's default value.
-      setNodeStates(prev => ({
-        ...prev,
-        [nodeId]: {
-          parameters: {
-            // Default label is set as the node ID.
-            label: nodeId,
-            ...Object.keys(defaultParams).reduce((acc, key) => {
-              if (key !== 'label') {
-                acc[key] = defaultParams[key].defaultValue;
-              }
-              return acc;
-            }, {})
-          }
-        }
-      }));
+    // Check if label is already in use
+    if (isLabelInUse(newLabel)) {
+      console.warn(`Label "${newLabel}" is already in use. This may cause confusion.`);
     }
+
+    return `${defaultLabel}${nextCount}`;
   };
 
   /**
@@ -214,24 +161,6 @@ export const NodeProvider = ({ children }) => {
     }
   }, [finishEditing]);
 
-  /**
-   * Unregisters a node from the context when it's deleted
-   * @param {string} nodeId - The id of the node to unregister
-   */
-  const unregisterNode = useCallback((nodeId) => {
-    setNodeStates(prev => {
-      const newStates = { ...prev };
-      delete newStates[nodeId];
-      return newStates;
-    });
-
-    setEditingStates(prev => {
-      const newStates = { ...prev };
-      delete newStates[nodeId];
-      return newStates;
-    });
-  }, []);
-
   // Add node function that handles both node creation and registration
   const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
     { reactFlowInstance, onNodeSelect }) => {
@@ -307,7 +236,9 @@ export const NodeProvider = ({ children }) => {
   }, [nodeCounters, totalNodeCounters]);
 
   const deleteNode = useCallback((nodeId, reactFlowInstance) => {
+
     console.log("Deleting node: ", nodeId);
+
     // Get node info before deletion
     const nodeState = nodeStates[nodeId];
     if (!nodeState || !reactFlowInstance) return;
@@ -316,27 +247,27 @@ export const NodeProvider = ({ children }) => {
 
     // Update only the current counter
     setNodeCounters(prev => ({
-        ...prev,
-        [type]: Math.max(0, prev[type] - 1)
+      ...prev,
+      [type]: Math.max(0, prev[type] - 1)
     }));
 
     // Remove from nodeStates
     setNodeStates(prev => {
-        const newStates = { ...prev };
-        delete newStates[nodeId];
-        return newStates;
+      const newStates = { ...prev };
+      delete newStates[nodeId];
+      return newStates;
     });
 
     // Remove from editingStates
     setEditingStates(prev => {
-        const newStates = { ...prev };
-        delete newStates[nodeId];
-        return newStates;
+      const newStates = { ...prev };
+      delete newStates[nodeId];
+      return newStates;
     });
 
     // Remove node from ReactFlow
-    reactFlowInstance.setNodes(nodes => 
-        nodes.filter(node => node.id !== nodeId)
+    reactFlowInstance.setNodes(nodes =>
+      nodes.filter(node => node.id !== nodeId)
     );
   }, [nodeStates]);
 
@@ -348,7 +279,6 @@ export const NodeProvider = ({ children }) => {
       totalNodeCounters,    // Total count (never decreases)
       addNode,
       deleteNode,
-      unregisterNode,
       updateNodeParameter,
       startEditing,
       onChange,
