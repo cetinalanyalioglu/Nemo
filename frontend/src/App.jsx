@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { NodeProvider } from './components/NodeContext';
+import React, { useState, useCallback, useEffect } from 'react';
+import { NodeProvider, useNodeContext } from './components/NodeContext';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
@@ -8,14 +8,14 @@ import { ReactFlowProvider } from './context/ReactFlowContext';
 
 // Ana uygulama mantığını içeren bileşen
 function AppContent() {
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);  // Başlangıçta kapalı
+  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
+  const { selectedNodeId } = useNodeContext();
 
-  const onNodeSelect = useCallback((nodeId) => {
-    setSelectedNodeId(nodeId);
-    setIsPropertiesPanelOpen(!!nodeId);  // nodeId varsa aç, yoksa kapat
-  }, []);
+  // Update properties panel visibility when selected node changes
+  useEffect(() => {
+    setIsPropertiesPanelOpen(!!selectedNodeId);
+  }, [selectedNodeId]);
 
   return (
     <div className="app">
@@ -24,7 +24,7 @@ function AppContent() {
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
       />
       <div className={`canvas-container ${!isSidebarOpen ? 'sidebar-closed' : ''} ${isPropertiesPanelOpen ? 'properties-open' : ''}`}>
-        <Canvas onNodeSelect={onNodeSelect} />
+        <Canvas />
       </div>
       <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
         <PropertiesPanel selectedNodeId={selectedNodeId} />

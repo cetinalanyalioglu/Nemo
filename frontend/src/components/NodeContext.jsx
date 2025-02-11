@@ -9,6 +9,9 @@ const NodeContext = createContext();
 export const NodeProvider = ({ children }) => {
     const { reactFlowInstance } = useReactFlow();
 
+    // Add selected node state
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
+
     // ReactFlow states
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -172,9 +175,7 @@ export const NodeProvider = ({ children }) => {
     }, [finishEditing]);
 
     // Add node function that handles both node creation and registration
-    const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
-        { onNodeSelect } = {}) => {
-
+    const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} }) => {
         console.debug("Adding node with type: ", type);
 
         if (!type) {
@@ -234,9 +235,7 @@ export const NodeProvider = ({ children }) => {
         setNodes(nodes => [...nodes, newNode]);
 
         // Update selected node
-        if (onNodeSelect) {
-            onNodeSelect(newNode.id);
-        }
+        setSelectedNodeId(newNode.id);
 
         // Update current counter
         setNodeCounters(prev => ({
@@ -250,7 +249,6 @@ export const NodeProvider = ({ children }) => {
     }, [setNodes, setNodeStates, setNodeCounters, totalNodeCounters, setTotalNodeCounters]);
 
     const deleteNode = useCallback((nodeId) => {
-
         console.debug("Deleting node with id: ", nodeId);
 
         if (!nodeId) {
@@ -290,9 +288,13 @@ export const NodeProvider = ({ children }) => {
         // Remove node from ReactFlow
         setNodes(nodes => nodes.filter(node => node.id !== nodeId));
 
-        console.debug("Successfully deleted node: ", nodeId);
+        // Clear selection if deleted node was selected
+        if (selectedNodeId === nodeId) {
+            setSelectedNodeId(null);
+        }
 
-    }, [nodeStates, setNodes]);
+        console.debug("Successfully deleted node: ", nodeId);
+    }, [nodeStates, setNodes, selectedNodeId]);
 
     return (
         <NodeContext.Provider value={{
@@ -312,7 +314,10 @@ export const NodeProvider = ({ children }) => {
             startEditing,
             onChange,
             onKeyDown,
-            finishEditing
+            finishEditing,
+            // Add selected node state to context
+            selectedNodeId,
+            setSelectedNodeId
         }}>
             {children}
         </NodeContext.Provider>

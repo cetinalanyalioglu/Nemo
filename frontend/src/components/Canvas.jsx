@@ -15,7 +15,7 @@ import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
 import { useReactFlow } from '../context/ReactFlowContext';
 
-const Canvas = ({ onNodeSelect }) => {
+const Canvas = () => {
     const reactFlowWrapper = useRef(null);
     const [zoom, setZoom] = useState(1);
     const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
@@ -27,7 +27,8 @@ const Canvas = ({ onNodeSelect }) => {
         onNodesChange,
         onEdgesChange,
         addNode,
-        deleteNode
+        deleteNode,
+        setSelectedNodeId
     } = useNodeContext();
 
     /**
@@ -72,26 +73,19 @@ const Canvas = ({ onNodeSelect }) => {
             y: event.clientY
         });
 
-        addNode(
-            { type, position },
-            { onNodeSelect }
-        );
-    }, [reactFlowInstance, addNode, onNodeSelect]);
+        addNode({ type, position });
+    }, [reactFlowInstance, addNode]);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge(params, eds));
     }, []);
 
     const handleNodeClick = (event, node) => {
-        if (typeof onNodeSelect === 'function') {
-            onNodeSelect(node.id);
-        }
+        setSelectedNodeId(node.id);
     };
 
     const handlePaneClick = (event) => {
-        if (typeof onNodeSelect === 'function') {
-            onNodeSelect(null);
-        }
+        setSelectedNodeId(null);
     };
 
     const isValidConnection = (connection) => {
