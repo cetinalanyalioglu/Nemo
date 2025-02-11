@@ -37,28 +37,56 @@ export const NodeProvider = ({ children }) => {
   }, {}));
 
   /**
-   * Private function to generate unique node id
+   * Private function to check if a label is already in use
    */
-  const getNewNodeId = (type) => {
-    const id = `${type}-${uuidv4()}`; 
-    console.log("Generated ID: ", id);
-    return id;
+  const isLabelInUse = (label) => {
+    return Object.values(nodeStates).some(
+      nodeState => nodeState.parameters.label === label
+    );
   };
 
   /**
-   * Private function to generate new node label
+   * Private function to check if an id is already in use
+   */
+  const isIdInUse = (id) => {
+    return nodeStates.hasOwnProperty(id);
+  };
+
+  /**
+   * Private function to generate unique node id
+   */
+  const getNewNodeId = (type) => {
+    let newId;
+    do {
+      newId = `${type}-${uuidv4()}`;
+    } while (isIdInUse(newId));
+    return newId;
+  };
+
+  /**
+   * Private function to generate unique node label
    */
   const getNewNodeLabel = (type) => {
-    const nextCount = nodeCounters[type] + 1;
+    let nextCount = nodeCounters[type] + 1;
     const defaultLabel = elementInfo[type]?.parameters?.label?.defaultValue;
     
     if (!defaultLabel) {
       throw new Error(`Default label not found for node type: ${type}`);
     }
 
-    console.log("Generated label: ", `${defaultLabel}${nextCount}`);
+    let newLabel;
+    do {
+      newLabel = `${defaultLabel}${nextCount}`;
+      nextCount++;
+    } while (isLabelInUse(newLabel));
 
-    return `${defaultLabel}${nextCount}`;
+    // Update the counter to the actual used number
+    setNodeCounters(prev => ({
+      ...prev,
+      [type]: nextCount - 1
+    }));
+
+    return newLabel;
   };
 
   /**
@@ -221,14 +249,9 @@ export const NodeProvider = ({ children }) => {
       throw new Error('ReactFlow instance is required!');
     }
 
-    // Generate unique node ID
+    // Generate unique node ID and label
     const id = getNewNodeId(type);
-
-    // Update counter for this node type (for label generation)
-    setNodeCounters(prev => ({
-      ...prev,
-      [type]: prev[type] + 1
-    }));
+    const label = getNewNodeLabel(type);
 
     // Get node template from elementInfo
     const nodeTemplate = elementInfo[type];
@@ -246,7 +269,7 @@ export const NodeProvider = ({ children }) => {
     const mergedParameters = { 
       ...defaultParameters, 
       ...parameters,
-      label: getNewNodeLabel(type)
+      label: label
     };
 
     // Create the new node
