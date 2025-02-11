@@ -296,12 +296,46 @@ export const NodeProvider = ({ children }) => {
         console.debug("Successfully deleted node: ", nodeId);
     }, [nodeStates, setNodes, selectedNodeId]);
 
+    /**
+     * Removes all nodes and resets all states to their initial values
+     */
+    const reset = useCallback(() => {
+
+        console.debug("Resetting all nodes and states ...");
+
+        // Clear all nodes
+        setNodes([]);
+        
+        // Clear all edges
+        setEdges([]);
+        
+        // Reset node states
+        setNodeStates({});
+        
+        // Reset editing states
+        setEditingStates({});
+        
+        // Reset current node counters
+        setNodeCounters(prev => {
+            return Object.keys(prev).reduce((acc, key) => {
+                acc[key] = 0;
+                return acc;
+            }, {});
+        });
+        
+        // Clear selected node
+        setSelectedNodeId(null);
+        
+        console.debug("All nodes and states have been cleared");
+
+    }, [setNodes, setEdges]);
+
     return (
         <NodeContext.Provider value={{
             nodeStates,
             editingStates,
-            nodeCounters,         // Current count (can decrease)
-            totalNodeCounters,    // Total count (never decreases)
+            nodeCounters,
+            totalNodeCounters,
             nodes,
             edges,
             onNodesChange,
@@ -310,12 +344,12 @@ export const NodeProvider = ({ children }) => {
             setEdges,
             addNode,
             deleteNode,
+            reset,
             updateNodeParameter,
             startEditing,
             onChange,
             onKeyDown,
             finishEditing,
-            // Add selected node state to context
             selectedNodeId,
             setSelectedNodeId
         }}>

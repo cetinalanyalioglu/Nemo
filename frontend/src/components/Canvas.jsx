@@ -16,10 +16,17 @@ import exportTopology from "../utils/exportTopology";
 import { useReactFlow } from '../context/ReactFlowContext';
 
 const Canvas = () => {
+
+    // ReactFlow wrapper (canvas wrapper)
     const reactFlowWrapper = useRef(null);
+
+    // Zoom state, used for zoom indicator, starts at 100%
     const [zoom, setZoom] = useState(1);
+
+    // Get the ReactFlow instance setter from the context
     const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
 
+    // Attach the node context
     const {
         nodes,
         edges,
@@ -81,10 +88,12 @@ const Canvas = () => {
     }, []);
 
     const handleNodeClick = (event, node) => {
+        // Set the selected node id when a node is clicked
         setSelectedNodeId(node.id);
     };
 
     const handlePaneClick = (event) => {
+        // Clear the selected node id when the pane is clicked
         setSelectedNodeId(null);
     };
 
