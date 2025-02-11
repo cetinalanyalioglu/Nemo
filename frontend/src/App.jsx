@@ -7,8 +7,6 @@ import './App.css';
 import exportTopology from './utils/exportTopology';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 import { useReactFlow } from './context/ReactFlowContext';
-import addNode from './utils/addNode';
-import { addNodes } from './utils/addNode';
 
 // Ana uygulama mantığını içeren bileşen
 function AppContent() {

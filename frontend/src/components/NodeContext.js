@@ -29,6 +29,27 @@ export const NodeProvider = ({ children }) => {
   const [nodeStates, setNodeStates] = useState({});
   // This state holds the editing statuses and temporary values of nodes.
   const [editingStates, setEditingStates] = useState({});
+  // This state holds the counters for each node type.
+  const [nodeCounters, setNodeCounters] = useState(Object.keys(elementInfo).reduce((acc, type) => {
+    acc[type] = 0;
+    return acc;
+  }, {}));
+
+  /**
+   * Private function to generate new node label
+   */
+  const getNewNodeLabel = (type) => {
+    const nextCount = nodeCounters[type] + 1;
+    const defaultLabel = elementInfo[type]?.parameters?.label?.defaultValue;
+    
+    if (!defaultLabel) {
+      throw new Error(`Default label not found for node type: ${type}`);
+    }
+
+    console.log("Generated label: ", `${defaultLabel}${nextCount}`);
+
+    return `${defaultLabel}${nextCount}`;
+  };
 
   /**
    * registerNode function receives a node registration event and initializes its parameters
@@ -42,7 +63,7 @@ export const NodeProvider = ({ children }) => {
       // Extract the node ID and type from the provided node item.
       const nodeId = node.item.id;
       const nodeType = node.item.type;
-      
+
       // Retrieve default parameters from elementInfo for the given nodeType.
       const defaultParams = elementInfo[nodeType]?.parameters;
       if (!defaultParams) {
@@ -170,7 +191,7 @@ export const NodeProvider = ({ children }) => {
       delete newStates[nodeId];
       return newStates;
     });
-    
+
     setEditingStates(prev => {
       const newStates = { ...prev };
       delete newStates[nodeId];
@@ -178,11 +199,83 @@ export const NodeProvider = ({ children }) => {
     });
   }, []);
 
+  // Add node function that handles both node creation and registration
+  const addNode = useCallback(({ id: providedId, type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
+    { reactFlowInstance, onNodeSelect }) => {
+    
+    if (!type) {
+      throw new Error('Node type is required!');
+    }
+
+    if (!reactFlowInstance) {
+      throw new Error('ReactFlow instance is required!');
+    }
+
+    // Generate node ID using counter
+    const nextCount = nodeCounters[type] + 1;
+    const id = providedId || `${type}_${nextCount}`;
+
+    console.log(`Node ID: ${id}`);
+
+    // Update counter for this node type
+    setNodeCounters(prev => ({
+      ...prev,
+      [type]: nextCount
+    }));
+
+    // Get node template from elementInfo
+    const nodeTemplate = elementInfo[type];
+    if (!nodeTemplate) {
+      throw new Error(`Element info not found for type: "${type}"`);
+    }
+
+    // Get default parameters from elementInfo
+    const defaultParameters = {};
+    for (const key in nodeTemplate.parameters) {
+      defaultParameters[key] = nodeTemplate.parameters[key].defaultValue;
+    }
+
+    // Merge provided parameters with defaults and override label
+    const mergedParameters = { 
+      ...defaultParameters, 
+      ...parameters,
+      label: getNewNodeLabel(type)  // Construct a new label for the node
+    };
+
+    // Create the new node
+    const newNode = {
+      id,
+      type,
+      position,
+      data: { ...data }
+    };
+
+    // Register node state
+    setNodeStates(prev => ({
+      ...prev,
+      [id]: {
+        parameters: mergedParameters
+      }
+    }));
+
+    // Update nodes in ReactFlow
+    const currentNodes = reactFlowInstance.getNodes();
+    reactFlowInstance.setNodes([...currentNodes, newNode]);
+
+    // Update selected node
+    if (onNodeSelect) {
+      onNodeSelect(newNode.id);
+    }
+
+    return newNode;
+  }, [nodeCounters]);
+
   return (
     <NodeContext.Provider value={{
       nodeStates,
+      nodeCounters,
       editingStates,
-      registerNode,
+      addNode,
       unregisterNode,
       updateNodeParameter,
       startEditing,
@@ -201,5 +294,11 @@ export const NodeProvider = ({ children }) => {
  * @returns {Object} The context value containing node states and CRUD functions.
  */
 export const useNodeContext = () => {
-  return useContext(NodeContext);
-}; 
+  const context = useContext(NodeContext);
+  if (!context) {
+    throw new Error('useNodeContext must be used within a NodeProvider');
+  }
+  return context;
+};
+
+export default NodeContext; 

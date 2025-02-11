@@ -17,12 +17,9 @@ import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
 import { deleteNode } from '../utils/deleteNode';
 import { useReactFlow } from '../context/ReactFlowContext';
-import {addNode, addNodes} from '../utils/addNode';
 
 const Canvas = ({ 
     onNodeSelect, 
-    onNodeAdd, 
-    getNextNodeId,
     updateNodes,
     updateEdges
 }) => {
@@ -32,7 +29,7 @@ const Canvas = ({
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
 
-    const { nodeStates, unregisterNode } = useNodeContext();
+    const { nodeStates, unregisterNode, addNode } = useNodeContext();
 
     useEffect(() => {
         updateNodes(nodes);
@@ -72,16 +69,11 @@ const Canvas = ({
         addNode(
             { type, position }, 
             { 
-                getNextNodeId, 
                 reactFlowInstance,
-                onNodeAdd, 
-                onNodeSelect, 
-                updateCounter: (nodeType) => {
-                    console.log(`"${nodeType}" tipi için sayaç güncellendi.`);
-                }
+                onNodeSelect
             }
         );
-    }, [reactFlowInstance, getNextNodeId, onNodeAdd, onNodeSelect]);
+    }, [reactFlowInstance, addNode, onNodeSelect]);
 
     const onConnect = useCallback((params) => {
         setEdges((eds) => addEdge(params, eds));
