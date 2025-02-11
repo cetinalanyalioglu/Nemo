@@ -46,6 +46,7 @@ const Canvas = ({
      */
     const onInit = (instance) => {
         setReactFlowInstance(instance);
+        console.log("ReactFlow instance initialized:", instance);
         setZoom(instance.getZoom());
     };
 
@@ -73,10 +74,7 @@ const Canvas = ({
 
         addNode(
             { type, position },
-            {
-                reactFlowInstance,
-                onNodeSelect
-            }
+            { onNodeSelect }
         );
     }, [reactFlowInstance, addNode, onNodeSelect]);
 
@@ -132,19 +130,17 @@ const Canvas = ({
     }, [nodes, edges, nodeStates]);
 
     const handleKeyDown = useCallback((event) => {
-
         if (!reactFlowInstance) return;
 
         // Handle delete key
         if (event.key === 'Delete' || event.key === 'Backspace') {
-
             // Delete selected nodes
             const selectedNodes = reactFlowInstance
                 .getNodes()
                 .filter(node => node.selected);
 
             selectedNodes.forEach(node => {
-                deleteNode(node.id, reactFlowInstance);
+                deleteNode(node.id);
             });
 
             // Delete selected edges

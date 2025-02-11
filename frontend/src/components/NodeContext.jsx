@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { elementInfo } from './nodes/nodeTypes';
+import { useReactFlow } from '../context/ReactFlowContext';
 
 const NodeContext = createContext();
 
 export const NodeProvider = ({ children }) => {
+
+  // Get access to reactFlowInstance from ReactFlowContext
+  const { reactFlowInstance } = useReactFlow();
+
   // This state holds the parameters of nodes.
   const [nodeStates, setNodeStates] = useState({});
   // This state holds the editing statuses and temporary values of nodes.
@@ -163,25 +168,27 @@ export const NodeProvider = ({ children }) => {
 
   // Add node function that handles both node creation and registration
   const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
-    { reactFlowInstance, onNodeSelect }) => {
-
-    if (!type) {
-      throw new Error('Node type is required!');
+    { onNodeSelect } = {}) => {
+    if (!reactFlowInstance) {
+      console.warn('Cannot add node: ReactFlow instance is not initialized');
+      return;
     }
 
-    if (!reactFlowInstance) {
-      throw new Error('ReactFlow instance is required!');
+    if (!type) {
+      console.warn('Cannot add node: Node type is required');
+      return;
+    }
+
+    // Get node template from elementInfo
+    const nodeTemplate = elementInfo[type];
+    if (!nodeTemplate) {
+      console.warn(`Cannot add node: Element info not found for type "${type}"`);
+      return;
     }
 
     // Generate unique node ID and label
     const id = getNewNodeId(type);
     const label = getNewNodeLabel(type);
-
-    // Get node template from elementInfo
-    const nodeTemplate = elementInfo[type];
-    if (!nodeTemplate) {
-      throw new Error(`Element info not found for type: "${type}"`);
-    }
 
     // Get default parameters from elementInfo
     const defaultParameters = {};
@@ -233,15 +240,28 @@ export const NodeProvider = ({ children }) => {
     }));
 
     return newNode;
-  }, [nodeCounters, totalNodeCounters]);
+  }, [nodeCounters, totalNodeCounters, reactFlowInstance]);
 
-  const deleteNode = useCallback((nodeId, reactFlowInstance) => {
+  const deleteNode = useCallback((nodeId) => {
+
+    if (!reactFlowInstance) {
+      console.warn('Cannot delete node: ReactFlow instance is not initialized');
+      return;
+    }
+
+    if (!nodeId) {
+      console.warn('Cannot delete node: No node ID provided');
+      return;
+    }
 
     console.log("Deleting node: ", nodeId);
 
     // Get node info before deletion
     const nodeState = nodeStates[nodeId];
-    if (!nodeState || !reactFlowInstance) return;
+    if (!nodeState) {
+      console.warn(`Cannot delete node: Node state not found for ID ${nodeId}`);
+      return;
+    }
 
     const type = nodeState.type;
 
@@ -269,7 +289,7 @@ export const NodeProvider = ({ children }) => {
     reactFlowInstance.setNodes(nodes =>
       nodes.filter(node => node.id !== nodeId)
     );
-  }, [nodeStates]);
+  }, [nodeStates, reactFlowInstance]);
 
   return (
     <NodeContext.Provider value={{
