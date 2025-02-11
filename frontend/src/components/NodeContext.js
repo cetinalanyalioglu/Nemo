@@ -30,8 +30,15 @@ export const NodeProvider = ({ children }) => {
   const [nodeStates, setNodeStates] = useState({});
   // This state holds the editing statuses and temporary values of nodes.
   const [editingStates, setEditingStates] = useState({});
-  // This state holds the counters for each node type.
+
+  // Current count of each node type
   const [nodeCounters, setNodeCounters] = useState(Object.keys(elementInfo).reduce((acc, type) => {
+    acc[type] = 0;
+    return acc;
+  }, {}));
+
+  // Total number of nodes ever added (never decreases)
+  const [totalNodeCounters, setTotalNodeCounters] = useState(Object.keys(elementInfo).reduce((acc, type) => {
     acc[type] = 0;
     return acc;
   }, {}));
@@ -67,26 +74,14 @@ export const NodeProvider = ({ children }) => {
    * Private function to generate unique node label
    */
   const getNewNodeLabel = (type) => {
-    let nextCount = nodeCounters[type] + 1;
+    const nextCount = totalNodeCounters[type] + 1;
     const defaultLabel = elementInfo[type]?.parameters?.label?.defaultValue;
-    
+
     if (!defaultLabel) {
       throw new Error(`Default label not found for node type: ${type}`);
     }
 
-    let newLabel;
-    do {
-      newLabel = `${defaultLabel}${nextCount}`;
-      nextCount++;
-    } while (isLabelInUse(newLabel));
-
-    // Update the counter to the actual used number
-    setNodeCounters(prev => ({
-      ...prev,
-      [type]: nextCount - 1
-    }));
-
-    return newLabel;
+    return `${defaultLabel}${nextCount}`;
   };
 
   /**
@@ -240,7 +235,7 @@ export const NodeProvider = ({ children }) => {
   // Add node function that handles both node creation and registration
   const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} },
     { reactFlowInstance, onNodeSelect }) => {
-    
+
     if (!type) {
       throw new Error('Node type is required!');
     }
@@ -266,8 +261,8 @@ export const NodeProvider = ({ children }) => {
     }
 
     // Merge provided parameters with defaults and override label
-    const mergedParameters = { 
-      ...defaultParameters, 
+    const mergedParameters = {
+      ...defaultParameters,
       ...parameters,
       label: label
     };
@@ -297,15 +292,62 @@ export const NodeProvider = ({ children }) => {
       onNodeSelect(newNode.id);
     }
 
+    // Update both counters
+    setNodeCounters(prev => ({
+      ...prev,
+      [type]: prev[type] + 1
+    }));
+
+    setTotalNodeCounters(prev => ({
+      ...prev,
+      [type]: prev[type] + 1
+    }));
+
     return newNode;
-  }, [nodeCounters]);
+  }, [nodeCounters, totalNodeCounters]);
+
+  const deleteNode = useCallback((nodeId, reactFlowInstance) => {
+    console.log("Deleting node: ", nodeId);
+    // Get node info before deletion
+    const nodeState = nodeStates[nodeId];
+    if (!nodeState || !reactFlowInstance) return;
+
+    const type = nodeState.type;
+
+    // Update only the current counter
+    setNodeCounters(prev => ({
+        ...prev,
+        [type]: Math.max(0, prev[type] - 1)
+    }));
+
+    // Remove from nodeStates
+    setNodeStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[nodeId];
+        return newStates;
+    });
+
+    // Remove from editingStates
+    setEditingStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[nodeId];
+        return newStates;
+    });
+
+    // Remove node from ReactFlow
+    reactFlowInstance.setNodes(nodes => 
+        nodes.filter(node => node.id !== nodeId)
+    );
+  }, [nodeStates]);
 
   return (
     <NodeContext.Provider value={{
       nodeStates,
-      nodeCounters,
       editingStates,
+      nodeCounters,         // Current count (can decrease)
+      totalNodeCounters,    // Total count (never decreases)
       addNode,
+      deleteNode,
       unregisterNode,
       updateNodeParameter,
       startEditing,

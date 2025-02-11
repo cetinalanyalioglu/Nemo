@@ -6,6 +6,7 @@ import ReactFlow, {
     useEdgesState,
     useNodesState,
     addEdge,
+    ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
@@ -15,11 +16,10 @@ import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "./NodeContext";
 import exportTopology from "../utils/exportTopology";
-import { deleteNode } from '../utils/deleteNode';
 import { useReactFlow } from '../context/ReactFlowContext';
 
-const Canvas = ({ 
-    onNodeSelect, 
+const Canvas = ({
+    onNodeSelect,
     updateNodes,
     updateEdges
 }) => {
@@ -29,7 +29,7 @@ const Canvas = ({
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
 
-    const { nodeStates, unregisterNode, addNode } = useNodeContext();
+    const { nodeStates, addNode, deleteNode } = useNodeContext();
 
     useEffect(() => {
         updateNodes(nodes);
@@ -39,6 +39,11 @@ const Canvas = ({
         updateEdges(edges);
     }, [edges, updateEdges]);
 
+    /**
+     * Initializes the ReactFlow instance and sets initial zoom level. After that the ReactFlow instance can be obtained from the context.
+     * 
+     * @param {ReactFlowInstance} instance - The ReactFlow instance being initialized
+     */
     const onInit = (instance) => {
         setReactFlowInstance(instance);
         setZoom(instance.getZoom());
@@ -67,8 +72,8 @@ const Canvas = ({
         });
 
         addNode(
-            { type, position }, 
-            { 
+            { type, position },
+            {
                 reactFlowInstance,
                 onNodeSelect
             }
@@ -100,7 +105,7 @@ const Canvas = ({
             return false;
         }
 
-        const existingEdges = edges.filter(edge => 
+        const existingEdges = edges.filter(edge =>
             edge.sourceHandle === connection.sourceHandle ||
             edge.targetHandle === connection.targetHandle
         );
@@ -127,45 +132,29 @@ const Canvas = ({
     }, [nodes, edges, nodeStates]);
 
     const handleKeyDown = useCallback((event) => {
-        if (event.key === 'Delete' || event.key === 'Backspace') {
-            // Handle node deletion
-            if (nodes.some(node => node.selected)) {
-                const selectedNodes = nodes.filter(node => node.selected);
-                console.log('Deleting nodes:', selectedNodes);
-                
-                const { deletedNodes } = deleteNode(
-                    {
-                        nodeIds: selectedNodes.map(node => node.id),
-                        nodes,
-                        edges
-                    },
-                    {
-                        setNodes,
-                        setEdges,
-                        onNodeDelete: ({ item }) => {
-                            unregisterNode(item.id);
-                        },
-                        onNodeSelect
-                    }
-                );
-                
-                console.log('Deleted nodes:', deletedNodes);
-            }
-            
-            // Handle edge deletion
-            const selectedEdges = edges.filter(edge => edge.selected);
-            if (selectedEdges.length > 0) {
-                console.log('Deleting edges:', selectedEdges);
-                
-                setEdges(prevEdges => 
-                    prevEdges.filter(edge => !edge.selected)
-                );
-                
-                console.log('Deleted edges:', selectedEdges);
-            }
-        }
-    }, [nodes, edges, setNodes, setEdges, onNodeSelect, unregisterNode]);
 
+        if (!reactFlowInstance) return;
+
+        // Handle delete key
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+
+            // Delete selected nodes
+            const selectedNodes = reactFlowInstance
+                .getNodes()
+                .filter(node => node.selected);
+
+            selectedNodes.forEach(node => {
+                deleteNode(node.id, reactFlowInstance);
+            });
+
+            // Delete selected edges
+            reactFlowInstance.setEdges(edges =>
+                edges.filter(edge => !edge.selected)
+            );
+        }
+    }, [reactFlowInstance, deleteNode]);
+
+    // Add event listener for key down event
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);
         return () => {
@@ -174,9 +163,9 @@ const Canvas = ({
     }, [handleKeyDown]);
 
     return (
-        <div 
-            className="canvas-wrapper" 
-            style={{ flex: 1 }} 
+        <div
+            className="canvas-wrapper"
+            style={{ flex: 1 }}
             ref={reactFlowWrapper}
             onDrop={onDrop}
             onDragOver={onDragOver}
