@@ -7,7 +7,7 @@ import {
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodes/nodeTypes';
-import { useNodeContext } from './NodeContext';
+import { useNodeContext } from '../context/NodeContext';
 import exportTopology from '../utils/exportTopology';
 
 const formatCategoryName = (category) => {

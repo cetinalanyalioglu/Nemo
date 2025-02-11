@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { NodeContext, useNodeContext } from '../NodeContext';
+import { NodeContext, useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowsExpand } from 'react-icons/bs';
 

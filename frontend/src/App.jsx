@@ -1,5 +1,5 @@
 import React from 'react';
-import { NodeProvider } from './components/NodeContext';
+import { NodeProvider } from './context/NodeContext';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';

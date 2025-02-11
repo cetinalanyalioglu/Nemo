@@ -11,7 +11,7 @@ import "../styles/sidebar.css";
 import "../styles/canvas.css";
 import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
-import { useNodeContext } from "./NodeContext";
+import { useNodeContext } from "../context/NodeContext";
 import exportTopology from "../utils/exportTopology";
 import { useReactFlow } from '../context/ReactFlowContext';
 

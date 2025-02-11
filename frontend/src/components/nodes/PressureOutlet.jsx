@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNodeContext } from '../NodeContext';
+import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowUpCircle } from 'react-icons/bs';
 

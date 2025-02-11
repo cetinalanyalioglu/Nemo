@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { elementInfo } from './nodes/nodeTypes';
-import { useReactFlow } from '../context/ReactFlowContext';
+import { elementInfo } from '../components/nodes/nodeTypes';
+import { useReactFlow } from './ReactFlowContext';
 import { useNodesState, useEdgesState } from 'reactflow';
 
 const NodeContext = createContext();

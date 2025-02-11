@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNodeContext } from './NodeContext';
+import { useNodeContext } from '../context/NodeContext';
 import '../styles/properties-panel.css';
 import { IoSettingsOutline, IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import { elementInfo } from './nodes/nodeTypes';
