@@ -3,10 +3,7 @@ import ReactFlow, {
     Background,
     Controls,
     MiniMap,
-    useEdgesState,
-    useNodesState,
     addEdge,
-    ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
@@ -24,12 +21,18 @@ const Canvas = ({
     updateEdges
 }) => {
     const reactFlowWrapper = useRef(null);
-    const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
-    const [nodes, setNodes, onNodesChange] = useNodesState([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [zoom, setZoom] = useState(1);
+    const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
 
-    const { nodeStates, addNode, deleteNode } = useNodeContext();
+    const {
+        nodes,
+        edges,
+        setEdges,
+        onNodesChange,
+        onEdgesChange,
+        addNode,
+        deleteNode
+    } = useNodeContext();
 
     useEffect(() => {
         updateNodes(nodes);
@@ -44,10 +47,10 @@ const Canvas = ({
      * 
      * @param {ReactFlowInstance} instance - The ReactFlow instance being initialized
      */
-    const onInit = (instance) => {
+    const onInit = useCallback((instance) => {
         setReactFlowInstance(instance);
         console.log("ReactFlow instance initialized.");
-    };
+    }, [setReactFlowInstance]);
 
     const onMove = useCallback((_, viewPort) => {
         setZoom(viewPort.zoom);
@@ -125,7 +128,7 @@ const Canvas = ({
     };
 
     const handleExport = useCallback(() => {
-        const dataStr = exportTopology({ nodes, edges, nodeStates });
+        const dataStr = exportTopology({ nodes, edges });
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
 
@@ -136,7 +139,7 @@ const Canvas = ({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }, [nodes, edges, nodeStates]);
+    }, [nodes, edges]);
 
     const handleKeyDown = useCallback((event) => {
         if (!reactFlowInstance) return;
