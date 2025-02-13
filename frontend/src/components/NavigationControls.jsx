@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import { useNodeContext } from '../context/NodeContext';
-import { FaBars, FaDownload, FaSave, FaUpload } from 'react-icons/fa';
+import { FaBars, FaSave, FaFolderOpen } from 'react-icons/fa';
 import '../styles/navigation-controls.css';
 
-const NavigationControls = ({ isSidebarOpen, toggleSidebar, handleExport }) => {
+const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
     const { saveToFile, loadFromFile } = useNodeContext();
     const fileInputRef = useRef(null);
 
@@ -23,9 +23,6 @@ const NavigationControls = ({ isSidebarOpen, toggleSidebar, handleExport }) => {
                     <FaBars />
                 </button>
             )}
-            <button onClick={handleExport} className="nav-button">
-                <FaDownload />
-            </button>
             <button onClick={saveToFile} className="nav-button">
                 <FaSave />
             </button>
@@ -39,8 +36,9 @@ const NavigationControls = ({ isSidebarOpen, toggleSidebar, handleExport }) => {
             <button 
                 onClick={() => fileInputRef.current.click()} 
                 className="nav-button"
+                title="Load Canvas"
             >
-                <FaUpload />
+                <FaFolderOpen />
             </button>
         </div>
     );
