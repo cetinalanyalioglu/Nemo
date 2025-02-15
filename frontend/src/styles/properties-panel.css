@@ -266,4 +266,44 @@
 
 .parameter-input-container:has(.checkbox-wrapper) {
     padding-right: 0;
+}
+
+/* Add to existing styles */
+
+.parameter-input.invalid {
+    border-color: #ff4444;
+    background-color: #fff0f0;
+}
+
+.parameter-input.invalid:hover,
+.parameter-input.invalid:focus {
+    border-color: #ff4444;
+    box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.2);
+}
+
+/* Tooltip styles */
+.parameter-input.invalid:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: #ff4444;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
+.parameter-input.readonly {
+    background-color: #f5f5f5;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.checkbox-wrapper.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 } 

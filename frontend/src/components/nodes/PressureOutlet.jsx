@@ -21,7 +21,8 @@ export const elementInfo = createElementInfo({
     },
     parameters: {
         label: {
-            defaultValue: 'PressureOutlet'
+            defaultValue: 'PressureOutlet',
+            editable: true  // Explicitly mark as editable
         },
         pressure: {
             label: 'Pressure',
@@ -30,14 +31,29 @@ export const elementInfo = createElementInfo({
             unit: 'Pa',
             category: 'Parameters',
             min: 0,  // Absolute pressure cannot be negative
-            max: Infinity
+            max: Infinity,
+            editable: true
         },
         allowReverseFlow: {
             label: 'Allow reverse flow',
             type: 'boolean',
             category: 'Parameters',
-            defaultValue: false  // By default, flow can only exit through the outlet
-        }
+            defaultValue: false,  // By default, flow can only exit through the outlet
+            editable: true
+        },
+        totalTemperature: {
+            label: 'Total Temperature',
+            type: 'float',
+            defaultValue: 298.15,  // Room temperature in Kelvin
+            unit: 'K',
+            category: 'Parameters',
+            min: 0,  // Absolute temperature cannot be negative
+            editable: true,
+            visibleIf: {
+                parameter: 'allowReverseFlow',
+                equals: true
+            }
+        },
     }
 });
 
@@ -52,8 +68,8 @@ export const elementInfo = createElementInfo({
  * @returns {React.Component} PressureOutlet node component
  */
 const PressureOutlet = ({ id, data, selected, type }) => {
-    const { 
-        nodeStates, 
+    const {
+        nodeStates,
         editingStates,
         startEditing: contextStartEditing,
         onChange: contextOnChange,

@@ -22,7 +22,7 @@ export const elementInfo = createElementInfo({
     },
     parameters: {
         label: {
-            defaultValue: 'Lossless Splitter'
+            defaultValue: 'LosslessSplitter'
         }
     }
 });

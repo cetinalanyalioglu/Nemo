@@ -225,27 +225,6 @@ export const NodeProvider = ({ children }) => {
         }
     }, [finishEditing]);
 
-    const updateNodeSize = useCallback((nodeId, size) => {
-
-        if (!nodeId || !size) {
-            console.error("Invalid node id or size");
-            return;
-        }
-
-        // Update the node state
-        setNodeStates(prev => ({
-            ...prev,
-            [nodeId]: {
-                ...prev[nodeId],
-                size: {
-                    width: size.width,
-                    height: size.height
-                }
-            }
-        }));
-
-    }, []);
-
     // Add node function that handles both node creation and registration
     const addNode = useCallback(({ type, position = { x: 0, y: 0 }, data = {}, parameters = {}, size = null }) => {
         console.debug("Adding node with type: ", type);
@@ -305,11 +284,7 @@ export const NodeProvider = ({ children }) => {
             position,
             data: { 
                 ...data,
-            },
-            style: size ? {
-                width: `${size.width}px`,
-                height: `${size.height}px`
-            } : undefined
+            }
         };
 
         // Update nodes in ReactFlow
@@ -445,7 +420,6 @@ export const NodeProvider = ({ children }) => {
                     type: node.type,
                     position: node.position,
                     data: node.data,
-                    style: node.style,
                     state: nodeState,
                     ports: ports
                 };
@@ -522,7 +496,6 @@ export const NodeProvider = ({ children }) => {
                     type: node.type,
                     position: node.position,
                     data: node.data,
-                    style: node.style
                 })));
 
                 // Restore edges
@@ -563,7 +536,6 @@ export const NodeProvider = ({ children }) => {
             deleteNode,
             reset,
             updateNodeParameter,
-            updateNodeSize,
             startEditing,
             onChange,
             onKeyDown,

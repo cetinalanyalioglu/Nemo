@@ -31,23 +31,16 @@ export const elementInfo = createElementInfo({
             unit: 'kg/s',
             category: 'Parameters',
             min: 0,  // Flow rate cannot be negative
+            step: 0.1,
         },
-        temperature: {
-            label: 'Temperature',
+        totalTemperature: {
+            label: 'Total Temperature',
             type: 'float',
             defaultValue: 298.15,  // Room temperature in Kelvin
             unit: 'K',
             category: 'Parameters',
             min: 0,  // Absolute temperature cannot be negative
         },
-        pressure: {
-            label: 'Total Pressure',
-            type: 'float',
-            defaultValue: 101325,  // Standard atmospheric pressure in Pascal
-            unit: 'Pa',
-            category: 'Parameters',
-            min: 0,  // Absolute pressure cannot be negative
-        }
     }
 });
 

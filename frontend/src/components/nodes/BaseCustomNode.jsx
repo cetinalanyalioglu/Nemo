@@ -25,19 +25,21 @@ export const elementInfo = {
       label: 'Width',
       type: 'number',
       defaultValue: undefined,
-      // defaultValue: 100,
       category: 'Appearance',
       description: 'Width of the node in pixels',
       min: 10,
+      step: 1,
+      unit: 'px',
     },
     height: {
       label: 'Height',
       type: 'number',
       defaultValue: undefined,
-      // defaultValue: 100,
       category: 'Appearance',
       description: 'Height of the node in pixels',
       min: 10,
+      step: 1,
+      unit: 'px',
     }
   },
   // Default empty ports configuration
@@ -69,7 +71,7 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
 
   // =========== Constants & Icon Setup ===========
   const TypeIcon = elementIcons[type];
-  const { updateNodeSize, nodeStates, updateNodeParameter } = useNodeContext();
+  const { nodeStates, updateNodeParameter } = useNodeContext();
   const { snapToGrid, gridSize, zoom } = useAppState();
   const { getNode } = useReactFlow();
 
@@ -90,7 +92,6 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   const resizeRef = useRef({});
 
   // =========== State ===========
-  const [nodeSize, setNodeSize] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
 
   // =========== Style Computations ===========
@@ -186,6 +187,7 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
    * @param {Event} e - The event that triggered the auto-resize
    */
   const autoResize = (e) => {
+    // TODO This probably has unnecessary things inside
     e.stopPropagation();
 
     // Cancel any pending animation frame
@@ -194,24 +196,10 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     }
 
     resizeRef.current.rafId = requestAnimationFrame(() => {
-      setNodeSize(null);
       // Reset node size parameters to undefined to allow auto-resize
       updateNodeParameter(id, 'width', undefined);
       updateNodeParameter(id, 'height', undefined);
 
-
-      // Wait for next frame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        const rect = nodeRef.current?.getBoundingClientRect();
-        if (rect) {
-          // Snap the auto-resized dimensions to grid
-          const snappedSize = {
-            width: snapToGridSize(rect.width),
-            height: snapToGridSize(rect.height)
-          };
-          updateNodeSize(id, snappedSize, false);
-        }
-      });
     });
   };
 
