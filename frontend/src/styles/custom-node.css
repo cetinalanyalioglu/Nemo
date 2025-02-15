@@ -21,23 +21,23 @@
   box-shadow: 0 0 0 2px #D4A72C;
 }
 
-/* Sol portu olan nodlar için */
+/* Node with left port */
 .custom-node.has-left-port {
   padding-left: 16px;  /* Extra padding for left port */
 }
 
-/* Sağ portu olan nodlar için */
+/* Node with right port */
 .custom-node.has-right-port {
   padding-right: 16px;  /* Extra padding for right port */
 }
 
-/* Seçili Node Durumu */
+/* Selected node state */
 .custom-node.custom-node-selected {
   border-color: #D4A72C;
   box-shadow: 0 0 0 2px rgba(212, 167, 44, 0.2);
 }
 
-/* Node İçeriği */
+/* Node Content */
 .custom-node-content {
   display: flex;
   flex-direction: column;
@@ -60,10 +60,10 @@
   font-weight: 300;
 }
 
-/* Port Container'lar - Ana stiller */
+/* Port Container - Base styles */
 .custom-port-container {
   position: absolute;
-  height: 100%;  /* Full node height */
+  height: 100%;
   top: 0;
   width: 20px;
   display: flex;
@@ -78,39 +78,15 @@
   right: -1px;
 }
 
-/* Port wrapper temel stili */
+/* Port wrapper base style */
 .port-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1;  /* Eşit yükseklik dağılımı */
+  flex: 1;  /* Equal height distribution */
 }
 
-/* Port sayısına göre konumlandırma */
-/* 1 Port */
-.custom-ports-1 .port-wrapper {
-  margin: auto 0;  /* Vertically centered */
-}
-
-/* 2 Port */
-.custom-ports-2 {
-  padding: 10% 0;  /* Percentage-based padding */
-}
-
-.custom-ports-2 .port-wrapper {
-  flex: 1;
-}
-
-/* 3 Port */
-.custom-ports-3 {
-  padding: 8% 0;  /* Percentage-based padding */
-}
-
-.custom-ports-3 .port-wrapper {
-  flex: 1;
-}
-
-/* Port ikonları */
+/* Port icons */
 .port-icon {
   position: absolute;
   font-size: 16px;
@@ -129,7 +105,7 @@
   padding: 0 4px;
 }
 
-/* Handle pozisyonları */
+/* Handle positions */
 .react-flow__handle.custom-handle {
   width: 16px;
   height: 16px;
@@ -138,62 +114,52 @@
   cursor: pointer;
 }
 
-/* Hover efektleri */
+/* Hover effects */
 .port-wrapper:hover .port-icon {
   color: #b38a24;
 }
 
-/* Port Positioning */
-.custom-ports-1 .react-flow__handle.custom-handle { top: 50%; }
-
-.custom-ports-2 .react-flow__handle.custom-handle:nth-child(1) { top: 33%; }
-.custom-ports-2 .react-flow__handle.custom-handle:nth-child(2) { top: 67%; }
-
-.custom-ports-3 .react-flow__handle.custom-handle:nth-child(1) { top: 25%; }
-.custom-ports-3 .react-flow__handle.custom-handle:nth-child(2) { top: 50%; }
-.custom-ports-3 .react-flow__handle.custom-handle:nth-child(3) { top: 75%; }
-
-/* Sol taraftaki portlar için */
+/* Left side port icons */
 .custom-port-left .port-icon-source {
   left: -10px;
-  transform: rotate(180deg);  /* Dışa dönük */
+  transform: rotate(180deg);  /* Outward facing */
 }
 
 .custom-port-left .port-icon-target {
   left: -10px;
-  transform: rotate(0deg);   /* İçe dönük */
+  transform: rotate(0deg);   /* Inward facing */
 }
 
-/* Sağ taraftaki portlar için */
+/* Right side port icons */
 .custom-port-right .port-icon-source {
   right: -10px;
-  transform: rotate(180deg);  /* İçe dönük */
+  transform: rotate(180deg);  /* Inward facing */
 }
 
 .custom-port-right .port-icon-target {
   right: -10px;
-  transform: rotate(0deg);   /* Dışa dönük */
+  transform: rotate(0deg);   /* Outward facing */
 }
 
-/* Port indeks stilleri */
+/* Port index styles */
 .port-index {
   position: absolute;
   font-size: 9px;
   color: #666;
   background: white;
   padding: 0 2px;
-  z-index: 10;  /* En üstte görünmesi için */
+  z-index: 10;  /* Ensure it's on top */
 }
 
 .port-icon-target ~ .port-index {
-  left: 7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
+  left: 7px;  /* Closer to the chevron */
 }
 
 .port-icon-source ~ .port-index {
-  right:7px;  /* 12px'den 8px'e düşürdük - chevron'a daha yakın */
+  right: 7px;  /* Closer to the chevron */
 }
 
-/* Resize handle için yeni stiller */
+/* Resize handle styles */
 .custom-node .resize-handle {
   position: absolute;
   right: -3px;
@@ -201,30 +167,30 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #D4A72C; /* Node seçili iken kullanılan sarı renk */
+  background-color: #D4A72C;  /* Same yellow as selected node */
   cursor: se-resize;
   transition: transform 0.2s ease, background-color 0.2s ease;
   z-index: 10;
 }
 
-/* Hover efekti */
+/* Hover effect for resize handle */
 .custom-node .resize-handle:hover {
   transform: scale(1.2);
-  background-color: #b38a24; /* Biraz daha koyu ton */
+  background-color: #b38a24;  /* Darker shade */
 }
 
-/* Aktif (basılı) durumda */
+/* Active state for resize handle */
 .custom-node .resize-handle:active {
   transform: scale(0.95);
-  background-color: #8c6d1c; /* Daha da koyu ton */
+  background-color: #8c6d1c;  /* Even darker shade */
 }
 
-/* Node seçili değilken handle gizli */
+/* Hide resize handle when node is not selected */
 .custom-node:not(.custom-node-selected) .resize-handle {
   display: none;
 }
 
-/* Tip ikonu için stil */
+/* Node type icon */
 .node-type-icon {
   position: relative;
   margin: 0 5px 0 2px;
@@ -233,17 +199,17 @@
   opacity: 0.75;
 }
 
-/* Hover durumunda hafif opaklık artışı */
+/* Hover opacity increase */
 .custom-node:hover .node-type-icon {
   opacity: 0.9;
 }
 
-/* Seçili durumda daha belirgin */
+/* Selected state opacity */
 .custom-node-selected .node-type-icon {
   opacity: 0.9;
 }
 
-/* Resize sırasında tüm transition'ları devre dışı bırak */
+/* Disable transitions during resize */
 .custom-node.resizing {
   transition: none !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;

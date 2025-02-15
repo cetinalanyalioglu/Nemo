@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsLightningFill } from 'react-icons/bs';
 import { createElementInfo } from './nodeUtils';
+import { useReactFlow } from 'reactflow';
+import { useUpdateNodeInternals } from 'reactflow';
 
 export const elementIcon = BsLightningFill;
 
@@ -58,8 +60,11 @@ const Junction = ({ id, data, selected, type }) => {
     startEditing: contextStartEditing,
     onChange: contextOnChange,
     onKeyDown: contextOnKeyDown,
-    finishEditing: contextFinishEditing
+    finishEditing: contextFinishEditing,
   } = useNodeContext();
+
+  const updateNodeInternals = useUpdateNodeInternals();
+  const { getEdges, setEdges } = useReactFlow();
 
   const nodeState = nodeStates[id];
   const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
@@ -76,6 +81,50 @@ const Junction = ({ id, data, selected, type }) => {
   // Generate automatic port IDs based on the port counts
   const leftPorts = Array.from({ length: leftPortCount }, (_, index) => `${index}`);
   const rightPorts = Array.from({ length: rightPortCount }, (_, index) => `${leftPortCount + index}`);
+
+  // Effect to manage edges when port configuration changes
+  useEffect(() => {
+    const edges = getEdges();
+    let needsUpdate = false;
+
+    // Get all edges connected to this node
+    const nodeEdges = edges.filter(edge => edge.source === id || edge.target === id);
+    
+    // Separate edges by port side (left/target and right/source)
+    const leftEdges = nodeEdges.filter(edge => edge.target === id);
+    const rightEdges = nodeEdges.filter(edge => edge.source === id);
+
+    // Create new edges array starting with edges not connected to this node
+    const newEdges = edges.filter(edge => edge.source !== id && edge.target !== id);
+
+    // Helper to update edge handle IDs
+    const createNewEdge = (edge, portId) => ({
+      ...edge,
+      sourceHandle: edge.source === id ? `${id}-port-${portId}` : edge.sourceHandle,
+      targetHandle: edge.target === id ? `${id}-port-${portId}` : edge.targetHandle
+    });
+
+    // Keep as many left (target) edges as possible
+    leftEdges.slice(0, leftPortCount).forEach((edge, index) => {
+      newEdges.push(createNewEdge(edge, leftPorts[index]));
+      needsUpdate = true;
+    });
+
+    // Keep as many right (source) edges as possible
+    rightEdges.slice(0, rightPortCount).forEach((edge, index) => {
+      newEdges.push(createNewEdge(edge, rightPorts[index]));
+      needsUpdate = true;
+    });
+
+    // Update edges if any changes were made
+    if (needsUpdate) {
+      console.log(`Updating edges for Junction node ${id}`);
+      setEdges(newEdges);
+    }
+
+    // Always update node internals to ensure proper rendering
+    updateNodeInternals(id);
+  }, [id, leftPortCount, rightPortCount, getEdges, setEdges, updateNodeInternals]);
 
   // Configure dynamic ports object with left ports as targets and right ports as sources
   const dynamicPorts = {

@@ -76,7 +76,6 @@ export const NodeProvider = ({ children }) => {
             newId = `${type}-${counter + 1}-${generateRandomSuffix()}`;
         }
         
-        console.debug("New node id generated: ", newId);
         return newId;
     };
 
@@ -92,8 +91,7 @@ export const NodeProvider = ({ children }) => {
             throw new Error(`Default label not found for node type: ${type}`);
         }
 
-        let newLabel = `${defaultLabel}-${nextCount}`;
-        console.debug("New node label generated: ", newLabel);
+        let newLabel = `${defaultLabel}${nextCount}`;
 
         // Check if label is already in use
         if (isLabelInUse(newLabel)) {
@@ -240,8 +238,6 @@ export const NodeProvider = ({ children }) => {
             console.error(`Cannot add node: Element info not found for type "${type}"`);
             return;
         }
-
-        console.debug("Total node counters before update: ", totalNodeCounters);
 
         // Update counters first to ensure proper label generation
         setTotalNodeCounters(prev => ({
