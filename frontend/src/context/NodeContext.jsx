@@ -396,10 +396,26 @@ export const NodeProvider = ({ children }) => {
             nodes: nodes.map(node => {
                 // Get the node's state
                 const nodeState = nodeStates[node.id];
-                
-                // Get the node's type info
-                const typeInfo = elementInfo[node.type];
-                
+
+                // Get all edges connected to this node
+                const nodeEdges = edges.filter(edge =>
+                    edge.source === node.id || edge.target === node.id
+                );
+
+                // Extract port information from actual connections
+                const ports = {
+                    target: nodeEdges
+                        .filter(edge => edge.target === node.id)
+                        .map(edge => ({
+                            id: edge.targetHandle,
+                        })),
+                    source: nodeEdges
+                        .filter(edge => edge.source === node.id)
+                        .map(edge => ({
+                            id: edge.sourceHandle,
+                        }))
+                };
+
                 return {
                     id: node.id,
                     type: node.type,
@@ -407,10 +423,7 @@ export const NodeProvider = ({ children }) => {
                     data: node.data,
                     style: node.style,
                     state: nodeState,
-                    ports: {
-                        target: typeInfo?.ports?.target || [],
-                        source: typeInfo?.ports?.source || []
-                    }
+                    ports: ports
                 };
             }),
             edges: edges,
@@ -427,26 +440,26 @@ export const NodeProvider = ({ children }) => {
     const saveToFile = useCallback(() => {
         try {
             const saveData = generateSaveData();
-            
+
             // Convert the data to a JSON string
             const jsonString = JSON.stringify(saveData, null, 2);
-            
+
             // Create a blob with the JSON data
             const blob = new Blob([jsonString], { type: 'application/json' });
-            
+
             // Create a URL for the blob
             const url = URL.createObjectURL(blob);
-            
+
             // Create a temporary link element
             const link = document.createElement('a');
             link.href = url;
             link.download = 'canvas-state.json';
-            
+
             // Append the link to the document, click it, and remove it
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             // Clean up the URL
             URL.revokeObjectURL(url);
 
@@ -462,14 +475,14 @@ export const NodeProvider = ({ children }) => {
      */
     const loadFromFile = useCallback((file) => {
         const reader = new FileReader();
-        
+
         reader.onload = (event) => {
             try {
                 const saveData = JSON.parse(event.target.result);
-                
+
                 // Reset current state
                 reset();
-                
+
                 // Restore node states first
                 const newNodeStates = {};
                 saveData.nodes.forEach(node => {
@@ -478,7 +491,7 @@ export const NodeProvider = ({ children }) => {
                     }
                 });
                 setNodeStates(newNodeStates);
-                
+
                 // Restore nodes
                 setNodes(saveData.nodes.map(node => ({
                     id: node.id,
@@ -487,26 +500,26 @@ export const NodeProvider = ({ children }) => {
                     data: node.data,
                     style: node.style
                 })));
-                
+
                 // Restore edges
                 setEdges(saveData.edges);
-                
+
                 // Restore counters
                 setNodeCounters(saveData.nodeCounters);
                 setTotalNodeCounters(saveData.totalNodeCounters);
-                
+
                 console.debug("Successfully loaded canvas state from file");
             } catch (error) {
                 console.error("Error loading canvas state:", error);
                 alert("Error loading file: Invalid format");
             }
         };
-        
+
         reader.onerror = () => {
             console.error("Error reading file");
             alert("Error reading file");
         };
-        
+
         reader.readAsText(file);
     }, [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters]);
 
