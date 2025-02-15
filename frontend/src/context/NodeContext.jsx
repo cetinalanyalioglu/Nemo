@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { elementInfo } from '../components/nodes/nodeTypes';
 import { useNodesState, useEdgesState } from 'reactflow';
 
@@ -46,13 +45,37 @@ export const NodeProvider = ({ children }) => {
     };
 
     /** 
+     * Private function to generate a random string of specified length
+     */
+    const generateRandomSuffix = (length = 3) => {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    };
+
+    /** 
      * Private function to generate unique node id
+     * Format: {FULL_TYPE_NAME}-{COUNTER}-{RANDOM_SUFFIX}
+     * Example: MassFlowInlet-1-x7k
      */
     const getNewNodeId = (type) => {
-        let newId;
-        do {
-            newId = `${type}-${uuidv4()}`;
-        } while (isIdInUse(newId));
+        // Get the current counter for this type
+        const counter = totalNodeCounters[type] || 0;
+        
+        // Generate a random suffix
+        const suffix = generateRandomSuffix();
+        
+        // Combine to create the new ID using full type name
+        let newId = `${type}-${counter + 1}-${suffix}`;
+        
+        // In the unlikely case of a collision, regenerate with a new suffix
+        while (isIdInUse(newId)) {
+            newId = `${type}-${counter + 1}-${generateRandomSuffix()}`;
+        }
+        
         console.debug("New node id generated: ", newId);
         return newId;
     };
@@ -69,7 +92,7 @@ export const NodeProvider = ({ children }) => {
             throw new Error(`Default label not found for node type: ${type}`);
         }
 
-        let newLabel = `${defaultLabel}${nextCount}`;
+        let newLabel = `${defaultLabel}-${nextCount}`;
         console.debug("New node label generated: ", newLabel);
 
         // Check if label is already in use
