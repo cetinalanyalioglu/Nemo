@@ -5,13 +5,19 @@ import { BsArrowUpCircle } from 'react-icons/bs';
 
 export const elementIcon = BsArrowUpCircle;
 
+/**
+ * Configuration object for the PressureOutlet element.
+ * Defines a boundary condition node that specifies outlet pressure conditions.
+ * Contains a single input port and configurable pressure parameters.
+ */
 export const elementInfo = {
     type: 'PressureOutlet',
     displayName: 'Pressure Outlet',
     category: 'Single port elements',
+    // Single input port configuration
     ports: {
-        target: ['in1'],
-        source: []
+        target: ['0'],  // Input port for flow
+        source: []      // No output ports
     },
     parameters: {
         label: {
@@ -22,21 +28,31 @@ export const elementInfo = {
         pressure: {
             label: 'Pressure',
             type: 'float',
-            defaultValue: 101325,
+            defaultValue: 101325,  // Standard atmospheric pressure in Pascal
             unit: 'Pa',
             category: 'Parameters',
-            min: 0,
+            min: 0,  // Absolute pressure cannot be negative
             max: Infinity
         },
         allowReverseFlow: {
             label: 'Allow reverse flow',
             type: 'boolean',
             category: 'Parameters',
-            defaultValue: false
+            defaultValue: false  // By default, flow can only exit through the outlet
         }
     }
 };
 
+/**
+ * PressureOutlet component representing a boundary condition for flow outlet.
+ * Specifies pressure conditions and flow direction constraints at the outlet.
+ * 
+ * @param {string} id - Unique identifier for the node
+ * @param {Object} data - Node data containing parameters and state
+ * @param {boolean} selected - Whether the node is currently selected
+ * @param {string} type - Type of the node
+ * @returns {React.Component} PressureOutlet node component
+ */
 const PressureOutlet = ({ id, data, selected, type }) => {
     const { 
         nodeStates, 
@@ -51,7 +67,8 @@ const PressureOutlet = ({ id, data, selected, type }) => {
     const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
     if (!nodeState) {
-        return <div>Loading...</div>;
+        console.log("Received null nodeState while rendering node ", id);
+        return <div>Error</div>;
     }
 
     return (

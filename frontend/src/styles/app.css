@@ -1,16 +1,19 @@
+/* Main application layout styles */
+
 .app {
   display: flex;
   height: 100vh;
   position: relative;
 }
 
-/* Ana wrapper ekleyelim */
+/* Main content wrapper */
 .main-content {
   display: flex;
   flex: 1;
   position: relative;
 }
 
+/* Canvas container styles */
 .canvas-container {
   flex: 1;
   position: relative;
@@ -21,26 +24,27 @@
   transition: all 0.3s ease;
 }
 
-/* Sidebar açıkken canvas'i sola kaydır */
+/* Shift canvas when sidebar is open */
 .sidebar.open ~ .canvas-container {
   margin-left: 250px;
 }
 
-/* Properties panel açıkken canvas'i sağa kaydır */
+/* Shift canvas when properties panel is open */
 .canvas-container.properties-open {
-  margin-right: 300px;
+  margin-right: 250px;
 }
 
-/* ReactFlow container'ının boyutunu güncelle */
+/* Update ReactFlow container width when properties panel is open */
 .canvas-container.properties-open .react-flow {
   width: 100% !important;
 }
 
+/* Properties panel container styles */
 .properties-panel-container {
-  position: fixed;  /* Tekrar fixed yaptık */
+  position: fixed;
   top: 0;
   right: 0;
-  width: 300px;
+  width: 250px;
   height: 100vh;
   background: white;
   transition: transform 0.3s ease;
@@ -57,14 +61,6 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 300px;
+  width: 250px;
   height: 100%;
 }
-
-.element-library {
-  width: 250px;
-  min-width: 250px;
-  height: 100vh;
-  border-right: 1px solid #ccc;
-  background: white;
-} 

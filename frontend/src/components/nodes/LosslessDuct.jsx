@@ -1,16 +1,22 @@
-import React, { useState, useContext } from 'react';
+import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowLeftRight } from 'react-icons/bs';
 
 export const elementIcon = BsArrowLeftRight;
 
+/**
+ * Configuration object for the LosslessDuct element.
+ * Defines a duct component that simulates fluid flow without energy losses.
+ * Contains fixed input/output ports and configurable physical parameters.
+ */
 export const elementInfo = {
     type: 'LosslessDuct',
     displayName: 'Lossless Duct',
+    // Fixed ports configuration: one input (target) and one output (source)
     ports: {
-        target: ['port-0'],
-        source: ['port-1']
+        target: ['0'],
+        source: ['1']
     },
     category: 'Two port elements',
     parameters: {
@@ -26,8 +32,7 @@ export const elementInfo = {
             defaultValue: 0.1,
             unit: 'm',
             category: 'Parameters',
-            min: 0.001,
-            max: 100
+            min: 0.000001,  // Minimum diameter: 1 micron
         },
         length: {
             label: 'Length',
@@ -35,15 +40,24 @@ export const elementInfo = {
             defaultValue: 1.0,
             unit: 'm',
             category: 'Parameters',
-            min: 0.001,
-            max: 100
+            min: 0.000001,  // Minimum length: 1 micron
         }
     }
 };
 
+/**
+ * LosslessDuct component representing an ideal duct with no energy losses.
+ * Provides a two-port element with configurable diameter and length parameters.
+ * 
+ * @param {string} id - Unique identifier for the node
+ * @param {Object} data - Node data containing parameters and state
+ * @param {boolean} selected - Whether the node is currently selected
+ * @param {string} type - Type of the node
+ * @returns {React.Component} LosslessDuct node component
+ */
 const LosslessDuct = ({ id, data, selected, type }) => {
-    const { 
-        nodeStates, 
+    const {
+        nodeStates,
         editingStates,
         startEditing: contextStartEditing,
         onChange: contextOnChange,
@@ -55,7 +69,8 @@ const LosslessDuct = ({ id, data, selected, type }) => {
     const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
     if (!nodeState) {
-        return <div>Loading...</div>;
+        console.log("Received null nodeState while rendering node ", id);
+        return <div>Error</div>;
     }
 
     return (

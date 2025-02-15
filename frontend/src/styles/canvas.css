@@ -10,35 +10,21 @@
 }
 
 /* Adjust canvas container when sidebar is closed */
-.sidebar:not(.open) + .canvas-container {
-  margin-left: 60px; /* Width of the closed sidebar icons */
+.sidebar:not(.open)+.canvas-container {
+  margin-left: 60px;
+  /* Width of the closed sidebar icons */
 }
 
 /* Adjust canvas container when sidebar is open */
-.sidebar.open + .canvas-container {
-  margin-left: 250px; /* Width of the open sidebar */
+.sidebar.open+.canvas-container {
+  margin-left: 250px;
+  /* Width of the open sidebar */
 }
 
 /* Adjust canvas container when properties panel is open */
 .canvas-container:has(+ .properties-panel-container.open) {
-  margin-right: 300px; /* Width of the properties panel */
-}
-
-.export-btn {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 10px 20px;
-  background-color: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 5;
-}
-
-.export-btn:hover {
-  background-color: #357abd;
+  margin-right: 250px;
+  /* Width of the properties panel */
 }
 
 .react-flow {
@@ -91,4 +77,4 @@
 
 .react-flow__attribution {
   z-index: 101;
-} 
+}

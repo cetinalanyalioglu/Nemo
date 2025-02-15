@@ -1,3 +1,4 @@
+/* Properties panel layout and transitions */
 .properties-panel-container {
     width: 0;
     transition: width 0.3s ease;
@@ -6,11 +7,11 @@
 }
 
 .properties-panel-container.open {
-    width: 300px;
+    width: 250px;
 }
 
 .properties-panel {
-    width: 300px; /* Sabit genişlik */
+    width: 250px; /* Fixed width */
     height: 100%;
     background: white;
     overflow-y: auto;
@@ -38,6 +39,7 @@
     color: #666;
 }
 
+/* Parameter group styling */
 .parameter-group {
     margin: 0;
     padding: 16px;
@@ -81,7 +83,7 @@
 
 .group-content {
     transition: all 0.2s ease;
-    max-height: 1000px; /* yeterince büyük bir değer */
+    max-height: 1000px; /* sufficiently large value */
     opacity: 1;
     overflow: hidden;
 }
@@ -115,6 +117,7 @@
     color: #333;
 }
 
+/* Input controls */
 .parameter-input-container {
     display: flex;
     align-items: center;
@@ -134,13 +137,14 @@
     background: #fafafa;
 }
 
+/* Number input specific styles */
 .parameter-input[type="number"] {
-    -moz-appearance: textfield;
+    -moz-appearance: textfield;  /* Remove spinner for Firefox */
 }
 
 .parameter-input[type="number"]::-webkit-outer-spin-button,
 .parameter-input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
+    -webkit-appearance: none;  /* Remove spinner for Chrome */
     margin: 0;
 }
 

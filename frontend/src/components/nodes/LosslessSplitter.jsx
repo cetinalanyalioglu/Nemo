@@ -1,16 +1,22 @@
-import React, { useState, useContext } from 'react';
+import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsDiagram2 } from 'react-icons/bs';
 
 export const elementIcon = BsDiagram2;
 
+/**
+ * Configuration object for the LosslessSplitter element.
+ * Defines a component that splits a flow into two outputs without energy losses.
+ * Contains fixed configuration of one input port and two output ports.
+ */
 export const elementInfo = {
     type: 'LosslessSplitter',
     displayName: 'Lossless Splitter',
+    // Fixed ports configuration: one input (target) and two outputs (sources)
     ports: {
-        target: ['port-0'],
-        source: ['port-1', 'port-2']
+        target: ['0'],  // Input port
+        source: ['1', '2']  // Two output ports
     },
     category: 'Three port elements',
     parameters: {
@@ -23,9 +29,19 @@ export const elementInfo = {
     }
 };
 
+/**
+ * LosslessSplitter component representing a flow splitter with no energy losses.
+ * Splits an input flow into two output flows while maintaining conservation laws.
+ * 
+ * @param {string} id - Unique identifier for the node
+ * @param {Object} data - Node data containing parameters and state
+ * @param {boolean} selected - Whether the node is currently selected
+ * @param {string} type - Type of the node
+ * @returns {React.Component} LosslessSplitter node component
+ */
 const LosslessSplitter = ({ id, data, selected, type }) => {
-    const { 
-        nodeStates, 
+    const {
+        nodeStates,
         editingStates,
         startEditing: contextStartEditing,
         onChange: contextOnChange,
@@ -37,7 +53,8 @@ const LosslessSplitter = ({ id, data, selected, type }) => {
     const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
     if (!nodeState) {
-        return <div>Loading...</div>;
+        console.log("Received null nodeState while rendering node ", id);
+        return <div>Error</div>;
     }
 
     return (

@@ -11,21 +11,15 @@ import { ReactFlowProvider } from './context/ReactFlowContext';
 function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const handleExport = () => {
-    console.log('Exporting topology...');
-  };
-
   return (
     <div className="app">
       <NavigationControls 
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(true)}
-        handleExport={handleExport}
       />
       <Sidebar 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen}
-        onExport={handleExport}
       />
       <div className="canvas-container">
         <Canvas />

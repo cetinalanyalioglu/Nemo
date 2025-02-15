@@ -173,7 +173,7 @@
     font-weight: 500;
 }
 
-/* Scrollbar stilleri */
+/* Scrollbar styling */
 .sidebar::-webkit-scrollbar {
     width: 6px;
 }
@@ -203,22 +203,22 @@
 }
 
 .sidebar:not(.open) .panel-icon {
-    margin: 0; /* İkon merkezde olsun */
+    margin: 0; /* Center the icon */
 }
 
 .sidebar:not(.open) .panel-title,
 .sidebar:not(.open) .group-header,
 .sidebar:not(.open) .group-content {
-    display: none; /* Diğer içerikleri gizle */
+    display: none; /* Hide other content */
 }
 
-/* Kapalıyken hover efekti */
+/* Hover effect when closed */
 .sidebar:not(.open) .toggle-button:hover {
     background: #f5f5f5;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
-/* Panel kapalıyken görünecek kütüphane butonu */
+/* Library button visible when panel is closed */
 .library-button {
     width: 40px;
     height: 40px;
@@ -235,31 +235,22 @@
     border: none;
 }
 
-.library-button:hover {
-    color: #D4A72C;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.save-button {
-    font-size: 18px;
-}
-
-/* Panel açıkken kütüphane butonu gizlensin */
+/* Hide library button when panel is open */
 .sidebar.open + .library-button {
     display: none;
 }
 
-/* Yeni eklenen stiller */
+/* Additional styles */
 .action-icons {
-    display: none; /* Varsayılan olarak gizli */
+    display: none; /* Hidden by default */
     position: absolute;
     left: 0;
-    top: 60px; /* Library ikonunun altında */
+    top: 60px; /* Below library icon */
     width: 100%;
     padding: 8px 0;
 }
 
-/* Sidebar kapalıyken göster */
+/* Show when sidebar is closed */
 .sidebar:not(.open) .action-icons {
     display: flex;
     flex-direction: column;

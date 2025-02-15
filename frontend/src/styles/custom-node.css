@@ -23,12 +23,12 @@
 
 /* Sol portu olan nodlar için */
 .custom-node.has-left-port {
-  padding-left: 16px;  /* Sol port için extra padding */
+  padding-left: 16px;  /* Extra padding for left port */
 }
 
 /* Sağ portu olan nodlar için */
 .custom-node.has-right-port {
-  padding-right: 16px;  /* Sağ port için extra padding */
+  padding-right: 16px;  /* Extra padding for right port */
 }
 
 /* Seçili Node Durumu */
@@ -63,7 +63,7 @@
 /* Port Container'lar - Ana stiller */
 .custom-port-container {
   position: absolute;
-  height: 100%;  /* Node yüksekliğine göre */
+  height: 100%;  /* Full node height */
   top: 0;
   width: 20px;
   display: flex;
@@ -89,12 +89,12 @@
 /* Port sayısına göre konumlandırma */
 /* 1 Port */
 .custom-ports-1 .port-wrapper {
-  margin: auto 0;  /* Dikeyde ortala */
+  margin: auto 0;  /* Vertically centered */
 }
 
 /* 2 Port */
 .custom-ports-2 {
-  padding: 10% 0;  /* Yüzdesel padding */
+  padding: 10% 0;  /* Percentage-based padding */
 }
 
 .custom-ports-2 .port-wrapper {
@@ -103,7 +103,7 @@
 
 /* 3 Port */
 .custom-ports-3 {
-  padding: 8% 0;  /* Yüzdesel padding */
+  padding: 8% 0;  /* Percentage-based padding */
 }
 
 .custom-ports-3 .port-wrapper {

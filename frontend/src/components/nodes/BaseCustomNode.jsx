@@ -147,14 +147,14 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
    * Creates Handle components for each input port with appropriate styling and positioning.
    */
   const renderTargetPorts = useMemo(() => {
-    return targetPorts.map((portId, idx) => (
+    return targetPorts.map(portId => (
       <div key={portId} className="port-wrapper">
         <IoChevronForward className="port-icon port-icon-target" />
-        <span className="port-index">{idx}</span>
+        <span className="port-index">{portId}</span>
         <Handle
           type="target"
           position="left"
-          id={`${id}-port-${idx}`}
+          id={`${id}-port-${portId}`}
           className="react-flow__handle custom-handle"
         />
       </div>

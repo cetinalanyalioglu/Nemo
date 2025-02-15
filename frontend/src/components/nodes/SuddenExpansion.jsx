@@ -1,16 +1,22 @@
-import React, { useState, useContext } from 'react';
-import { NodeContext, useNodeContext } from '../../context/NodeContext';
+import React from 'react';
+import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowsExpand } from 'react-icons/bs';
 
 export const elementIcon = BsArrowsExpand;
 
+/**
+ * Configuration object for the SuddenExpansion element.
+ * Defines a component that models a sudden increase in flow area.
+ * Contains one input and one output port.
+ */
 export const elementInfo = {
     type: 'SuddenExpansion',
     displayName: 'Sudden Expansion',
+    // Fixed ports configuration: one input and one output
     ports: {
-        target: ['port-0'],
-        source: ['port-1']
+        target: ['0'],  // Input port (smaller diameter)
+        source: ['1']   // Output port (larger diameter)
     },
     category: 'Two port elements',
     parameters: {
@@ -20,17 +26,19 @@ export const elementInfo = {
             defaultValue: 'SuddenExpansion',
             category: 'General',
         },
-        expansionRatio: {
-            label: 'Expansion Ratio',
-            type: 'float',
-            defaultValue: 2.0,
-            category: 'Parameters',
-            min: 1.0,
-            max: 10.0
-        }
     }
 };
 
+/**
+ * SuddenExpansion component representing an abrupt increase in flow area.
+ * Models the pressure loss and flow behavior in a sudden expansion.
+ * 
+ * @param {string} id - Unique identifier for the node
+ * @param {Object} data - Node data containing parameters and state
+ * @param {boolean} selected - Whether the node is currently selected
+ * @param {string} type - Type of the node
+ * @returns {React.Component} SuddenExpansion node component
+ */
 const SuddenExpansion = ({ id, data, selected, type }) => {
     const { 
         nodeStates, 
@@ -45,7 +53,8 @@ const SuddenExpansion = ({ id, data, selected, type }) => {
     const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
     if (!nodeState) {
-        return <div>Loading...</div>;
+        console.log("Received null nodeState while rendering node ", id);
+        return <div>Error</div>;
     }
 
     return (

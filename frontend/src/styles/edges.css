@@ -1,3 +1,4 @@
+/* Edge styling variables */
 :root {
     --edge-width: 1px;
     --edge-color: #4a4a4a;
@@ -5,6 +6,7 @@
     --highlight-width: 1px;
 }
 
+/* Base edge path styles */
 .react-flow__edge-path {
     stroke-width: var(--edge-width);
     stroke: var(--edge-color);
@@ -27,32 +29,11 @@
     fill: none;
 }
 
-/* .react-flow__node {
-    z-index: 3;
-} */
-
-/* .selected {
-    z-index: 1000;
-} */
-
-/* .selected path {
-    stroke: var(--highlight-color) !important;
-    filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
-} */
-
-/* .selected marker path {
-    fill: var(--highlight-color) !important;
-    stroke: none;
-} */
-
-/* .react-flow__connection-path {
-    stroke: #D4A72C;
-  } */
+/* Edge connection validation styles */
+.react-flow__connection.valid path {
+    stroke: #4CAF50;  /* Valid connection indicator */
+}
   
-  .react-flow__connection.valid path {
-    stroke: #4CAF50;
-  }
-  
-  .react-flow__connection.invalid path {
-    stroke: #f44336;
-  }
+.react-flow__connection.invalid path {
+    stroke: #f44336;  /* Invalid connection indicator */
+}

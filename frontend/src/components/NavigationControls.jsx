@@ -3,10 +3,31 @@ import { useNodeContext } from '../context/NodeContext';
 import { FaBars, FaSave, FaFolderOpen } from 'react-icons/fa';
 import '../styles/navigation-controls.css';
 
+/**
+ * NavigationControls component provides file operations and sidebar toggle functionality.
+ * Includes buttons for:
+ * - Toggling the sidebar visibility
+ * - Saving the current canvas state to a file
+ * - Loading a previously saved canvas state
+ * 
+ * @param {Object} props Component properties
+ * @param {boolean} props.isSidebarOpen Current state of the sidebar
+ * @param {Function} props.toggleSidebar Function to toggle sidebar visibility
+ * @returns {React.Component} Navigation controls bar
+ */
 const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
+    // Get file operation functions from context
     const { saveToFile, loadFromFile } = useNodeContext();
+    
+    // Reference to hidden file input for opening files
     const fileInputRef = useRef(null);
 
+    /**
+     * Handles file selection from the file dialog
+     * Loads the selected file and resets the input for reuse
+     * 
+     * @param {Event} event File input change event
+     */
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -18,14 +39,27 @@ const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
 
     return (
         <div className="navigation-controls">
+            {/* Show sidebar toggle only when sidebar is closed */}
             {!isSidebarOpen && (
-                <button onClick={toggleSidebar} className="nav-button">
+                <button 
+                    onClick={toggleSidebar} 
+                    className="nav-button"
+                    title="Open the element library"
+                >
                     <FaBars />
                 </button>
             )}
-            <button onClick={saveToFile} className="nav-button">
+            
+            {/* Save canvas state button */}
+            <button 
+                onClick={saveToFile} 
+                className="nav-button"
+                title="Save canvas"
+            >
                 <FaSave />
             </button>
+
+            {/* Hidden file input for loading files */}
             <input
                 type="file"
                 ref={fileInputRef}
@@ -33,10 +67,12 @@ const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
                 accept=".json"
                 style={{ display: 'none' }}
             />
+
+            {/* Load canvas state button */}
             <button 
                 onClick={() => fileInputRef.current.click()} 
                 className="nav-button"
-                title="Load Canvas"
+                title="Load canvas"
             >
                 <FaFolderOpen />
             </button>
