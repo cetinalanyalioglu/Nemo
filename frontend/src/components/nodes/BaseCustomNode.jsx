@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Handle } from 'reactflow';
+import { Handle, useReactFlow } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { elementIcons } from './nodeTypes';
 import { useNodeContext } from '../../context/NodeContext';
+import { useAppState } from '../../context/AppStateContext';
 import PropTypes from 'prop-types';
 
 /**
@@ -29,6 +30,14 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   // =========== Constants & Icon Setup ===========
   const TypeIcon = elementIcons[type];
   const { updateNodeSize } = useNodeContext();
+  const { snapToGrid, gridSize } = useAppState();
+  const { getNode } = useReactFlow();
+
+  // Function to snap a value to the nearest grid size
+  const snapToGridSize = (value) => {
+    if (!snapToGrid) return value;
+    return Math.round(value / gridSize) * gridSize;
+  };
 
   // =========== Port Setup ===========
   const targetPorts = Array.isArray(ports.target) ? ports.target : [];
@@ -77,13 +86,19 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     // Set the resizing flag
     setIsResizing(true);
 
-    // Get the current size and position of the node
-    const rect = nodeRef.current.getBoundingClientRect();
+    // Get the current node data from ReactFlow
+    const node = getNode(id);
+    if (!node) return;
+
+    // Store initial dimensions from the node's style
+    const initialWidth = node.style?.width ? parseInt(node.style.width) : nodeRef.current.offsetWidth;
+    const initialHeight = node.style?.height ? parseInt(node.style.height) : nodeRef.current.offsetHeight;
+
     resizeRef.current = {
       startX: e.clientX,
       startY: e.clientY,
-      startWidth: rect.width,
-      startHeight: rect.height
+      startWidth: initialWidth,
+      startHeight: initialHeight
     };
 
     const onPointerMove = (eMove) => {
@@ -91,9 +106,9 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
       const deltaX = eMove.clientX - resizeRef.current.startX;
       const deltaY = eMove.clientY - resizeRef.current.startY;
 
-      // Compute the new size based on the delta
-      const newWidth = resizeRef.current.startWidth + deltaX;
-      const newHeight = resizeRef.current.startHeight + deltaY;
+      // Compute the new size based on the delta and snap to grid if enabled
+      const newWidth = Math.max(snapToGridSize(resizeRef.current.startWidth + deltaX), gridSize);
+      const newHeight = Math.max(snapToGridSize(resizeRef.current.startHeight + deltaY), gridSize);
 
       // Update the internal state
       setNodeSize({ width: newWidth, height: newHeight });
@@ -110,7 +125,12 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
         width: resizeRef.current.startWidth, 
         height: resizeRef.current.startHeight 
       };
-      updateNodeSize(id, finalSize, false);
+      // Ensure final size is snapped to grid and not smaller than grid size
+      const snappedSize = {
+        width: Math.max(snapToGridSize(finalSize.width), gridSize),
+        height: Math.max(snapToGridSize(finalSize.height), gridSize)
+      };
+      updateNodeSize(id, snappedSize, false);
       cleanup();
     };
 
@@ -140,7 +160,12 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
       requestAnimationFrame(() => {
         const rect = nodeRef.current?.getBoundingClientRect();
         if (rect) {
-          updateNodeSize(id, { width: rect.width, height: rect.height }, false);
+          // Snap the auto-resized dimensions to grid
+          const snappedSize = {
+            width: snapToGridSize(rect.width),
+            height: snapToGridSize(rect.height)
+          };
+          updateNodeSize(id, snappedSize, false);
         }
       });
     });

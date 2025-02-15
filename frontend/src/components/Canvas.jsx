@@ -4,6 +4,7 @@ import ReactFlow, {
     Controls,
     MiniMap,
     addEdge,
+    BackgroundVariant
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "../styles/edges.css";
@@ -14,7 +15,6 @@ import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "../context/NodeContext";
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppState } from '../context/AppStateContext';
-import PropTypes from 'prop-types';
 
 /**
  * Canvas component that provides the main drawing area for the flow diagram.
@@ -44,8 +44,8 @@ const Canvas = () => {
     } = useNodeContext();
 
     // Get UI states from AppState context
-    const { 
-        snapToGrid, 
+    const {
+        snapToGrid,
         gridSize,
         zoom,
         updateZoom
@@ -136,7 +136,7 @@ const Canvas = () => {
 
         // Don't handle delete if target is an input, textarea, or contentEditable element
         if (
-            event.target.tagName === 'INPUT' || 
+            event.target.tagName === 'INPUT' ||
             event.target.tagName === 'TEXTAREA' ||
             event.target.isContentEditable
         ) {
@@ -196,22 +196,30 @@ const Canvas = () => {
                 snapToGrid={snapToGrid}
                 snapGrid={[gridSize, gridSize]}
             >
-                <Background
-                    variant="dots"
-                    gap={gridSize}
-                    size={1}
-                    color="#eee"
-                />
+                <>
+                    <Background
+                        variant={BackgroundVariant.Lines}
+                        gap={gridSize}
+                        id="background-lines"
+                        className="background-lines"
+                        lineWidth={0.5}
+                        color="#e1e1e1"
+                    />
+                    <Background
+                        variant={BackgroundVariant.Cross}
+                        gap={gridSize}
+                        size={3}
+                        id="background-cross"
+                        className="background-cross"
+                        color="#d9d9d9"
+                    />
+                </>
                 <Controls />
                 <MiniMap />
             </ReactFlow>
             <ZoomIndicator zoom={zoom} />
         </div>
     );
-};
-
-Canvas.propTypes = {
-    snapToGrid: PropTypes.bool
 };
 
 export default Canvas;

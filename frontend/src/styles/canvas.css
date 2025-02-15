@@ -78,3 +78,12 @@
 .react-flow__attribution {
   z-index: 101;
 }
+
+/* Background styles */
+.background-lines {
+  opacity: 0.75;
+}
+
+.background-cross {
+  opacity: 1.0;
+}

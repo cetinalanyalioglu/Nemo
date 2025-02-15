@@ -17,15 +17,15 @@ import '../styles/navigation-controls.css';
 const NavigationControls = () => {
     // Get file operation functions from context
     const { saveToFile, loadFromFile } = useNodeContext();
-    
+
     // Get UI states from AppState context
-    const { 
-        isSidebarOpen, 
+    const {
+        isSidebarOpen,
         toggleSidebar,
         snapToGrid,
         toggleSnapToGrid
     } = useAppState();
-    
+
     // Reference to hidden file input for opening files
     const fileInputRef = useRef(null);
 
@@ -48,18 +48,18 @@ const NavigationControls = () => {
         <div className="navigation-controls">
             {/* Show sidebar toggle only when sidebar is closed */}
             {!isSidebarOpen && (
-                <button 
-                    onClick={toggleSidebar} 
+                <button
+                    onClick={toggleSidebar}
                     className="nav-button"
                     title="Open the element library"
                 >
                     <FaBars />
                 </button>
             )}
-            
+
             {/* Save canvas state button */}
-            <button 
-                onClick={saveToFile} 
+            <button
+                onClick={saveToFile}
                 className="nav-button"
                 title="Save canvas"
             >
@@ -76,18 +76,18 @@ const NavigationControls = () => {
             />
 
             {/* Load canvas state button */}
-            <button 
-                onClick={() => fileInputRef.current.click()} 
+            <button
+                onClick={() => fileInputRef.current.click()}
                 className="nav-button"
                 title="Load canvas"
             >
                 <FaFolderOpen />
             </button>
 
-            <button 
+            <button
                 className={`nav-button ${snapToGrid ? 'active' : ''}`}
                 onClick={toggleSnapToGrid}
-                title="Toggle Snap to Grid"
+                title="Toggle snapping to grid lines"
             >
                 <BsGrid />
             </button>
