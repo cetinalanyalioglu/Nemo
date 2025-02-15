@@ -21,6 +21,11 @@ import PropTypes from 'prop-types';
  * @param {string[]} [props.ports.source=[]] - Array of output port IDs
  */
 const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source: [] } }) => {
+  // Skip rendering if we don't have valid data (happens during unmounting)
+  if (!data || !data.label) {
+    return null;
+  }
+
   // =========== Constants & Icon Setup ===========
   const TypeIcon = elementIcons[type];
   const { updateNodeSize } = useNodeContext();

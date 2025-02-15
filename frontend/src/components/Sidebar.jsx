@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
     IoChevronBackCircleOutline,
     IoLibrary,
@@ -7,6 +7,7 @@ import {
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { elementInfo } from './nodes/nodeTypes';
+import { useAppState } from '../context/AppStateContext';
 
 /**
  * Formats a category name to uppercase, preserving 'I' characters
@@ -21,15 +22,16 @@ const formatCategoryName = (category) => {
  * ElementsPanel component provides a collapsible sidebar with draggable flow elements.
  * Elements are grouped by categories and can be dragged onto the canvas.
  * 
- * @param {Object} props Component properties
- * @param {boolean} props.isOpen Whether the panel is currently open
- * @param {Function} props.setIsOpen Function to control panel visibility
- * @param {Function} props.onExport Function to handle topology export
  * @returns {React.Component} Elements panel component
  */
-const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
-    // Track collapsed state of element groups
-    const [collapsedGroups, setCollapsedGroups] = useState({});
+const Sidebar = () => {
+    // Get UI states from AppState context
+    const { 
+        isSidebarOpen, 
+        setIsSidebarOpen,
+        sidebarCollapsedGroups,
+        toggleSidebarGroup
+    } = useAppState();
 
     /**
      * Handles the start of element drag operations
@@ -38,16 +40,6 @@ const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
     const onDragStart = (event, nodeType) => {
         event.dataTransfer.setData('application/reactflow', nodeType);
         event.dataTransfer.effectAllowed = 'move';
-    };
-
-    /**
-     * Toggles the collapsed state of an element group
-     */
-    const toggleGroup = (category) => {
-        setCollapsedGroups(prev => ({
-            ...prev,
-            [category]: !prev[category]
-        }));
     };
 
     // Group elements by their categories
@@ -61,7 +53,7 @@ const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
     }, {});
 
     return (
-        <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
             {/* Panel header */}
             <div className="sidebar-header">
                 <div className="panel-icon-wrapper">
@@ -69,8 +61,8 @@ const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
                     <span className="panel-title">ELEMENT LIBRARY</span>
                 </div>
                 <IoChevronBackCircleOutline
-                    className={`toggle-icon ${!isOpen ? 'closed' : ''}`}
-                    onClick={() => setIsOpen(false)}
+                    className={`toggle-icon ${!isSidebarOpen ? 'closed' : ''}`}
+                    onClick={() => setIsSidebarOpen(false)}
                 />
             </div>
             
@@ -78,7 +70,6 @@ const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
             <div className="action-icons">
                 <button 
                     className="action-button" 
-                    onClick={onExport}
                     title="Export Topology"
                 >
                     <IoSaveOutline className="action-icon" />
@@ -87,22 +78,22 @@ const Sidebar = ({ isOpen, setIsOpen, onExport }) => {
 
             {/* Element groups */}
             {Object.entries(groupedElements).map(([category, elements]) => (
-                <div key={category} className={`elements-group ${collapsedGroups[category] ? 'collapsed' : ''}`}>
+                <div key={category} className={`elements-group ${sidebarCollapsedGroups[category] ? 'collapsed' : ''}`}>
                     {/* Group header with collapse toggle */}
                     <div 
                         className="group-header"
-                        onClick={() => toggleGroup(category)}
+                        onClick={() => toggleSidebarGroup(category)}
                     >
                         <div className="group-header-content">
                             <span>{formatCategoryName(category)}</span>
                             <IoChevronDown 
                                 className="group-collapse-icon" 
-                                style={{ transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
+                                style={{ transform: sidebarCollapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
                             />
                         </div>
                     </div>
                     {/* Group content with draggable elements */}
-                    <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>
+                    <div className={`group-content ${sidebarCollapsedGroups[category] ? 'collapsed' : ''}`}>
                         {elements.map(({ type, info }) => (
                             <div
                                 key={type}

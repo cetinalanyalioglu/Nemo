@@ -29,4 +29,9 @@
 .nav-button:hover {
     background-color: #D4A72C;
     color: white;
+}
+
+.nav-button.active {
+    background-color: #D4A72C;
+    color: white;
 } 

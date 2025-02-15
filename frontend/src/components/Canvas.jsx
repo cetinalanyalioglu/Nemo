@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useEffect } from "react";
 import ReactFlow, {
     Background,
     Controls,
@@ -13,6 +13,8 @@ import { nodeTypes } from './nodes/nodeTypes';
 import ZoomIndicator from "./ZoomIndicator";
 import { useNodeContext } from "../context/NodeContext";
 import { useReactFlow } from '../context/ReactFlowContext';
+import { useAppState } from '../context/AppStateContext';
+import PropTypes from 'prop-types';
 
 /**
  * Canvas component that provides the main drawing area for the flow diagram.
@@ -24,9 +26,6 @@ import { useReactFlow } from '../context/ReactFlowContext';
 const Canvas = () => {
     // Reference to the ReactFlow wrapper div for drag-and-drop operations
     const reactFlowWrapper = useRef(null);
-
-    // State to track current zoom level for the zoom indicator
-    const [zoom, setZoom] = useState(1);
 
     // Get ReactFlow instance from context for programmatic control
     const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
@@ -43,6 +42,14 @@ const Canvas = () => {
         setSelectedNodeId,
         isValidConnection
     } = useNodeContext();
+
+    // Get UI states from AppState context
+    const { 
+        snapToGrid, 
+        gridSize,
+        zoom,
+        updateZoom
+    } = useAppState();
 
     /**
      * Initializes the ReactFlow instance. After that the ReactFlow instance can be obtained from the context.
@@ -61,8 +68,8 @@ const Canvas = () => {
      * Updates zoom level state when the viewport changes
      */
     const onMove = useCallback((_, viewPort) => {
-        setZoom(viewPort.zoom);
-    }, []);
+        updateZoom(viewPort.zoom);
+    }, [updateZoom]);
 
     /**
      * Handles the dragover event for node drag and drop
@@ -186,14 +193,25 @@ const Canvas = () => {
                 defaultViewport={{ x: 0, y: 0, zoom: 1.0 }}
                 isValidConnection={isValidConnection}
                 deleteKeyCode={null}  // Disable built-in delete to use custom deletion
+                snapToGrid={snapToGrid}
+                snapGrid={[gridSize, gridSize]}
             >
-                <Background />
+                <Background
+                    variant="dots"
+                    gap={gridSize}
+                    size={1}
+                    color="#eee"
+                />
                 <Controls />
                 <MiniMap />
             </ReactFlow>
             <ZoomIndicator zoom={zoom} />
         </div>
     );
+};
+
+Canvas.propTypes = {
+    snapToGrid: PropTypes.bool
 };
 
 export default Canvas;

@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { useNodeContext } from '../context/NodeContext';
+import { useAppState } from '../context/AppStateContext';
 import { FaBars, FaSave, FaFolderOpen } from 'react-icons/fa';
+import { BsGrid } from 'react-icons/bs';
 import '../styles/navigation-controls.css';
 
 /**
@@ -10,14 +12,19 @@ import '../styles/navigation-controls.css';
  * - Saving the current canvas state to a file
  * - Loading a previously saved canvas state
  * 
- * @param {Object} props Component properties
- * @param {boolean} props.isSidebarOpen Current state of the sidebar
- * @param {Function} props.toggleSidebar Function to toggle sidebar visibility
  * @returns {React.Component} Navigation controls bar
  */
-const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
+const NavigationControls = () => {
     // Get file operation functions from context
     const { saveToFile, loadFromFile } = useNodeContext();
+    
+    // Get UI states from AppState context
+    const { 
+        isSidebarOpen, 
+        toggleSidebar,
+        snapToGrid,
+        toggleSnapToGrid
+    } = useAppState();
     
     // Reference to hidden file input for opening files
     const fileInputRef = useRef(null);
@@ -75,6 +82,14 @@ const NavigationControls = ({ isSidebarOpen, toggleSidebar }) => {
                 title="Load canvas"
             >
                 <FaFolderOpen />
+            </button>
+
+            <button 
+                className={`nav-button ${snapToGrid ? 'active' : ''}`}
+                onClick={toggleSnapToGrid}
+                title="Toggle Snap to Grid"
+            >
+                <BsGrid />
             </button>
         </div>
     );

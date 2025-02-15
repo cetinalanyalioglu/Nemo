@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NodeProvider } from './context/NodeContext';
 import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
@@ -6,21 +6,14 @@ import PropertiesPanel from './components/PropertiesPanel';
 import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
+import { AppStateProvider } from './context/AppStateContext';
 
 // Main application logic component
 function AppContent() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
   return (
     <div className="app">
-      <NavigationControls 
-        isSidebarOpen={isSidebarOpen}
-        toggleSidebar={() => setIsSidebarOpen(true)}
-      />
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        setIsOpen={setIsSidebarOpen}
-      />
+      <NavigationControls />
+      <Sidebar />
       <div className="canvas-container">
         <Canvas />
       </div>
@@ -33,7 +26,9 @@ function App() {
   return (
     <ReactFlowProvider>
       <NodeProvider>
-        <AppContent />
+        <AppStateProvider>
+          <AppContent />
+        </AppStateProvider>
       </NodeProvider>
     </ReactFlowProvider>
   );

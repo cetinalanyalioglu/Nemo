@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNodeContext } from '../context/NodeContext';
+import { useAppState } from '../context/AppStateContext';
 import '../styles/properties-panel.css';
 import { IoSettingsOutline, IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import { elementInfo } from './nodes/nodeTypes';
@@ -30,14 +31,18 @@ const formatTitle = (title) => {
  * @returns {React.Component} Properties panel for editing node parameters
  */
 const PropertiesPanel = () => {
-    const [isOpen, setIsOpen] = useState(false);
     const { selectedNodeId, nodeStates, updateNodeParameter } = useNodeContext();
-    const [collapsedGroups, setCollapsedGroups] = useState({});
+    const { 
+        isPropertiesPanelOpen,
+        setIsPropertiesPanelOpen,
+        propertiesCollapsedGroups,
+        togglePropertiesGroup
+    } = useAppState();
 
     // Update panel visibility when selected node changes
     useEffect(() => {
-        setIsOpen(!!selectedNodeId);
-    }, [selectedNodeId]);
+        setIsPropertiesPanelOpen(!!selectedNodeId);
+    }, [selectedNodeId, setIsPropertiesPanelOpen]);
 
     if (!selectedNodeId) return null;
 
@@ -90,18 +95,8 @@ const PropertiesPanel = () => {
         return info.min !== undefined ? Math.max(newValue, info.min) : newValue;
     };
 
-    /**
-     * Toggles the collapsed state of a parameter group
-     */
-    const toggleGroup = (category) => {
-        setCollapsedGroups(prev => ({
-            ...prev,
-            [category]: !prev[category]
-        }));
-    };
-
     return (
-        <div className={`properties-panel-container ${isOpen ? 'open' : ''}`}>
+        <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
             <div className="properties-panel">
                 {/* Panel header */}
                 <div className="panel-header">
@@ -111,15 +106,18 @@ const PropertiesPanel = () => {
                 
                 {/* Parameter groups */}
                 {Object.entries(groupedParameters).map(([category, parameters]) => (
-                    <div key={category} className={`parameter-group ${collapsedGroups[category] ? 'collapsed' : ''}`}>
+                    <div key={category} className={`parameter-group ${propertiesCollapsedGroups[category] ? 'collapsed' : ''}`}>
                         {/* Group header with collapse toggle */}
                         <div 
                             className="group-header"
-                            onClick={() => toggleGroup(category)}
+                            onClick={() => togglePropertiesGroup(category)}
                         >
                             <div className="group-header-content">
                                 <span>{formatCategoryName(category)}</span>
-                                <IoChevronDown className="group-collapse-icon" />
+                                <IoChevronDown 
+                                    className="group-collapse-icon" 
+                                    style={{ transform: propertiesCollapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
+                                />
                             </div>
                         </div>
                         {/* Group content with parameters */}
