@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsDiagram2 } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsDiagram2;
 
@@ -10,24 +11,21 @@ export const elementIcon = BsDiagram2;
  * Defines a component that splits a flow into two outputs without energy losses.
  * Contains fixed configuration of one input port and two output ports.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
     type: 'LosslessSplitter',
     displayName: 'Lossless Splitter',
+    category: 'Three port elements',
     // Fixed ports configuration: one input (target) and two outputs (sources)
     ports: {
         target: ['0'],  // Input port
         source: ['1', '2']  // Two output ports
     },
-    category: 'Three port elements',
     parameters: {
         label: {
-            label: 'Label',
-            type: 'string',
-            defaultValue: 'Lossless Splitter',
-            category: 'General',
-        },
+            defaultValue: 'Lossless Splitter'
+        }
     }
-};
+});
 
 /**
  * LosslessSplitter component representing a flow splitter with no energy losses.

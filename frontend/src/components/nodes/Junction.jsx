@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsLightningFill } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsLightningFill;
 
@@ -9,21 +10,18 @@ export const elementIcon = BsLightningFill;
  * Configuration object for the Junction element.
  * Defines the element type, display name, ports, category and configurable parameters.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
   type: 'Junction',
   displayName: 'Junction',
+  category: 'Dynamic Port Elements',
   // Ports are dynamically created based on user input parameters
   ports: {
     target: [],
     source: []
   },
-  category: 'Dynamic Port Elements',
   parameters: {
     label: {
-      label: 'Label',
-      type: 'string',
-      defaultValue: 'Junction',
-      category: 'General'
+      defaultValue: 'Junction'
     },
     leftPorts: {
       label: 'Left Ports',
@@ -42,7 +40,7 @@ export const elementInfo = {
       description: 'Number of right ports'
     }
   }
-};
+});
 
 /**
  * Junction component that represents a node with configurable number of input and output ports.

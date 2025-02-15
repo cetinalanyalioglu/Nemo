@@ -8,6 +8,46 @@ import { useAppState } from '../../context/AppStateContext';
 import PropTypes from 'prop-types';
 
 /**
+ * Base configuration object that defines common properties for all custom nodes.
+ * This will be merged with specific node configurations.
+ */
+export const elementInfo = {
+  // Base parameters that all nodes should have
+  parameters: {
+    label: {
+      label: 'Label',
+      type: 'string',
+      defaultValue: 'Node',
+      category: 'General',
+      description: 'Display name of the node'
+    },
+    width: {
+      label: 'Width',
+      type: 'number',
+      defaultValue: undefined,
+      // defaultValue: 100,
+      category: 'Appearance',
+      description: 'Width of the node in pixels',
+      min: 10,
+    },
+    height: {
+      label: 'Height',
+      type: 'number',
+      defaultValue: undefined,
+      // defaultValue: 100,
+      category: 'Appearance',
+      description: 'Height of the node in pixels',
+      min: 10,
+    }
+  },
+  // Default empty ports configuration
+  ports: {
+    target: [],
+    source: []
+  }
+};
+
+/**
  * BaseCustomNode is a foundational React component for creating custom nodes in a flow diagram.
  * It provides resizing capabilities, port management, and label editing functionality.
  *
@@ -29,8 +69,8 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
 
   // =========== Constants & Icon Setup ===========
   const TypeIcon = elementIcons[type];
-  const { updateNodeSize } = useNodeContext();
-  const { snapToGrid, gridSize } = useAppState();
+  const { updateNodeSize, nodeStates, updateNodeParameter } = useNodeContext();
+  const { snapToGrid, gridSize, zoom } = useAppState();
   const { getNode } = useReactFlow();
 
   // Function to snap a value to the nearest grid size
@@ -54,13 +94,22 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   const [isResizing, setIsResizing] = useState(false);
 
   // =========== Style Computations ===========
-  const style = nodeSize
-    ? {
-        width: `${nodeSize.width}px`,
-        height: `${nodeSize.height}px`,
+  const style = useMemo(() => {
+    const nodeState = nodeStates[id];
+    // Size is stored in the nodeState
+    const width = nodeState?.parameters?.width;
+    const height = nodeState?.parameters?.height;
+
+    if (width || height) {
+      return {
+        ...(width && { width: `${width}px` }),
+        ...(height && { height: `${height}px` }),
         boxSizing: 'content-box'
-      }
-    : {};
+      };
+    }
+
+    return {};
+  }, [nodeStates, id]);
 
   const nodeClasses = [
     'custom-node',
@@ -110,8 +159,9 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
       const newWidth = Math.max(snapToGridSize(resizeRef.current.startWidth + deltaX), gridSize);
       const newHeight = Math.max(snapToGridSize(resizeRef.current.startHeight + deltaY), gridSize);
 
-      // Update the internal state
-      setNodeSize({ width: newWidth, height: newHeight });
+      // Round to the nearest integer and update the node context state
+      updateNodeParameter(id, 'width', Math.round(newWidth));
+      updateNodeParameter(id, 'height', Math.round(newHeight));
     };
 
     const cleanup = () => {
@@ -121,16 +171,6 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
 
     const onPointerUp = () => {
       setIsResizing(false);
-      const finalSize = nodeSize || { 
-        width: resizeRef.current.startWidth, 
-        height: resizeRef.current.startHeight 
-      };
-      // Ensure final size is snapped to grid and not smaller than grid size
-      const snappedSize = {
-        width: Math.max(snapToGridSize(finalSize.width), gridSize),
-        height: Math.max(snapToGridSize(finalSize.height), gridSize)
-      };
-      updateNodeSize(id, snappedSize, false);
       cleanup();
     };
 
@@ -155,7 +195,11 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
 
     resizeRef.current.rafId = requestAnimationFrame(() => {
       setNodeSize(null);
-      
+      // Reset node size parameters to undefined to allow auto-resize
+      updateNodeParameter(id, 'width', undefined);
+      updateNodeParameter(id, 'height', undefined);
+
+
       // Wait for next frame to ensure DOM has updated
       requestAnimationFrame(() => {
         const rect = nodeRef.current?.getBoundingClientRect();
@@ -224,6 +268,51 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
       };
     }
   }, [isResizing]);
+
+  // =========== Auto-resize ===========
+  useEffect(() => {
+    if (nodeRef.current && (!nodeStates[id]?.parameters?.width || !nodeStates[id]?.parameters?.height)) {
+        const computedStyle = window.getComputedStyle(nodeRef.current);
+        const rect = nodeRef.current.getBoundingClientRect();
+        
+        try {
+            // Parse padding values more safely
+            const paddingValues = computedStyle.padding.split(' ');
+            const [paddingTop, paddingRight, paddingBottom, paddingLeft] = 
+                paddingValues.length === 1 
+                    ? [paddingValues[0], paddingValues[0], paddingValues[0], paddingValues[0]]
+                    : paddingValues;
+            
+            const borderWidth = parseFloat(computedStyle.borderWidth || '0');
+            
+            const safeParseFloat = (val) => {
+                const parsed = parseFloat(val);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+            
+            const pTop = safeParseFloat(paddingTop);
+            const pRight = safeParseFloat(paddingRight);
+            const pBottom = safeParseFloat(paddingBottom);
+            const pLeft = safeParseFloat(paddingLeft);
+            const bWidth = safeParseFloat(borderWidth);
+            
+            // Adjust the rect dimensions by the zoom level from context
+            const unscaledWidth = rect.width / zoom;
+            const unscaledHeight = rect.height / zoom;
+            
+            // Calculate content size using unscaled dimensions
+            const contentWidth = Math.max(0, unscaledWidth - pLeft - pRight - (bWidth * 2));
+            const contentHeight = Math.max(0, unscaledHeight - pTop - pBottom - (bWidth * 2));
+            
+            if (contentWidth > 0 && contentHeight > 0) {
+                updateNodeParameter(id, 'width', Math.round(contentWidth));
+                updateNodeParameter(id, 'height', Math.round(contentHeight));
+            }
+        } catch (error) {
+            console.error('Error calculating node dimensions:', error);
+        }
+    }
+  }, [nodeStates, id, updateNodeParameter, zoom]);
 
   // =========== Render ===========
   return (

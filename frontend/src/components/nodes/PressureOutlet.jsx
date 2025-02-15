@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowUpCircle } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsArrowUpCircle;
 
@@ -10,20 +11,17 @@ export const elementIcon = BsArrowUpCircle;
  * Defines a boundary condition node that specifies outlet pressure conditions.
  * Contains a single input port and configurable pressure parameters.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
     type: 'PressureOutlet',
     displayName: 'Pressure Outlet',
     category: 'Single port elements',
     // Single input port configuration
     ports: {
-        target: ['0'],  // Input port for flow
-        source: []      // No output ports
+        target: ['0']  // Input port for flow
     },
     parameters: {
         label: {
-            type: 'string',
-            defaultValue: 'PressureOutlet',
-            category: 'GENERAL'
+            defaultValue: 'PressureOutlet'
         },
         pressure: {
             label: 'Pressure',
@@ -41,7 +39,7 @@ export const elementInfo = {
             defaultValue: false  // By default, flow can only exit through the outlet
         }
     }
-};
+});
 
 /**
  * PressureOutlet component representing a boundary condition for flow outlet.

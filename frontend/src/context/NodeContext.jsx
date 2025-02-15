@@ -287,29 +287,30 @@ export const NodeProvider = ({ children }) => {
             label: label
         };
 
-        const newNode = {
-            id,
-            type,
-            position,
-            data: { ...data },
-            // Add style property with size if provided
-            style: size ? {
-                width: `${size.width}px`,
-                height: `${size.height}px`
-            } : undefined
+        // Create the nodeState for node creation
+        const nodeState = {
+            parameters: mergedParameters,
         };
 
         // Register node state
         setNodeStates(prev => ({
             ...prev,
-            [id]: {
-                parameters: mergedParameters,
-                size: size || {
-                    width: null,
-                    height: null
-                }
-            }
+            [id]: nodeState
         }));
+
+        // Create the node for ReactFlow
+        const newNode = {
+            id,
+            type,
+            position,
+            data: { 
+                ...data,
+            },
+            style: size ? {
+                width: `${size.width}px`,
+                height: `${size.height}px`
+            } : undefined
+        };
 
         // Update nodes in ReactFlow
         setNodes(nodes => [...nodes, newNode]);

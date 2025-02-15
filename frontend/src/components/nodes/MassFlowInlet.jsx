@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowDownCircle } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsArrowDownCircle;
 
@@ -10,20 +11,18 @@ export const elementIcon = BsArrowDownCircle;
  * Defines a boundary condition node that specifies inlet flow conditions.
  * Contains a single output port and configurable flow parameters.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
     type: 'MassFlowInlet',
     displayName: 'Mass Flow Inlet',
+    category: 'Single port elements',
     // Single output port configuration
     ports: {
         source: ['0']  // Output port for flow conditions
     },
-    category: 'Single port elements',
     parameters: {
         label: {
-            label: 'Label',
-            type: 'string',
-            defaultValue: 'MassFlowInlet',
-            category: 'General',
+            // Only override the defaultValue, inherit other properties from base
+            defaultValue: 'MassFlowInlet'
         },
         massFlowRate: {
             label: 'Mass Flow Rate',
@@ -50,7 +49,7 @@ export const elementInfo = {
             min: 0,  // Absolute pressure cannot be negative
         }
     }
-};
+});
 
 /**
  * MassFlowInlet component representing a boundary condition for flow inlet.

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowsExpand } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsArrowsExpand;
 
@@ -10,24 +11,21 @@ export const elementIcon = BsArrowsExpand;
  * Defines a component that models a sudden increase in flow area.
  * Contains one input and one output port.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
     type: 'SuddenExpansion',
     displayName: 'Sudden Expansion',
+    category: 'Two port elements',
     // Fixed ports configuration: one input and one output
     ports: {
         target: ['0'],  // Input port (smaller diameter)
         source: ['1']   // Output port (larger diameter)
     },
-    category: 'Two port elements',
     parameters: {
         label: {
-            label: 'Label',
-            type: 'string',
-            defaultValue: 'SuddenExpansion',
-            category: 'General',
-        },
+            defaultValue: 'SuddenExpansion'
+        }
     }
-};
+});
 
 /**
  * SuddenExpansion component representing an abrupt increase in flow area.

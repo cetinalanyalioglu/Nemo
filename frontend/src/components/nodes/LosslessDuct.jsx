@@ -2,6 +2,7 @@ import React from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsArrowLeftRight } from 'react-icons/bs';
+import { createElementInfo } from './nodeUtils';
 
 export const elementIcon = BsArrowLeftRight;
 
@@ -10,21 +11,18 @@ export const elementIcon = BsArrowLeftRight;
  * Defines a duct component that simulates fluid flow without energy losses.
  * Contains fixed input/output ports and configurable physical parameters.
  */
-export const elementInfo = {
+export const elementInfo = createElementInfo({
     type: 'LosslessDuct',
     displayName: 'Lossless Duct',
+    category: 'Two port elements',
     // Fixed ports configuration: one input (target) and one output (source)
     ports: {
         target: ['0'],
         source: ['1']
     },
-    category: 'Two port elements',
     parameters: {
         label: {
-            label: 'Label',
-            type: 'string',
-            defaultValue: 'LosslessDuct',
-            category: 'General',
+            defaultValue: 'LosslessDuct'
         },
         diameter: {
             label: 'Diameter',
@@ -43,7 +41,7 @@ export const elementInfo = {
             min: 0.000001,  // Minimum length: 1 micron
         }
     }
-};
+});
 
 /**
  * LosslessDuct component representing an ideal duct with no energy losses.
