@@ -95,6 +95,29 @@ const PropertiesPanel = () => {
         return info.min !== undefined ? Math.max(newValue, info.min) : newValue;
     };
 
+    /**
+     * Ensures a parameter value is never undefined for input fields
+     * @param {*} value - The parameter value
+     * @param {Object} info - Parameter info from elementInfo
+     * @returns {*} A safe value for the input
+     */
+    const getSafeValue = (value, info) => {
+        if (value === undefined || value === null) {
+            // Return appropriate default based on parameter type
+            switch (info.type) {
+                case 'number':
+                    return '';  // or return '0' if you prefer
+                case 'string':
+                    return '';
+                case 'boolean':
+                    return false;
+                default:
+                    return '';
+            }
+        }
+        return value;
+    };
+
     return (
         <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
             <div className="properties-panel">
@@ -146,13 +169,13 @@ const PropertiesPanel = () => {
                                             <div className="parameter-input-container">
                                                 <input
                                                     type={info.type === 'float' ? 'number' : info.type}
-                                                    value={value}
-                                                    onChange={(e) => handleNumberChange(
-                                                        selectedNodeId,
-                                                        key,
-                                                        info,
-                                                        info.type === 'float' ? parseFloat(e.target.value) : e.target.value
-                                                    )}
+                                                    value={getSafeValue(value, info)}
+                                                    onChange={(e) => {
+                                                        const newValue = info.type === 'float' 
+                                                            ? parseFloat(e.target.value) 
+                                                            : e.target.value;
+                                                        handleNumberChange(selectedNodeId, key, info, newValue);
+                                                    }}
                                                     min={info.min}
                                                     max={info.max}
                                                     step={info.type === 'float' ? 0.1 : 1}
