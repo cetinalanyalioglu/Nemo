@@ -210,14 +210,14 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
    */
   const renderTargetPorts = useMemo(() => {
     return targetPorts.map(portId => (
-      <div key={portId} className="port-wrapper">
+      <div key={portId} className="port-wrapper port-wrapper-left port-wrapper-target">
         <IoChevronForward className="port-icon port-icon-target" />
         <span className="port-index">{portId}</span>
         <Handle
           type="target"
           position="left"
           id={`${id}-port-${portId}`}
-          className="react-flow__handle custom-handle"
+          className="react-flow__handle custom-handle-target"
         />
       </div>
     ));
@@ -232,14 +232,14 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
     return sourcePorts.map((portId, idx) => {
       const portIndex = targetPorts.length + idx;
       return (
-        <div key={portId} className="port-wrapper">
-          <IoChevronBack className="port-icon port-icon-source" />
+        <div key={portId} className="port-wrapper port-wrapper-right port-wrapper-source">
           <span className="port-index">{portIndex}</span>
+          <IoChevronBack className="port-icon port-icon-source" />
           <Handle
             type="source"
             position="right"
             id={`${id}-port-${portIndex}`}
-            className="react-flow__handle custom-handle"
+            className="react-flow__handle custom-handle-source"
           />
         </div>
       );
@@ -309,35 +309,38 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
       ref={nodeRef}
       style={style}
     >
-      {/* Node type icon */}
-      {TypeIcon && <TypeIcon className="node-type-icon" />}
-
       {/* Input ports container */}
       <div className="custom-port-container custom-port-left">
         {renderTargetPorts}
       </div>
 
-      {/* Node content area with label/input */}
-      <div className="custom-node-content">
-        {data.isEditing ? (
-          <input
-            value={data.tempLabel}
-            onChange={(e) => data.onChange(e)}
-            onBlur={() => data.finishEditing(id)}
-            onKeyDown={(e) => data.onKeyDown(e)}
-            autoFocus
-            className="custom-node-input"
-            spellCheck="false"
-          />
-        ) : (
-          <div
-            className="custom-node-label"
-            onDoubleClick={() => data.startEditing(id)}
-          >
-            {data.label}
-          </div>
-        )}
-        <div className="custom-node-type">{type}</div>
+      {/* Middle section with icon and content */}
+      <div className="middle-section">
+        {/* Node type icon */}
+        {TypeIcon && <TypeIcon className="node-type-icon" />}
+
+        {/* Node content area with label/input */}
+        <div className="custom-node-content">
+          {data.isEditing ? (
+            <input
+              value={data.tempLabel}
+              onChange={(e) => data.onChange(e)}
+              onBlur={() => data.finishEditing(id)}
+              onKeyDown={(e) => data.onKeyDown(e)}
+              autoFocus
+              className="custom-node-input"
+              spellCheck="false"
+            />
+          ) : (
+            <div
+              className="custom-node-label"
+              onDoubleClick={() => data.startEditing(id)}
+            >
+              {data.label}
+            </div>
+          )}
+          <div className="custom-node-type">{type}</div>
+        </div>
       </div>
 
       {/* Output ports container */}
