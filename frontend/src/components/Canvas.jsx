@@ -43,12 +43,11 @@ const Canvas = () => {
         isValidConnection
     } = useNodeContext();
 
-    // Get UI states from AppState context
-    const {
-        snapToGrid,
-        gridSize,
-        zoom,
-        updateZoom
+    // Get states and actions from AppState context
+    const { 
+        grid: { snapToGrid, size: gridSize },
+        viewport: { zoom },
+        actions 
     } = useAppState();
 
     /**
@@ -68,8 +67,8 @@ const Canvas = () => {
      * Updates zoom level state when the viewport changes
      */
     const onMove = useCallback((_, viewPort) => {
-        updateZoom(viewPort.zoom);
-    }, [updateZoom]);
+        actions.viewport.updateZoom(viewPort.zoom);
+    }, [actions.viewport]);
 
     /**
      * Handles the dragover event for node drag and drop

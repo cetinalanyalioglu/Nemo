@@ -19,11 +19,10 @@ const NavigationControls = () => {
     const { saveToFile, loadFromFile } = useNodeContext();
 
     // Get UI states from AppState context
-    const {
-        isSidebarOpen,
-        toggleSidebar,
-        snapToGrid,
-        toggleSnapToGrid
+    const { 
+        sidebar: { isOpen },
+        grid: { snapToGrid },
+        actions 
     } = useAppState();
 
     // Reference to hidden file input for opening files
@@ -47,9 +46,9 @@ const NavigationControls = () => {
     return (
         <div className="navigation-controls">
             {/* Show sidebar toggle only when sidebar is closed */}
-            {!isSidebarOpen && (
+            {!isOpen && (
                 <button
-                    onClick={toggleSidebar}
+                    onClick={actions.sidebar.toggle}
                     className="nav-button"
                     title="Open the element library"
                 >
@@ -86,7 +85,7 @@ const NavigationControls = () => {
 
             <button
                 className={`nav-button ${snapToGrid ? 'active' : ''}`}
-                onClick={toggleSnapToGrid}
+                onClick={actions.grid.toggleSnap}
                 title="Toggle snapping to grid lines"
             >
                 <BsGrid />

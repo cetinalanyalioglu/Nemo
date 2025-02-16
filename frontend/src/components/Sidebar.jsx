@@ -25,12 +25,10 @@ const formatCategoryName = (category) => {
  * @returns {React.Component} Elements panel component
  */
 const Sidebar = () => {
-    // Get UI states from AppState context
+    // Get states and actions from AppState context
     const { 
-        isSidebarOpen, 
-        setIsSidebarOpen,
-        sidebarCollapsedGroups,
-        toggleSidebarGroup
+        sidebar: { isOpen, collapsedGroups },
+        actions 
     } = useAppState();
 
     /**
@@ -53,7 +51,7 @@ const Sidebar = () => {
     }, {});
 
     return (
-        <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className={`sidebar ${isOpen ? 'open' : ''}`}>
             {/* Panel header */}
             <div className="sidebar-header">
                 <div className="panel-icon-wrapper">
@@ -61,8 +59,8 @@ const Sidebar = () => {
                     <span className="panel-title">ELEMENT LIBRARY</span>
                 </div>
                 <IoChevronBackCircleOutline
-                    className={`toggle-icon ${!isSidebarOpen ? 'closed' : ''}`}
-                    onClick={() => setIsSidebarOpen(false)}
+                    className={`toggle-icon ${!isOpen ? 'closed' : ''}`}
+                    onClick={() => actions.sidebar.toggle()}
                 />
             </div>
             
@@ -78,22 +76,22 @@ const Sidebar = () => {
 
             {/* Element groups */}
             {Object.entries(groupedElements).map(([category, elements]) => (
-                <div key={category} className={`elements-group ${sidebarCollapsedGroups[category] ? 'collapsed' : ''}`}>
+                <div key={category} className={`elements-group ${collapsedGroups[category] ? 'collapsed' : ''}`}>
                     {/* Group header with collapse toggle */}
                     <div 
                         className="group-header"
-                        onClick={() => toggleSidebarGroup(category)}
+                        onClick={() => actions.sidebar.toggleGroup(category)}
                     >
                         <div className="group-header-content">
                             <span>{formatCategoryName(category)}</span>
                             <IoChevronDown 
                                 className="group-collapse-icon" 
-                                style={{ transform: sidebarCollapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
+                                style={{ transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
                             />
                         </div>
                     </div>
                     {/* Group content with draggable elements */}
-                    <div className={`group-content ${sidebarCollapsedGroups[category] ? 'collapsed' : ''}`}>
+                    <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>
                         {elements.map(({ type, info }) => (
                             <div
                                 key={type}

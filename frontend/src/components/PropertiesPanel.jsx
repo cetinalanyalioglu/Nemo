@@ -33,10 +33,8 @@ const formatTitle = (title) => {
 const PropertiesPanel = () => {
     const { selectedNodeId, nodeStates, updateNodeParameter } = useNodeContext();
     const { 
-        isPropertiesPanelOpen,
-        setIsPropertiesPanelOpen,
-        propertiesCollapsedGroups,
-        togglePropertiesGroup
+        propertiesPanel: { isOpen, collapsedGroups },
+        actions 
     } = useAppState();
 
     // Add state for tracking invalid inputs
@@ -46,8 +44,8 @@ const PropertiesPanel = () => {
 
     // Update panel visibility when selected node changes
     useEffect(() => {
-        setIsPropertiesPanelOpen(!!selectedNodeId);
-    }, [selectedNodeId, setIsPropertiesPanelOpen]);
+        actions.propertiesPanel.setIsOpen(!!selectedNodeId);
+    }, [selectedNodeId, actions.propertiesPanel]);
 
     if (!selectedNodeId) return null;
 
@@ -307,7 +305,7 @@ const PropertiesPanel = () => {
     };
 
     return (
-        <div className={`properties-panel-container ${isPropertiesPanelOpen ? 'open' : ''}`}>
+        <div className={`properties-panel-container ${isOpen ? 'open' : ''}`}>
             <div className="properties-panel">
                 {/* Panel header */}
                 <div className="panel-header">
@@ -317,17 +315,17 @@ const PropertiesPanel = () => {
                 
                 {/* Parameter groups */}
                 {Object.entries(groupedParameters).map(([category, parameters]) => (
-                    <div key={category} className={`parameter-group ${propertiesCollapsedGroups[category] ? 'collapsed' : ''}`}>
+                    <div key={category} className={`parameter-group ${collapsedGroups[category] ? 'collapsed' : ''}`}>
                         {/* Group header with collapse toggle */}
                         <div 
                             className="group-header"
-                            onClick={() => togglePropertiesGroup(category)}
+                            onClick={() => actions.propertiesPanel.toggleGroup(category)}
                         >
                             <div className="group-header-content">
                                 <span>{formatCategoryName(category)}</span>
                                 <IoChevronDown 
                                     className="group-collapse-icon" 
-                                    style={{ transform: propertiesCollapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
+                                    style={{ transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)' }} 
                                 />
                             </div>
                         </div>

@@ -72,8 +72,13 @@ const BaseCustomNode = ({ id, data, selected, type, ports = { target: [], source
   // =========== Constants & Icon Setup ===========
   const TypeIcon = elementIcons[type];
   const { nodeStates, updateNodeParameter } = useNodeContext();
-  const { snapToGrid, gridSize, zoom } = useAppState();
   const { getNode } = useReactFlow();
+
+  // Get states from AppState context
+  const { 
+    grid: { snapToGrid, size: gridSize },
+    viewport: { zoom }
+  } = useAppState();
 
   // Function to snap a value to the nearest grid size
   const snapToGridSize = (value) => {

@@ -1,103 +1,127 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState } from "react";
 
-/**
- * Context for managing application-wide UI states.
- * Provides centralized state management for UI components.
- */
 const AppStateContext = createContext(null);
 
-/**
- * Provider component for application UI state management.
- * Manages states like sidebar visibility, properties panel, grid settings, etc.
- * 
- * @param {Object} props Component properties
- * @param {React.ReactNode} props.children Child components to be wrapped
- * @returns {React.Component} Context provider component
- */
 export const AppStateProvider = ({ children }) => {
-    // Sidebar state
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [sidebarCollapsedGroups, setSidebarCollapsedGroups] = useState({});
+  // Define all app states in a single object
+  const appStates = {
+    viewport: {
+      id: "viewport",
+      persist: true,
+      state: useState({
+        zoom: 1,
+      }),
+    },
+    sidebar: {
+      id: "sidebar",
+      persist: false,
+      state: useState({
+        isOpen: true,
+        collapsedGroups: {},
+      }),
+    },
+    propertiesPanel: {
+      id: "propertiesPanel",
+      persist: false,
+      state: useState({
+        isOpen: false,
+        collapsedGroups: {},
+      }),
+    },
+    grid: {
+      id: "grid",
+      persist: true,
+      state: useState({
+        snapToGrid: true,
+        size: 15,
+      }),
+    },
+  };
 
-    // Properties panel state
-    const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
-    const [propertiesCollapsedGroups, setPropertiesCollapsedGroups] = useState({});
-
-    // Grid and zoom states
-    const [snapToGrid, setSnapToGrid] = useState(true);
-    const [gridSize, setGridSize] = useState(15);
-    const [zoom, setZoom] = useState(1);
-
-    // Sidebar actions
-    const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
-    const toggleSidebarGroup = (category) => {
-        setSidebarCollapsedGroups(prev => ({
-            ...prev,
-            [category]: !prev[category]
+  // Define actions for each state
+  const appActions = {
+    viewport: {
+      updateZoom: (newZoom) => {
+        const [_, setViewport] = appStates.viewport.state;
+        setViewport((prev) => ({ ...prev, zoom: newZoom }));
+      },
+    },
+    sidebar: {
+      toggle: () => {
+        const [state, setState] = appStates.sidebar.state;
+        setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+      },
+      toggleGroup: (category) => {
+        const [state, setState] = appStates.sidebar.state;
+        setState((prev) => ({
+          ...prev,
+          collapsedGroups: {
+            ...prev.collapsedGroups,
+            [category]: !prev.collapsedGroups[category],
+          },
         }));
-    };
-
-    // Properties panel actions
-    const togglePropertiesPanel = () => setIsPropertiesPanelOpen(prev => !prev);
-    const togglePropertiesGroup = (category) => {
-        setPropertiesCollapsedGroups(prev => ({
-            ...prev,
-            [category]: !prev[category]
+      },
+    },
+    propertiesPanel: {
+      toggle: () => {
+        const [state, setState] = appStates.propertiesPanel.state;
+        setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+      },
+      toggleGroup: (category) => {
+        const [state, setState] = appStates.propertiesPanel.state;
+        setState((prev) => ({
+          ...prev,
+          collapsedGroups: {
+            ...prev.collapsedGroups,
+            [category]: !prev.collapsedGroups[category],
+          },
         }));
-    };
+      },
+      setIsOpen: (isOpen) => {
+        const [_, setState] = appStates.propertiesPanel.state;
+        setState((prev) => ({ ...prev, isOpen }));
+      },
+    },
+    grid: {
+      toggleSnap: () => {
+        const [state, setState] = appStates.grid.state;
+        setState((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
+      },
+      updateSize: (size) => {
+        const [_, setState] = appStates.grid.state;
+        setState((prev) => ({ ...prev, size }));
+      },
+    },
+  };
 
-    // Grid actions
-    const toggleSnapToGrid = () => setSnapToGrid(prev => !prev);
-    const updateGridSize = (size) => setGridSize(size);
+  // Create provider value with states and actions
+  const providerValue = {
+    // States
+    ...Object.entries(appStates).reduce(
+      (acc, [key, slice]) => ({
+        ...acc,
+        [key]: slice.state[0],
+      }),
+      {}
+    ),
 
-    // Zoom actions
-    const updateZoom = (newZoom) => setZoom(newZoom);
+    // Actions
+    actions: appActions,
+  };
 
-    return (
-        <AppStateContext.Provider value={{
-            // Sidebar states and actions
-            isSidebarOpen,
-            setIsSidebarOpen,
-            toggleSidebar,
-            sidebarCollapsedGroups,
-            toggleSidebarGroup,
-
-            // Properties panel states and actions
-            isPropertiesPanelOpen,
-            setIsPropertiesPanelOpen,
-            togglePropertiesPanel,
-            propertiesCollapsedGroups,
-            togglePropertiesGroup,
-
-            // Grid states and actions
-            snapToGrid,
-            setSnapToGrid,
-            toggleSnapToGrid,
-            gridSize,
-            updateGridSize,
-
-            // Zoom states and actions
-            zoom,
-            updateZoom
-        }}>
-            {children}
-        </AppStateContext.Provider>
-    );
+  return (
+    <AppStateContext.Provider value={providerValue}>
+      {children}
+    </AppStateContext.Provider>
+  );
 };
 
-/**
- * Custom hook to access the application UI state and actions.
- * Must be used within an AppStateProvider component.
- * 
- * @returns {Object} Object containing all UI states and their setter functions
- * @throws {Error} If used outside of an AppStateProvider
- */
 export const useAppState = () => {
-    const context = useContext(AppStateContext);
-    if (context === undefined) {
-        throw new Error('useAppState must be used within an AppStateProvider');
-    }
-    return context;
+  const context = useContext(AppStateContext);
+  if (!context) {
+    throw new Error("useAppState must be used within an AppStateProvider");
+  }
+  return context;
 };
 
-export default AppStateContext; 
+export default AppStateContext;
