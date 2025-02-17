@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run React Without Browser",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/react-scripts/scripts/start.js",
+      "envFile": "${workspaceFolder}/.env.development.local"
+    },
+    {
+      "name": "Debug React App in Development",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/public",
+      "runtimeArgs": ["--remote-debugging-port=9222"],
+      "sourceMaps": true,
+      "smartStep": true
+    },
+    {
+      "name": "Run React in Production Mode",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "args": ["serve", "-s", "build", "-l", "3000"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "preLaunchTask": "npm build"
+    },
+    {
+      "name": "Debug React App in Production",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/build",
+      "runtimeArgs": ["--remote-debugging-port=9222"],
+      "sourceMaps": true,
+      "smartStep": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run & Debug React App in Development",
+      "configurations": ["Run React Without Browser", "Debug React App in Development"]
+    },
+    {
+      "name": "Run & Debug React in Production",
+      "configurations": ["Run React in Production Mode", "Debug React App in Production"]
+    }
+  ]
+}

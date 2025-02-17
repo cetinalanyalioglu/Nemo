@@ -1,6 +1,7 @@
 # Parameter Configuration Guide
 
 This guide explains the available options for configuring node parameters in the flow editor.
+By default, all parameters are included in the JSON output and restored on load.
 
 ## Basic Parameter Structure
 
@@ -20,13 +21,13 @@ Each parameter is defined as an object with various configuration options:
 
 ### Basic Properties
 
-| Property | Type | Description | Example |
-|----------|------|-------------|---------|
-| `label` | string | Display name in the properties panel | `"Mass Flow Rate"` |
-| `type` | string | Parameter data type | `"float"`, `"number"`, `"string"`, `"boolean"` |
-| `defaultValue` | any | Initial value | `1.0`, `"text"`, `false` |
-| `category` | string | Group in properties panel | `"Parameters"`, `"Appearance"` |
-| `unit` | string | Physical unit (for numeric types) | `"kg/s"`, `"Pa"`, `"K"` |
+| Property       | Type   | Description                          | Example                                        |
+| -------------- | ------ | ------------------------------------ | ---------------------------------------------- |
+| `label`        | string | Display name in the properties panel | `"Mass Flow Rate"`                             |
+| `type`         | string | Parameter data type                  | `"float"`, `"number"`, `"string"`, `"boolean"` |
+| `defaultValue` | any    | Initial value                        | `1.0`, `"text"`, `false`                       |
+| `category`     | string | Group in properties panel            | `"Parameters"`, `"Appearance"`                 |
+| `unit`         | string | Physical unit (for numeric types)    | `"kg/s"`, `"Pa"`, `"K"`                        |
 
 ### Visibility Control
 
@@ -128,19 +129,23 @@ Control whether a parameter can be modified:
 ## Best Practices
 
 1. **Categorization**
+
    - Group related parameters in the same category
    - Use consistent category names across nodes
 
 2. **Visibility**
+
    - Hide internal parameters with `visible: false`
    - Use `visibleIf` for contextual parameters
 
 3. **Numeric Parameters**
+
    - Always specify `min`/`max` for bounded values
    - Include `unit` for physical quantities
    - Use `step` for parameters that should increment/decrement
 
 4. **Labels**
+
    - Use clear, descriptive labels
    - Include units in label if not using `unit` property
 

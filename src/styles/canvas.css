@@ -1,0 +1,91 @@
+.canvas-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.canvas-container {
+  flex: 1;
+  transition:
+    margin-left 0.3s ease,
+    margin-right 0.3s ease;
+}
+
+/* Adjust canvas container when sidebar is closed */
+.sidebar:not(.open) + .canvas-container {
+  margin-left: 60px;
+  /* Width of the closed sidebar icons */
+}
+
+/* Adjust canvas container when sidebar is open */
+.sidebar.open + .canvas-container {
+  margin-left: 250px;
+  /* Width of the open sidebar */
+}
+
+/* Adjust canvas container when properties panel is open */
+.canvas-container:has(+ .properties-panel-container.open) {
+  margin-right: 250px;
+  /* Width of the properties panel */
+}
+
+.react-flow {
+  width: 100%;
+  height: 100%;
+  background: white;
+}
+
+.react-flow__node {
+  cursor: grab;
+}
+
+.react-flow__node.selected {
+  cursor: grabbing;
+}
+
+.status-bar {
+  height: 40px;
+  background-color: #f0f0f0;
+  border-top: 1px solid #ccc;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.react-flow__controls {
+  z-index: 101;
+  position: absolute;
+  right: 10px;
+  left: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  background: white;
+  border-bottom: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.react-flow__minimap {
+  z-index: 101;
+  position: absolute;
+  right: 10px;
+  left: auto;
+}
+
+.react-flow__attribution {
+  z-index: 101;
+}
+
+/* Background styles */
+.background-lines {
+  opacity: 0.75;
+}
+
+.background-cross {
+  opacity: 1;
+}
