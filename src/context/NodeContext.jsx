@@ -412,10 +412,91 @@ export const NodeProvider = ({ children }) => {
   }, [setNodes, setEdges]);
 
   /**
+   * Generates optimized node and edge indices for the solver.
+   * The indexing strategy aims to:
+   * 1. Keep connected nodes close in index space to minimize Jacobian bandwidth
+   * 2. Index edges based on their connected nodes to maintain locality
+   *
+   * @returns {Object} Object containing node and edge index mappings
+   */
+  const generateSolverIndices = useCallback(() => {
+    const nodeIndexMap = {};
+    const edgeIndexMap = {};
+    let currentNodeIndex = 0;
+    let currentEdgeIndex = 0;
+
+    // Create an adjacency list representation of the network
+    const adjacencyList = {};
+    nodes.forEach((node) => {
+      adjacencyList[node.id] = {
+        connectedNodes: new Set(),
+        edges: [],
+      };
+    });
+
+    // Build the adjacency information
+    edges.forEach((edge) => {
+      adjacencyList[edge.source].connectedNodes.add(edge.target);
+      adjacencyList[edge.target].connectedNodes.add(edge.source);
+      adjacencyList[edge.source].edges.push(edge);
+      adjacencyList[edge.target].edges.push(edge);
+    });
+
+    // Helper function for BFS traversal
+    const bfs = (startNodeId) => {
+      const queue = [startNodeId];
+      const visited = new Set([startNodeId]);
+
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+
+        // Assign index to this node if not already assigned
+        if (!(currentId in nodeIndexMap)) {
+          nodeIndexMap[currentId] = currentNodeIndex++;
+          // Update the node's solver index parameter
+          updateNodeParameter(currentId, 'solverIndex', nodeIndexMap[currentId]);
+        }
+
+        // Index all edges connected to this node that haven't been indexed yet
+        adjacencyList[currentId].edges.forEach((edge) => {
+          if (!(edge.id in edgeIndexMap)) {
+            edgeIndexMap[edge.id] = currentEdgeIndex++;
+          }
+        });
+
+        // Add unvisited neighbors to queue
+        adjacencyList[currentId].connectedNodes.forEach((neighborId) => {
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            queue.push(neighborId);
+          }
+        });
+      }
+    };
+
+    // Process all nodes using BFS, starting new traversals for unvisited components
+    const unvisitedNodes = new Set(nodes.map((node) => node.id));
+    while (unvisitedNodes.size > 0) {
+      const startNode = unvisitedNodes.values().next().value;
+      bfs(startNode);
+      // Remove all nodes that were visited in this BFS traversal
+      Object.keys(nodeIndexMap).forEach((id) => unvisitedNodes.delete(id));
+    }
+
+    return {
+      nodeIndices: nodeIndexMap,
+      edgeIndices: edgeIndexMap,
+    };
+  }, [nodes, edges, updateNodeParameter]);
+
+  /**
    * Generates a complete state object for saving
    * @returns {Object} The complete state object
    */
   const generateSaveData = useCallback(() => {
+    // Generate solver indices when saving
+    const { nodeIndices, edgeIndices } = generateSolverIndices();
+
     const saveData = {
       version: SAVE_FILE_VERSION,
       timestamp: new Date().toISOString(),
@@ -449,15 +530,24 @@ export const NodeProvider = ({ children }) => {
           data: node.data,
           state: nodeState,
           ports: ports,
+          solverIndex: nodeIndices[node.id],
         };
       }),
-      edges: edges,
-      nodeCounters: nodeCounters,
-      totalNodeCounters: totalNodeCounters,
+      edges: edges.map((edge) => ({
+        ...edge,
+        solverIndex: edgeIndices[edge.id],
+      })),
+      nodeCounters,
+      totalNodeCounters,
+      // Include solver indices in save data
+      solverIndices: {
+        nodes: nodeIndices,
+        edges: edgeIndices,
+      },
     };
 
     return saveData;
-  }, [nodes, edges, nodeStates, nodeCounters, totalNodeCounters]);
+  }, [nodes, edges, nodeStates, nodeCounters, totalNodeCounters, generateSolverIndices]);
 
   /**
    * Saves the current state to a JSON file

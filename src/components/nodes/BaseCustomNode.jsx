@@ -41,6 +41,15 @@ export const elementInfo = {
       step: 1,
       unit: 'px',
     },
+    solverIndex: {
+      label: 'Solver Index',
+      type: 'number',
+      defaultValue: undefined,
+      category: 'Connectivity',
+      description: 'Index used by the network solver',
+      editable: false,
+      visible: true,
+    },
   },
   // Default empty ports configuration
   ports: {
