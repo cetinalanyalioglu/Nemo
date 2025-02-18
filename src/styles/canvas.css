@@ -81,6 +81,18 @@
   z-index: 101;
 }
 
+/* Selection box styling */
+.react-flow__selection {
+  background: rgba(212, 167, 44, 0.08);
+  border: 1px solid #d4a72c;
+  border-radius: 4px;
+}
+
+/* Hide the selection bounds rectangle */
+.react-flow__nodesselection-rect {
+  display: none;
+}
+
 /* Background styles */
 .background-lines {
   opacity: 0.75;

@@ -161,7 +161,6 @@
 
 .number-controls {
   position: absolute;
-  right: 42px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -169,6 +168,13 @@
   gap: 2px;
   opacity: 0;
   transition: opacity 0.2s;
+  /* Position to the right of the input when no unit is present */
+  right: 8px;
+}
+
+/* When there is a unit, position the controls before it */
+.parameter-input-container:has(.parameter-unit) .number-controls {
+  right: 42px;
 }
 
 .parameter-input-container:hover .number-controls {

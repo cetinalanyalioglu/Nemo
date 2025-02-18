@@ -62,7 +62,7 @@ const PropertiesPanel = () => {
   // Group parameters by their categories
   const groupedParameters = Object.entries(nodeState.parameters).reduce((acc, [key, value]) => {
     // Find node type from elementInfo
-    const nodeType = Object.entries(elementInfo).find(([_, info]) =>
+    const nodeType = Object.entries(elementInfo).find(([, info]) =>
       selectedNodeId.startsWith(info.type)
     )?.[1]?.type;
 
@@ -304,7 +304,7 @@ const PropertiesPanel = () => {
   /**
    * Determines if a parameter is editable
    */
-  const isParameterEditable = (paramInfo, nodeState) => {
+  const isParameterEditable = (paramInfo) => {
     if (paramInfo.editable === false) return false;
 
     // Could also add conditional editability here if needed

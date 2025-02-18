@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useLayoutEffect, useMemo } from 'react';
 import { useNodeContext } from '../../context/NodeContext';
 import BaseCustomNode from './BaseCustomNode';
 import { BsDiagram2 } from 'react-icons/bs';
@@ -29,6 +29,7 @@ export const elementInfo = createElementInfo({
       type: 'number',
       defaultValue: 2,
       min: 2,
+      step: 1,
       category: 'Ports',
       description: 'Number of output ports',
     },
@@ -45,7 +46,7 @@ export const elementInfo = createElementInfo({
  * @param {string} type - Type of the node
  * @returns {React.Component} LosslessSplitter node component
  */
-const LosslessSplitter = ({ id, data, selected, type }) => {
+const LosslessSplitter = ({ id, selected, type }) => {
   const {
     edges,
     setEdges,
@@ -62,54 +63,83 @@ const LosslessSplitter = ({ id, data, selected, type }) => {
   const nodeState = nodeStates[id];
   const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
-  // Get the number of right ports from parameters
-  const rightPortCount = nodeState ? parseInt(nodeState.parameters.rightPorts, 10) || 2 : 2;
+  // Get the number of right ports from parameters with better error handling
+  const rightPortCount = (() => {
+    if (!nodeState?.parameters?.rightPorts) return 2; // Default value
+    const parsed = parseInt(nodeState.parameters.rightPorts, 10);
+    return isNaN(parsed) ? 2 : Math.max(2, parsed); // Ensure minimum of 2 ports
+  })();
 
-  // Generate automatic port IDs for the right side
-  const rightPorts = Array.from({ length: rightPortCount }, (_, index) => `${index + 1}`);
+  // Generate automatic port IDs for the right side with validation
+  const rightPorts = useMemo(
+    () => Array.from({ length: rightPortCount }, (_, index) => `${index + 1}`),
+    [rightPortCount]
+  );
 
   // Effect to manage edges when port configuration changes
   useLayoutEffect(() => {
     // If the node state is not available, exit the effect. This triggers during deletion.
-    if (!nodeState) {
+    if (!nodeState || !edges) {
       return;
     }
 
-    let needsUpdate = false;
+    try {
+      let needsUpdate = false;
+      const currentEdges = [...edges];
 
-    // Get all edges connected to this node
-    const nodeEdges = edges.filter((edge) => edge.source === id || edge.target === id);
+      // Get all edges connected to this node
+      const nodeEdges = currentEdges.filter((edge) => edge.source === id || edge.target === id);
 
-    // Separate edges by port side
-    const rightEdges = nodeEdges.filter((edge) => edge.source === id);
+      // Separate edges by port side
+      const rightEdges = nodeEdges.filter((edge) => edge.source === id);
 
-    // Create new edges array starting with edges not connected to output ports
-    const newEdges = edges.filter((edge) => edge.source !== id);
+      // Create new edges array starting with edges not connected to output ports
+      const newEdges = currentEdges.filter((edge) => edge.source !== id);
 
-    // Keep the input port edges as they are
-    nodeEdges
-      .filter((edge) => edge.target === id)
-      .forEach((edge) => {
-        newEdges.push(edge);
+      // Helper to update edge handle IDs with validation
+      const createNewEdge = (edge, portId) => {
+        if (!edge || !edge.id || !portId) return null;
+        const newSourceHandle = `${id}-port-${portId}`;
+
+        // Only mark for update if handle actually changed
+        if (newSourceHandle !== edge.sourceHandle) {
+          needsUpdate = true;
+        }
+
+        return {
+          ...edge,
+          sourceHandle: newSourceHandle,
+        };
+      };
+
+      // Keep the input port edges as they are
+      nodeEdges
+        .filter((edge) => edge.target === id)
+        .forEach((edge) => {
+          if (edge && edge.id) {
+            newEdges.push(edge);
+          }
+        });
+
+      // Keep as many right (source) edges as possible
+      rightEdges.slice(0, rightPortCount).forEach((edge, index) => {
+        const newEdge = createNewEdge(edge, rightPorts[index]);
+        if (newEdge) {
+          newEdges.push(newEdge);
+        }
       });
 
-    // Keep as many right (source) edges as possible
-    rightEdges.slice(0, rightPortCount).forEach((edge, index) => {
-      newEdges.push({
-        ...edge,
-        sourceHandle: `${id}-port-${rightPorts[index]}`,
-      });
-      needsUpdate = true;
-    });
+      // Update edges ONLY if actual changes were made
+      if (needsUpdate) {
+        setEdges(newEdges);
+      }
 
-    // Update edges if any changes were made
-    if (needsUpdate) {
-      setEdges(newEdges);
+      // Always update node internals to ensure proper rendering
+      updateNodeInternals(id);
+    } catch (error) {
+      console.error('Error updating LosslessSplitter edges:', error);
     }
-
-    // Always update node internals to ensure proper rendering
-    updateNodeInternals(id);
-  }, [id, rightPortCount, setEdges, updateNodeInternals]);
+  }, [rightPortCount, rightPorts, id, nodeState, updateNodeInternals, edges, setEdges]);
 
   // If the node state is not available, render nothing. This triggers during deletion.
   if (!nodeState) {

@@ -3,6 +3,9 @@ import { elementInfo } from '../components/nodes/nodeTypes';
 import { useNodesState, useEdgesState } from 'reactflow';
 import { debugLog } from '../utils/debug';
 
+// Define save file version at module level
+const SAVE_FILE_VERSION = '1.0.0';
+
 const NodeContext = createContext();
 
 export const NodeProvider = ({ children }) => {
@@ -75,7 +78,7 @@ export const NodeProvider = ({ children }) => {
       const suffix = generateRandomSuffix();
 
       // Combine to create the new ID using full type name
-      let newId = `${type}-${counter + 1}-${suffix}`;
+      let newId = `${type}${counter + 1}-${suffix}`;
 
       // In the unlikely case of a collision, regenerate with a new suffix
       while (isIdInUse(newId)) {
@@ -414,6 +417,8 @@ export const NodeProvider = ({ children }) => {
    */
   const generateSaveData = useCallback(() => {
     const saveData = {
+      version: SAVE_FILE_VERSION,
+      timestamp: new Date().toISOString(),
       nodes: nodes.map((node) => {
         // Get the node's state
         const nodeState = nodeStates[node.id];
@@ -501,6 +506,18 @@ export const NodeProvider = ({ children }) => {
         try {
           const saveData = JSON.parse(event.target.result);
 
+          // Check version compatibility
+          if (!saveData.version) {
+            throw new Error('Invalid save file: Missing version information');
+          }
+
+          const [major] = saveData.version.split('.');
+          if (parseInt(major) > 1) {
+            throw new Error(
+              'This save file was created with a newer version and is not compatible.'
+            );
+          }
+
           // Reset current state
           reset();
 
@@ -531,9 +548,12 @@ export const NodeProvider = ({ children }) => {
           setTotalNodeCounters(saveData.totalNodeCounters);
 
           debugLog('Successfully loaded canvas state from file');
+          if (saveData.timestamp) {
+            debugLog('File was saved on: ' + new Date(saveData.timestamp).toLocaleString());
+          }
         } catch (error) {
           console.error('Error loading canvas state:', error);
-          alert('Error loading file: Invalid format');
+          alert('Error loading file: ' + error.message);
         }
       };
 
