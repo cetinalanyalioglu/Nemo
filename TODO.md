@@ -7,6 +7,7 @@
 
 - [ ] At least some simple automatic layout functionality
 - [ ] Capability to add a resizable, movable background image(s) to the canvas
+- [ ] Custom edge type to display information on the edges
 
 ## Extensibility
 
