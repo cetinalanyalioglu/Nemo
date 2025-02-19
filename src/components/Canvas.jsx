@@ -5,6 +5,7 @@ import '../styles/edges.css';
 import '../styles/sidebar.css';
 import '../styles/canvas.css';
 import { nodeTypes } from './nodes/nodeTypes';
+import { edgeTypes } from './edges/edgeTypes';
 import ZoomIndicator from './ZoomIndicator';
 import { useNodeContext } from '../context/NodeContext';
 import { useReactFlow } from '../context/ReactFlowContext';
@@ -112,9 +113,12 @@ const Canvas = () => {
   /**
    * Handles creation of new edges between nodes
    */
-  const onConnect = useCallback((params) => {
-    setEdges((eds) => addEdge(params, eds));
-  }, []);
+  const onConnect = useCallback(
+    (params) => {
+      setEdges((eds) => addEdge(params, eds));
+    },
+    [setEdges]
+  );
 
   /**
    * Updates selected node when a node is clicked
@@ -126,7 +130,7 @@ const Canvas = () => {
   /**
    * Clears node selection when clicking on the canvas
    */
-  const handlePaneClick = (event) => {
+  const handlePaneClick = () => {
     setSelectedNodeId(null);
   };
 
@@ -193,9 +197,11 @@ const Canvas = () => {
         maxZoom={4}
         defaultViewport={{ x: 0, y: 0, zoom: 1.0 }}
         isValidConnection={isValidConnection}
-        deleteKeyCode={null} // Disable built-in delete to use custom deletion
+        deleteKeyCode={null}
         snapToGrid={snapToGrid}
         snapGrid={[gridSize, gridSize]}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={{ type: 'custom' }}
       >
         <>
           <Background
