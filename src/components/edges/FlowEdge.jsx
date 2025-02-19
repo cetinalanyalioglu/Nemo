@@ -15,9 +15,9 @@ export const elementInfo = createEdgeInfo({
     area: {
       label: 'Area',
       type: 'float',
-      defaultValue: 1.0,
+      defaultValue: undefined,
       unit: 'm^2',
-      category: 'Flow Properties',
+      category: 'Parameters',
       description: 'Cross-sectional area of the flow path',
       editable: false,
       visible: true,

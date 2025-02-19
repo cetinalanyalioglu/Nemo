@@ -9,8 +9,10 @@ import {
   IoChevronDown,
   IoCheckbox,
   IoSquareOutline,
+  IoGitBranch,
 } from 'react-icons/io5';
 import { elementInfo } from './nodes/nodeTypes';
+import { edgeInfo } from './edges/edgeTypes';
 
 /**
  * Formats a category name to uppercase, preserving 'I' characters
@@ -31,14 +33,24 @@ const formatTitle = (title) => {
 };
 
 /**
- * PropertiesPanel component displays and allows editing of selected node parameters.
+ * PropertiesPanel component displays and allows editing of selected node or edge parameters.
  * Provides a collapsible interface grouped by parameter categories.
  * Supports different parameter types including numbers, strings, and booleans.
+ * For nodes, displays node-specific parameters defined in elementInfo.
+ * For edges, displays edge-specific parameters defined in edgeInfo.
  *
- * @returns {React.Component} Properties panel for editing node parameters
+ * @returns {React.Component} Properties panel for editing element parameters
  */
 const PropertiesPanel = () => {
-  const { selectedNodeId, nodeStates, updateNodeParameter } = useNodeContext();
+  const {
+    selectedNodeId,
+    selectedEdgeId,
+    nodeStates,
+    edgeStates,
+    updateNodeParameter,
+    updateEdgeParameter,
+  } = useNodeContext();
+
   const {
     propertiesPanel: { isOpen, collapsedGroups },
     actions,
@@ -49,25 +61,44 @@ const PropertiesPanel = () => {
   // Add state for temporary values during editing
   const [tempValues, setTempValues] = useState({});
 
-  // Update panel visibility when selected node changes
+  // Update panel visibility when selected element changes
   useEffect(() => {
-    actions.propertiesPanel.setIsOpen(!!selectedNodeId);
-  }, [selectedNodeId, actions.propertiesPanel]);
+    actions.propertiesPanel.setIsOpen(!!(selectedNodeId || selectedEdgeId));
+  }, [selectedNodeId, selectedEdgeId, actions.propertiesPanel]);
 
-  if (!selectedNodeId) return null;
+  // Early return if no selection
+  if (!selectedNodeId && !selectedEdgeId) return null;
 
-  const nodeState = nodeStates[selectedNodeId];
-  if (!nodeState) return null;
+  // Get the appropriate state and info based on selection
+  const isEdge = !!selectedEdgeId;
+  const selectedId = isEdge ? selectedEdgeId : selectedNodeId;
+  const elementState = isEdge ? edgeStates[selectedEdgeId] : nodeStates[selectedNodeId];
+
+  if (!elementState) return null;
+
+  // Find element type and info
+  const elementType = isEdge
+    ? 'flow' // For now, all edges are flow edges
+    : Object.entries(elementInfo).find(([, info]) => selectedNodeId.startsWith(info.type))?.[1]
+        ?.type;
+
+  // Get parameters info based on element type
+  const parametersInfo = isEdge
+    ? edgeInfo[elementType]?.parameters || {}
+    : elementType
+      ? elementInfo[elementType]?.parameters
+      : {};
 
   // Group parameters by their categories
-  const groupedParameters = Object.entries(nodeState.parameters).reduce((acc, [key, value]) => {
-    // Find node type from elementInfo
-    const nodeType = Object.entries(elementInfo).find(([, info]) =>
-      selectedNodeId.startsWith(info.type)
-    )?.[1]?.type;
-
-    const parameterInfo = elementInfo[nodeType].parameters[key];
-    const category = parameterInfo?.category || 'Other';
+  const groupedParameters = Object.entries(elementState.parameters).reduce((acc, [key, value]) => {
+    const parameterInfo = parametersInfo?.[key] || {
+      label: key,
+      category: 'Other',
+      type: typeof value,
+      editable: true,
+      visible: true,
+    };
+    const category = parameterInfo.category || 'Other';
 
     if (!acc[category]) {
       acc[category] = [];
@@ -76,6 +107,9 @@ const PropertiesPanel = () => {
     acc[category].push({ key, value, info: parameterInfo });
     return acc;
   }, {});
+
+  // Update the appropriate element's parameter
+  const updateParameter = isEdge ? updateEdgeParameter : updateNodeParameter;
 
   /**
    * Validates a numeric value against parameter constraints
@@ -101,8 +135,12 @@ const PropertiesPanel = () => {
 
   /**
    * Handles changes during input
+   * @param {string} elementId - The ID of the element being edited
+   * @param {string} paramKey - The parameter key being changed
+   * @param {Object} info - Parameter metadata
+   * @param {string} value - New value from the input
    */
-  const handleInputChange = (nodeId, paramKey, info, value) => {
+  const handleInputChange = (elementId, paramKey, info, value) => {
     // For numeric inputs, only allow numeric characters and decimal point
     if (info.type === 'number' || info.type === 'float') {
       if (!/^-?\d*\.?\d*$/.test(value)) return;
@@ -123,8 +161,12 @@ const PropertiesPanel = () => {
 
   /**
    * Handles input completion (blur event)
+   * @param {string} elementId - The ID of the element being edited
+   * @param {string} paramKey - The parameter key being changed
+   * @param {Object} info - Parameter metadata
+   * @param {string} value - Final value from the input
    */
-  const handleInputBlur = (nodeId, paramKey, info, value) => {
+  const handleInputBlur = (elementId, paramKey, info, value) => {
     if (info.type === 'number' || info.type === 'float') {
       const numValue = parseFloat(value);
 
@@ -153,15 +195,15 @@ const PropertiesPanel = () => {
         [paramKey]: undefined,
       }));
 
-      // Clear temporary value and update node state
+      // Clear temporary value and update element state
       setTempValues((prev) => ({
         ...prev,
         [paramKey]: undefined,
       }));
-      updateNodeParameter(nodeId, paramKey, numValue);
+      updateParameter(elementId, paramKey, numValue);
     } else {
       // For non-numeric types, just update the value
-      updateNodeParameter(nodeId, paramKey, value);
+      updateParameter(elementId, paramKey, value);
     }
   };
 
@@ -289,13 +331,16 @@ const PropertiesPanel = () => {
   /**
    * Determines if a parameter should be visible based on its configuration
    */
-  const isParameterVisible = (paramInfo, nodeState) => {
+  const isParameterVisible = (paramInfo, elementState) => {
+    // Handle case where paramInfo is undefined
+    if (!paramInfo) return true;
+
     // Check explicit visibility flag
     if (paramInfo.visible === false) return false;
 
     // Check visibility conditions
     if (paramInfo.visibleIf) {
-      return evaluateCondition(paramInfo.visibleIf, nodeState);
+      return evaluateCondition(paramInfo.visibleIf, elementState);
     }
 
     return true;
@@ -305,6 +350,9 @@ const PropertiesPanel = () => {
    * Determines if a parameter is editable
    */
   const isParameterEditable = (paramInfo) => {
+    // Handle case where paramInfo is undefined
+    if (!paramInfo) return true;
+
     if (paramInfo.editable === false) return false;
 
     // Could also add conditional editability here if needed
@@ -316,8 +364,14 @@ const PropertiesPanel = () => {
       <div className="properties-panel">
         {/* Panel header */}
         <div className="panel-header">
-          <IoSettingsOutline className="panel-icon" />
-          <span className="panel-title">{formatTitle('Node Properties')}</span>
+          {isEdge ? (
+            <IoGitBranch className="panel-icon" />
+          ) : (
+            <IoSettingsOutline className="panel-icon" />
+          )}
+          <span className="panel-title">
+            {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
+          </span>
         </div>
 
         {/* Parameter groups */}
@@ -345,9 +399,9 @@ const PropertiesPanel = () => {
             <div className="group-content">
               {parameters.map(({ key, value, info }) => {
                 // Check visibility
-                if (!isParameterVisible(info, nodeState)) return null;
+                if (!isParameterVisible(info, elementState)) return null;
 
-                const isEditable = isParameterEditable(info, nodeState);
+                const isEditable = isParameterEditable(info);
 
                 return (
                   <div key={key} className="parameter-row">
@@ -356,9 +410,7 @@ const PropertiesPanel = () => {
                         <label className="parameter-label">{info.label || key}</label>
                         <div
                           className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
-                          onClick={() =>
-                            isEditable && updateNodeParameter(selectedNodeId, key, !value)
-                          }
+                          onClick={() => isEditable && updateParameter(selectedId, key, !value)}
                         >
                           {value ? <IoCheckbox /> : <IoSquareOutline />}
                         </div>
@@ -377,12 +429,10 @@ const PropertiesPanel = () => {
                                 : formatNumber(getSafeValue(value, info))
                             }
                             onChange={(e) =>
-                              isEditable &&
-                              handleInputChange(selectedNodeId, key, info, e.target.value)
+                              isEditable && handleInputChange(selectedId, key, info, e.target.value)
                             }
                             onBlur={(e) =>
-                              isEditable &&
-                              handleInputBlur(selectedNodeId, key, info, e.target.value)
+                              isEditable && handleInputBlur(selectedId, key, info, e.target.value)
                             }
                             className={`parameter-input 
                                                             ${invalidInputs[key] ? 'invalid' : ''} 
@@ -406,7 +456,7 @@ const PropertiesPanel = () => {
                                     [key]: newValue.toString(),
                                   }));
                                   // Also update node parameter
-                                  updateNodeParameter(selectedNodeId, key, newValue);
+                                  updateParameter(selectedId, key, newValue);
                                 }}
                               >
                                 <IoAdd />
@@ -425,7 +475,7 @@ const PropertiesPanel = () => {
                                     [key]: newValue.toString(),
                                   }));
                                   // Also update node parameter
-                                  updateNodeParameter(selectedNodeId, key, newValue);
+                                  updateParameter(selectedId, key, newValue);
                                 }}
                               >
                                 <IoRemove />
