@@ -4,6 +4,8 @@ import BaseCustomNode from './BaseCustomNode';
 import { BsLightningFill } from 'react-icons/bs';
 import { createElementInfo } from './nodeUtils';
 import { useUpdateNodeInternals } from 'reactflow';
+import { debugLog } from '../../utils/debug';
+
 export const elementIcon = BsLightningFill;
 
 /**
@@ -72,15 +74,29 @@ const Junction = ({ id, selected, type }) => {
 
   // Get the number of ports from parameters with better error handling
   const leftPortCount = (() => {
-    if (!nodeState?.parameters?.leftPorts) return 2; // Default value
+    if (!nodeState?.parameters?.leftPorts) {
+      debugLog(`[${id}] Using default left port count: 2`);
+      return 2; // Default value
+    }
     const parsed = parseInt(nodeState.parameters.leftPorts, 10);
-    return isNaN(parsed) ? 2 : Math.max(1, parsed); // Ensure minimum of 1 port
+    const finalCount = isNaN(parsed) ? 2 : Math.max(1, parsed);
+    if (finalCount !== parsed) {
+      debugLog(`[${id}] Adjusted left port count from ${parsed} to ${finalCount}`);
+    }
+    return finalCount;
   })();
 
   const rightPortCount = (() => {
-    if (!nodeState?.parameters?.rightPorts) return 1; // Default value
+    if (!nodeState?.parameters?.rightPorts) {
+      debugLog(`[${id}] Using default right port count: 1`);
+      return 1; // Default value
+    }
     const parsed = parseInt(nodeState.parameters.rightPorts, 10);
-    return isNaN(parsed) ? 1 : Math.max(1, parsed); // Ensure minimum of 1 port
+    const finalCount = isNaN(parsed) ? 1 : Math.max(1, parsed);
+    if (finalCount !== parsed) {
+      debugLog(`[${id}] Adjusted right port count from ${parsed} to ${finalCount}`);
+    }
+    return finalCount;
   })();
 
   // Generate automatic port IDs with validation
@@ -94,85 +110,119 @@ const Junction = ({ id, selected, type }) => {
     [rightPortCount, leftPortCount]
   );
 
-  // Effect to manage edges when port configuration changes
+  /**
+   * Effect hook to manage edge connections when port configuration changes.
+   * This handles:
+   * 1. Removing edges for ports that no longer exist
+   * 2. Maintaining existing edge connections for remaining ports
+   * 3. Updating React Flow's internal node state
+   */
   useLayoutEffect(() => {
-    if (!nodeState || !edges) {
-      return;
-    }
+    if (!nodeState || !edges) return;
 
     try {
       let needsUpdate = false;
+      let edgesRemoved = 0;
+      let handlesUpdated = 0;
       const currentEdges = [...edges];
 
-      // Get all edges connected to this node
-      const nodeEdges = currentEdges.filter((edge) => edge.source === id || edge.target === id);
+      // Step 1: Filter out edges connected to ports that will no longer exist
+      const newEdges = currentEdges.filter((edge) => {
+        // Skip edges not connected to this node
+        if (edge.source !== id && edge.target !== id) return true;
 
-      // Separate edges by port side (left/target and right/source)
-      const leftEdges = nodeEdges.filter((edge) => edge.target === id);
-      const rightEdges = nodeEdges.filter((edge) => edge.source === id);
+        let portMatch;
+        let portNumber;
+        let keepEdge = true;
 
-      // Create new edges array starting with edges not connected to this node
-      const newEdges = currentEdges.filter((edge) => edge.source !== id && edge.target !== id);
+        // Check source (right) port
+        if (edge.source === id) {
+          portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
+          if (!portMatch) {
+            debugLog(`[${id}] Invalid source handle format: ${edge.sourceHandle}`);
+            return true;
+          }
+          portNumber = parseInt(portMatch[1], 10);
+          // Port number should be in the right port range
+          keepEdge = portNumber >= leftPortCount && portNumber < leftPortCount + rightPortCount;
+        }
+        // Check target (left) port
+        else if (edge.target === id) {
+          portMatch = edge.targetHandle?.match(/-port-(\d+)$/);
+          if (!portMatch) {
+            debugLog(`[${id}] Invalid target handle format: ${edge.targetHandle}`);
+            return true;
+          }
+          portNumber = parseInt(portMatch[1], 10);
+          // Port number should be in the left port range
+          keepEdge = portNumber < leftPortCount;
+        }
 
-      // Helper to update edge handle IDs with validation
-      const createNewEdge = (edge, portId) => {
-        if (!edge || !edge.id || !portId) return null;
-        const newSourceHandle = edge.source === id ? `${id}-port-${portId}` : edge.sourceHandle;
-        const newTargetHandle = edge.target === id ? `${id}-port-${portId}` : edge.targetHandle;
-
-        // Only mark for update if handles actually changed
-        if (newSourceHandle !== edge.sourceHandle || newTargetHandle !== edge.targetHandle) {
+        if (!keepEdge) {
+          edgesRemoved++;
           needsUpdate = true;
         }
+        return keepEdge;
+      });
 
-        return {
-          ...edge,
-          sourceHandle: newSourceHandle,
-          targetHandle: newTargetHandle,
-        };
-      };
+      // Step 2: Update remaining edges if their handles need to change
+      newEdges.forEach((edge) => {
+        let updated = false;
+        let newEdge = { ...edge };
 
-      // Keep as many left (target) edges as possible
-      leftEdges.slice(0, leftPortCount).forEach((edge, index) => {
-        const newEdge = createNewEdge(edge, leftPorts[index]);
-        if (newEdge) {
-          newEdges.push(newEdge);
+        // Update source (right) port handle if needed
+        if (edge.source === id) {
+          const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
+          if (portMatch) {
+            const portNumber = parseInt(portMatch[1], 10);
+            const newSourceHandle = `${id}-port-${portNumber}`;
+            if (newSourceHandle !== edge.sourceHandle) {
+              newEdge.sourceHandle = newSourceHandle;
+              updated = true;
+            }
+          }
+        }
+        // Update target (left) port handle if needed
+        else if (edge.target === id) {
+          const portMatch = edge.targetHandle?.match(/-port-(\d+)$/);
+          if (portMatch) {
+            const portNumber = parseInt(portMatch[1], 10);
+            const newTargetHandle = `${id}-port-${portNumber}`;
+            if (newTargetHandle !== edge.targetHandle) {
+              newEdge.targetHandle = newTargetHandle;
+              updated = true;
+            }
+          }
+        }
+
+        if (updated) {
+          handlesUpdated++;
+          needsUpdate = true;
+          const edgeIndex = newEdges.findIndex((e) => e.id === edge.id);
+          if (edgeIndex !== -1) {
+            newEdges[edgeIndex] = newEdge;
+          }
         }
       });
 
-      // Keep as many right (source) edges as possible
-      rightEdges.slice(0, rightPortCount).forEach((edge, index) => {
-        const newEdge = createNewEdge(edge, rightPorts[index]);
-        if (newEdge) {
-          newEdges.push(newEdge);
-        }
-      });
-
-      // Update edges ONLY if actual changes were made
+      // Step 3: Update edge state and node internals
       if (needsUpdate) {
+        if (edgesRemoved > 0) {
+          debugLog(`[${id}] Removed ${edgesRemoved} edges due to port reduction`);
+        }
+        if (handlesUpdated > 0) {
+          debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
+        }
         setEdges(newEdges);
       }
-
-      // Always update node internals to ensure proper rendering
       updateNodeInternals(id);
     } catch (error) {
+      debugLog(`[${id}] Error in edge management: ${error.message}`);
       console.error('Error updating Junction edges:', error);
     }
-  }, [
-    leftPortCount,
-    rightPortCount,
-    leftPorts,
-    rightPorts,
-    id,
-    nodeState,
-    updateNodeInternals,
-    edges,
-    setEdges,
-  ]);
+  }, [leftPortCount, rightPortCount, id, nodeState, updateNodeInternals, edges, setEdges]);
 
-  if (!nodeState) {
-    return null;
-  }
+  if (!nodeState) return null;
 
   return (
     <BaseCustomNode

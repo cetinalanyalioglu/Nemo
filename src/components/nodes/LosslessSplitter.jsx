@@ -4,6 +4,7 @@ import BaseCustomNode from './BaseCustomNode';
 import { BsDiagram2 } from 'react-icons/bs';
 import { createElementInfo } from './nodeUtils';
 import { useUpdateNodeInternals } from 'reactflow';
+import { debugLog } from '../../utils/debug';
 
 export const elementIcon = BsDiagram2;
 
@@ -65,86 +66,105 @@ const LosslessSplitter = ({ id, selected, type }) => {
 
   // Get the number of right ports from parameters with better error handling
   const rightPortCount = (() => {
-    if (!nodeState?.parameters?.rightPorts) return 2; // Default value
+    if (!nodeState?.parameters?.rightPorts) {
+      debugLog(`[${id}] Using default port count: 2`);
+      return 2; // Default value
+    }
     const parsed = parseInt(nodeState.parameters.rightPorts, 10);
-    return isNaN(parsed) ? 2 : Math.max(2, parsed); // Ensure minimum of 2 ports
+    const finalCount = isNaN(parsed) ? 2 : Math.max(2, parsed);
+    if (finalCount !== parsed) {
+      debugLog(`[${id}] Adjusted port count from ${parsed} to ${finalCount}`);
+    }
+    return finalCount; // Ensure minimum of 2 ports
   })();
 
   // Generate automatic port IDs for the right side with validation
-  const rightPorts = useMemo(
-    () => Array.from({ length: rightPortCount }, (_, index) => `${index + 1}`),
-    [rightPortCount]
-  );
+  const rightPorts = useMemo(() => {
+    const ports = Array.from({ length: rightPortCount }, (_, index) => `${index + 1}`);
+    return ports;
+  }, [rightPortCount]);
 
-  // Effect to manage edges when port configuration changes
+  /**
+   * Effect hook to manage edge connections when port configuration changes.
+   * This handles:
+   * 1. Removing edges for ports that no longer exist
+   * 2. Maintaining existing edge connections for remaining ports
+   * 3. Updating React Flow's internal node state
+   */
   useLayoutEffect(() => {
-    // If the node state is not available, exit the effect. This triggers during deletion.
-    if (!nodeState || !edges) {
-      return;
-    }
+    if (!nodeState || !edges) return;
 
     try {
       let needsUpdate = false;
+      let edgesRemoved = 0;
       const currentEdges = [...edges];
 
-      // Get all edges connected to this node
-      const nodeEdges = currentEdges.filter((edge) => edge.source === id || edge.target === id);
+      // Step 1: Filter out edges connected to ports that will no longer exist
+      const newEdges = currentEdges.filter((edge) => {
+        // Keep edges not connected to this node
+        if (edge.source !== id) return true;
 
-      // Separate edges by port side
-      const rightEdges = nodeEdges.filter((edge) => edge.source === id);
-
-      // Create new edges array starting with edges not connected to output ports
-      const newEdges = currentEdges.filter((edge) => edge.source !== id);
-
-      // Helper to update edge handle IDs with validation
-      const createNewEdge = (edge, portId) => {
-        if (!edge || !edge.id || !portId) return null;
-        const newSourceHandle = `${id}-port-${portId}`;
-
-        // Only mark for update if handle actually changed
-        if (newSourceHandle !== edge.sourceHandle) {
-          needsUpdate = true;
+        const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
+        if (!portMatch) {
+          // Only log invalid handles that belong to this node
+          debugLog(`[${id}] Invalid handle format: ${edge.sourceHandle}`);
+          return true;
         }
 
-        return {
-          ...edge,
-          sourceHandle: newSourceHandle,
-        };
-      };
+        // Check if the port number is within the new port count
+        const portNumber = parseInt(portMatch[1], 10);
+        const keepEdge = portNumber <= rightPortCount;
+        if (!keepEdge) {
+          edgesRemoved++;
+          needsUpdate = true;
+        }
+        return keepEdge;
+      });
 
-      // Keep the input port edges as they are
-      nodeEdges
-        .filter((edge) => edge.target === id)
-        .forEach((edge) => {
-          if (edge && edge.id) {
-            newEdges.push(edge);
+      // Step 2: Update remaining edges if their handles need to change
+      const remainingRightEdges = newEdges.filter((edge) => edge.source === id);
+      let handlesUpdated = 0;
+
+      remainingRightEdges.forEach((edge) => {
+        const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
+        if (!portMatch) return;
+
+        const portNumber = portMatch[1];
+        const newSourceHandle = `${id}-port-${portNumber}`;
+
+        if (newSourceHandle !== edge.sourceHandle) {
+          handlesUpdated++;
+          needsUpdate = true;
+          const edgeIndex = newEdges.findIndex((e) => e.id === edge.id);
+          if (edgeIndex !== -1) {
+            newEdges[edgeIndex] = {
+              ...edge,
+              sourceHandle: newSourceHandle,
+            };
           }
-        });
-
-      // Keep as many right (source) edges as possible
-      rightEdges.slice(0, rightPortCount).forEach((edge, index) => {
-        const newEdge = createNewEdge(edge, rightPorts[index]);
-        if (newEdge) {
-          newEdges.push(newEdge);
         }
       });
 
-      // Update edges ONLY if actual changes were made
+      // Step 3: Update edge state and node internals
       if (needsUpdate) {
+        // Only log when actual changes occur
+        if (edgesRemoved > 0) {
+          debugLog(`[${id}] Removed ${edgesRemoved} edges due to port reduction`);
+        }
+        if (handlesUpdated > 0) {
+          debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
+        }
         setEdges(newEdges);
       }
-
-      // Always update node internals to ensure proper rendering
       updateNodeInternals(id);
     } catch (error) {
+      debugLog(`[${id}] Error in edge management: ${error.message}`);
       console.error('Error updating LosslessSplitter edges:', error);
     }
   }, [rightPortCount, rightPorts, id, nodeState, updateNodeInternals, edges, setEdges]);
 
   // If the node state is not available, render nothing. This triggers during deletion.
-  if (!nodeState) {
-    return null;
-  }
+  if (!nodeState) return null;
 
   return (
     <BaseCustomNode
