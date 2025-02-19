@@ -565,6 +565,7 @@ export const NodeProvider = ({ children }) => {
       edges: edges.map((edge) => ({
         ...edge,
         solverIndex: edgeIndices[edge.id],
+        state: edgeStates[edge.id],
       })),
       nodeCounters,
       totalNodeCounters,
@@ -576,7 +577,15 @@ export const NodeProvider = ({ children }) => {
     };
 
     return saveData;
-  }, [nodes, edges, nodeStates, nodeCounters, totalNodeCounters, generateSolverIndices]);
+  }, [
+    nodes,
+    edges,
+    nodeStates,
+    edgeStates,
+    nodeCounters,
+    totalNodeCounters,
+    generateSolverIndices,
+  ]);
 
   /**
    * Saves the current state to a JSON file
@@ -659,6 +668,37 @@ export const NodeProvider = ({ children }) => {
             }))
           );
 
+          // Create edge states for each edge
+          const newEdgeStates = {};
+          saveData.edges.forEach((edge) => {
+            if (edge.state) {
+              // Use saved state if it exists
+              newEdgeStates[edge.id] = edge.state;
+            } else {
+              // Fallback to creating new state from template
+              const edgeTemplate = edgeInfo[edge.type || 'flow'];
+              if (!edgeTemplate) {
+                console.warn(`Edge template not found for type ${edge.type}, using flow type`);
+              }
+
+              // Get default parameters from edgeInfo
+              const defaultParameters = {};
+              if (edgeTemplate) {
+                for (const key in edgeTemplate.parameters) {
+                  defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
+                }
+              }
+
+              // Create the edge state
+              newEdgeStates[edge.id] = {
+                parameters: defaultParameters,
+              };
+            }
+          });
+
+          // Set edge states
+          setEdgeStates(newEdgeStates);
+
           // Restore edges
           setEdges(saveData.edges);
 
@@ -683,7 +723,7 @@ export const NodeProvider = ({ children }) => {
 
       reader.readAsText(file);
     },
-    [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters]
+    [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters, setEdgeStates]
   );
 
   // Define updateEdgeParameter similar to updateNodeParameter
