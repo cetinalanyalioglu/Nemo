@@ -440,19 +440,37 @@ export const NodeProvider = ({ children }) => {
     debugLog('All nodes and states have been cleared');
   }, [setNodes, setEdges]);
 
+  // Define updateEdgeParameter similar to updateNodeParameter
+  const updateEdgeParameter = useCallback((edgeId, paramName, value) => {
+    setEdgeStates((prev) => ({
+      ...prev,
+      [edgeId]: {
+        ...prev[edgeId],
+        parameters: {
+          ...prev[edgeId]?.parameters,
+          [paramName]: value,
+        },
+      },
+    }));
+  }, []);
+
   /**
    * Generates optimized node and edge indices for the solver.
    * The indexing strategy aims to:
    * 1. Keep connected nodes close in index space to minimize Jacobian bandwidth
    * 2. Index edges based on their connected nodes to maintain locality
    *
-   * @returns {Object} Object containing node and edge index mappings
+   * @returns {Object} Object containing updated node and edge states with solver indices
    */
   const generateSolverIndices = useCallback(() => {
     const nodeIndexMap = {};
     const edgeIndexMap = {};
     let currentNodeIndex = 0;
     let currentEdgeIndex = 0;
+
+    // Create deep copies of current states
+    const updatedNodeStates = JSON.parse(JSON.stringify(nodeStates));
+    const updatedEdgeStates = JSON.parse(JSON.stringify(edgeStates));
 
     // Create an adjacency list representation of the network
     const adjacencyList = {};
@@ -482,14 +500,20 @@ export const NodeProvider = ({ children }) => {
         // Assign index to this node if not already assigned
         if (!(currentId in nodeIndexMap)) {
           nodeIndexMap[currentId] = currentNodeIndex++;
-          // Update the node's solver index parameter
-          updateNodeParameter(currentId, 'solverIndex', nodeIndexMap[currentId]);
+          // Update the node's solver index parameter in our copy
+          if (updatedNodeStates[currentId]) {
+            updatedNodeStates[currentId].parameters.solverIndex = nodeIndexMap[currentId];
+          }
         }
 
         // Index all edges connected to this node that haven't been indexed yet
         adjacencyList[currentId].edges.forEach((edge) => {
           if (!(edge.id in edgeIndexMap)) {
             edgeIndexMap[edge.id] = currentEdgeIndex++;
+            // Update the edge's solver index parameter in our copy
+            if (updatedEdgeStates[edge.id]) {
+              updatedEdgeStates[edge.id].parameters.solverIndex = edgeIndexMap[edge.id];
+            }
           }
         });
 
@@ -513,25 +537,25 @@ export const NodeProvider = ({ children }) => {
     }
 
     return {
-      nodeIndices: nodeIndexMap,
-      edgeIndices: edgeIndexMap,
+      updatedNodeStates,
+      updatedEdgeStates,
     };
-  }, [nodes, edges, updateNodeParameter]);
+  }, [nodes, edges, nodeStates, edgeStates]);
 
   /**
    * Generates a complete state object for saving
    * @returns {Object} The complete state object
    */
   const generateSaveData = useCallback(() => {
-    // Generate solver indices when saving
-    const { nodeIndices, edgeIndices } = generateSolverIndices();
+    // Generate solver indices and get updated states
+    const { updatedNodeStates, updatedEdgeStates } = generateSolverIndices();
 
     const saveData = {
       version: SAVE_FILE_VERSION,
       timestamp: new Date().toISOString(),
       nodes: nodes.map((node) => {
-        // Get the node's state
-        const nodeState = nodeStates[node.id];
+        // Get the node's state from updated states
+        const nodeState = updatedNodeStates[node.id];
 
         // Get all edges connected to this node
         const nodeEdges = edges.filter(
@@ -559,33 +583,18 @@ export const NodeProvider = ({ children }) => {
           data: node.data,
           state: nodeState,
           ports: ports,
-          solverIndex: nodeIndices[node.id],
         };
       }),
       edges: edges.map((edge) => ({
         ...edge,
-        solverIndex: edgeIndices[edge.id],
-        state: edgeStates[edge.id],
+        state: updatedEdgeStates[edge.id],
       })),
       nodeCounters,
       totalNodeCounters,
-      // Include solver indices in save data
-      solverIndices: {
-        nodes: nodeIndices,
-        edges: edgeIndices,
-      },
     };
 
     return saveData;
-  }, [
-    nodes,
-    edges,
-    nodeStates,
-    edgeStates,
-    nodeCounters,
-    totalNodeCounters,
-    generateSolverIndices,
-  ]);
+  }, [nodes, edges, nodeCounters, totalNodeCounters, generateSolverIndices]);
 
   /**
    * Saves the current state to a JSON file
@@ -725,20 +734,6 @@ export const NodeProvider = ({ children }) => {
     },
     [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters, setEdgeStates]
   );
-
-  // Define updateEdgeParameter similar to updateNodeParameter
-  const updateEdgeParameter = useCallback((edgeId, paramName, value) => {
-    setEdgeStates((prev) => ({
-      ...prev,
-      [edgeId]: {
-        ...prev[edgeId],
-        parameters: {
-          ...prev[edgeId]?.parameters,
-          [paramName]: value,
-        },
-      },
-    }));
-  }, []);
 
   /**
    * Adds a new edge to the flow diagram and initializes its state.
