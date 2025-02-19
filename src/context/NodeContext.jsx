@@ -149,9 +149,48 @@ export const NodeProvider = ({ children }) => {
         return false;
       }
 
+      // Get source and target nodes
+      const sourceNode = nodes.find((node) => node.id === connection.source);
+      const targetNode = nodes.find((node) => node.id === connection.target);
+
+      if (!sourceNode || !targetNode) {
+        debugLog('Invalid connection: Source or target node not found');
+        return false;
+      }
+
+      // Get node type validators
+      const sourceValidator = elementInfo[sourceNode.type]?.isConnectionValid;
+      const targetValidator = elementInfo[targetNode.type]?.isConnectionValid;
+
+      // Warn if sourceValidator or targetValidator is not defined
+      if (!sourceValidator) {
+        console.warn(`No source validator defined for node type: ${sourceNode.type}`);
+      }
+      if (!targetValidator) {
+        console.warn(`No target validator defined for node type: ${targetNode.type}`);
+      }
+
+      // Check source node's validation rules
+      if (sourceValidator) {
+        const sourceValidation = sourceValidator(connection, sourceNode, targetNode);
+        if (!sourceValidation.isValid) {
+          debugLog(`Invalid connection: ${sourceValidation.reason}`);
+          return false;
+        }
+      }
+
+      // Check target node's validation rules
+      if (targetValidator) {
+        const targetValidation = targetValidator(connection, sourceNode, targetNode);
+        if (!targetValidation.isValid) {
+          debugLog(`Invalid connection: ${targetValidation.reason}`);
+          return false;
+        }
+      }
+
       return true;
     },
-    [edges]
+    [edges, nodes]
   );
 
   /**

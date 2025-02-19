@@ -50,11 +50,37 @@ export const elementInfo = {
       editable: false,
       visible: true,
     },
+    allowAreaChange: {
+      label: 'Allows area change',
+      type: 'boolean',
+      defaultValue: false,
+      category: 'Logic',
+      description: 'Whether this node allows a change in the areas of edges connected to it',
+      editable: false,
+      visible: false,
+    },
+    providesArea: {
+      label: 'Provides area',
+      type: 'boolean',
+      defaultValue: false,
+      category: 'Logic',
+      description: 'Whether this node provides an area value to connected edges',
+      editable: false,
+      visible: false,
+    },
   },
   // Default empty ports configuration
   ports: {
     target: [],
     source: [],
+  },
+  // Default connection validation function
+  isConnectionValid: (connection, sourceNode, targetNode) => {
+    // By default, all connections are valid
+    return {
+      isValid: true,
+      reason: null,
+    };
   },
 };
 
