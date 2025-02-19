@@ -7,7 +7,12 @@
 
 - [ ] At least some simple automatic layout functionality
 - [ ] Capability to add a resizable, movable background image(s) to the canvas
-- [ ] Custom edge type to display information on the edges
+- [x] Custom edge type to display information on the edges
+- [ ] Edge properties panel
+- [ ] Individual connection validation functions for each node type to be called alongside global connection validation logic
+- [ ] Individual `onConnect` handling for each node type, e.g. to assign area to the connected edge if the node type provides area
+- [ ] Edges should be able to display information using a label
+- [ ] Management of edge and node data
 
 ## Extensibility
 
