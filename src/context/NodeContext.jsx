@@ -25,6 +25,7 @@ export const NodeProvider = ({ children }) => {
 
   // Add edgeStates for managing edge parameters
   const [edgeStates, setEdgeStates] = useState({});
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
 
   // Initialize counters when component mounts
   useEffect(() => {
@@ -433,6 +434,9 @@ export const NodeProvider = ({ children }) => {
     // Clear selected node
     setSelectedNodeId(null);
 
+    // Clear selected edge
+    setSelectedEdgeId(null);
+
     debugLog('All nodes and states have been cleared');
   }, [setNodes, setEdges]);
 
@@ -814,7 +818,9 @@ export const NodeProvider = ({ children }) => {
         onKeyDown,
         finishEditing,
         selectedNodeId,
+        selectedEdgeId,
         setSelectedNodeId,
+        setSelectedEdgeId,
         isValidConnection,
         saveToFile,
         generateSaveData,

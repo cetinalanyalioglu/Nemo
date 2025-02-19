@@ -35,6 +35,7 @@ const Canvas = () => {
     deleteNode,
     deleteEdge,
     setSelectedNodeId,
+    setSelectedEdgeId,
     isValidConnection,
     addCustomEdge,
   } = useNodeContext();
@@ -131,10 +132,18 @@ const Canvas = () => {
   };
 
   /**
+   * Updates selected edge when an edge is clicked
+   */
+  const handleEdgeClick = (event, edge) => {
+    setSelectedEdgeId(edge.id);
+  };
+
+  /**
    * Clears node selection when clicking on the canvas
    */
   const handlePaneClick = () => {
     setSelectedNodeId(null);
+    setSelectedEdgeId(null);
   };
 
   /**
@@ -194,6 +203,7 @@ const Canvas = () => {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        onEdgeClick={handleEdgeClick}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
         onInit={onInit}
