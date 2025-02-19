@@ -58,9 +58,9 @@ export const elementInfo = createElementInfo({
 const Junction = ({ id, selected, type }) => {
   const {
     edges,
-    setEdges,
     nodeStates,
     editingStates,
+    updateEdges,
     startEditing: contextStartEditing,
     onChange: contextOnChange,
     onKeyDown: contextOnKeyDown,
@@ -122,7 +122,7 @@ const Junction = ({ id, selected, type }) => {
 
     try {
       let needsUpdate = false;
-      let edgesRemoved = 0;
+      let removedEdgeIds = [];
       let handlesUpdated = 0;
       const currentEdges = [...edges];
 
@@ -159,7 +159,7 @@ const Junction = ({ id, selected, type }) => {
         }
 
         if (!keepEdge) {
-          edgesRemoved++;
+          removedEdgeIds.push(edge.id);
           needsUpdate = true;
         }
         return keepEdge;
@@ -207,20 +207,20 @@ const Junction = ({ id, selected, type }) => {
 
       // Step 3: Update edge state and node internals
       if (needsUpdate) {
-        if (edgesRemoved > 0) {
-          debugLog(`[${id}] Removed ${edgesRemoved} edges due to port reduction`);
+        if (removedEdgeIds.length > 0) {
+          debugLog(`[${id}] Removed ${removedEdgeIds.length} edges due to port reduction`);
         }
         if (handlesUpdated > 0) {
           debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
         }
-        setEdges(newEdges);
+        updateEdges(newEdges, removedEdgeIds);
       }
       updateNodeInternals(id);
     } catch (error) {
       debugLog(`[${id}] Error in edge management: ${error.message}`);
       console.error('Error updating Junction edges:', error);
     }
-  }, [leftPortCount, rightPortCount, id, nodeState, updateNodeInternals, edges, setEdges]);
+  }, [leftPortCount, rightPortCount, id, nodeState, updateNodeInternals, edges, updateEdges]);
 
   if (!nodeState) return null;
 

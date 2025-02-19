@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import ReactFlow, { Background, Controls, MiniMap, addEdge, BackgroundVariant } from 'reactflow';
+import ReactFlow, { Background, Controls, MiniMap, BackgroundVariant } from 'reactflow';
 import 'reactflow/dist/style.css';
 import '../styles/edges.css';
 import '../styles/sidebar.css';
@@ -29,13 +29,14 @@ const Canvas = () => {
   const {
     nodes,
     edges,
-    setEdges,
     onNodesChange,
     onEdgesChange,
     addNode,
     deleteNode,
+    deleteEdge,
     setSelectedNodeId,
     isValidConnection,
+    addCustomEdge,
   } = useNodeContext();
 
   // Get states and actions from AppState context
@@ -115,9 +116,11 @@ const Canvas = () => {
    */
   const onConnect = useCallback(
     (params) => {
-      setEdges((eds) => addEdge(params, eds));
+      if (isValidConnection(params)) {
+        addCustomEdge(params);
+      }
     },
-    [setEdges]
+    [isValidConnection, addCustomEdge]
   );
 
   /**
@@ -154,16 +157,18 @@ const Canvas = () => {
       if (event.key === 'Delete' || event.key === 'Backspace') {
         // Delete selected nodes
         const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
-
         selectedNodes.forEach((node) => {
           deleteNode(node.id);
         });
 
         // Delete selected edges
-        reactFlowInstance.setEdges((edges) => edges.filter((edge) => !edge.selected));
+        const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
+        selectedEdges.forEach((edge) => {
+          deleteEdge(edge.id);
+        });
       }
     },
-    [reactFlowInstance, deleteNode]
+    [reactFlowInstance, deleteNode, deleteEdge]
   );
 
   // Set up keyboard event listeners

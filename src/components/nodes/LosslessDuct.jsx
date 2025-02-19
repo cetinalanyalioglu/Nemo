@@ -53,7 +53,7 @@ export const elementInfo = createElementInfo({
  * @param {string} type - Type of the node
  * @returns {React.Component} LosslessDuct node component
  */
-const LosslessDuct = ({ id, data, selected, type }) => {
+const LosslessDuct = ({ id, selected, type }) => {
   const {
     nodeStates,
     editingStates,

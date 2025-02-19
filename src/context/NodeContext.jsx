@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { elementInfo } from '../components/nodes/nodeTypes';
-import { useNodesState, useEdgesState } from 'reactflow';
+import { useNodesState, useEdgesState, addEdge } from 'reactflow';
 import { debugLog } from '../utils/debug';
+import { edgeInfo } from '../components/edges/edgeTypes';
 
 // Define save file version at module level
 const SAVE_FILE_VERSION = '1.0.0';
@@ -21,6 +22,9 @@ export const NodeProvider = ({ children }) => {
   const [editingStates, setEditingStates] = useState({});
   const [nodeCounters, setNodeCounters] = useState({});
   const [totalNodeCounters, setTotalNodeCounters] = useState({});
+
+  // Add edgeStates for managing edge parameters
+  const [edgeStates, setEdgeStates] = useState({});
 
   // Initialize counters when component mounts
   useEffect(() => {
@@ -346,6 +350,27 @@ export const NodeProvider = ({ children }) => {
 
       const type = nodeState.type;
 
+      // Find and delete all edges connected to this node
+      setEdges((eds) => {
+        const connectedEdges = eds.filter(
+          (edge) => edge.source === nodeId || edge.target === nodeId
+        );
+
+        // Clean up edge states for connected edges
+        if (connectedEdges.length > 0) {
+          setEdgeStates((prev) => {
+            const newStates = { ...prev };
+            connectedEdges.forEach((edge) => {
+              delete newStates[edge.id];
+            });
+            return newStates;
+          });
+        }
+
+        // Return edges without the connected ones
+        return eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      });
+
       // Update only the current counter
       setNodeCounters((prev) => ({
         ...prev,
@@ -376,7 +401,7 @@ export const NodeProvider = ({ children }) => {
 
       debugLog('Successfully deleted node: ', nodeId);
     },
-    [nodeStates, setNodes, selectedNodeId]
+    [nodeStates, setNodes, selectedNodeId, setEdges, setEdgeStates]
   );
 
   /**
@@ -657,6 +682,115 @@ export const NodeProvider = ({ children }) => {
     [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters]
   );
 
+  // Define updateEdgeParameter similar to updateNodeParameter
+  const updateEdgeParameter = useCallback((edgeId, paramName, value) => {
+    setEdgeStates((prev) => ({
+      ...prev,
+      [edgeId]: {
+        ...prev[edgeId],
+        parameters: {
+          ...prev[edgeId]?.parameters,
+          [paramName]: value,
+        },
+      },
+    }));
+  }, []);
+
+  /**
+   * Adds a new edge to the flow diagram and initializes its state.
+   *
+   * @param {Object} params - Edge connection parameters
+   * @param {string} params.source - ID of the source node
+   * @param {string} params.target - ID of the target node
+   * @param {string} params.sourceHandle - ID of the source port
+   * @param {string} params.targetHandle - ID of the target port
+   * @param {string} [type='flow'] - Type of the edge to create
+   * @returns {Object} The newly created edge
+   */
+  const addCustomEdge = useCallback(
+    (params, type = 'flow') => {
+      // Get edge template from edgeInfo
+      const edgeTemplate = edgeInfo[type];
+      if (!edgeTemplate) {
+        console.error(`Cannot add edge: Edge info not found for type "${type}"`);
+        return;
+      }
+
+      // Get default parameters from edgeInfo
+      const defaultParameters = {};
+      for (const key in edgeTemplate.parameters) {
+        defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
+      }
+
+      // Create the edge state
+      const edgeState = {
+        parameters: defaultParameters,
+      };
+
+      // Add the edge to ReactFlow
+      setEdges((eds) => {
+        const newEdges = addEdge({ ...params, type }, eds);
+        const newEdge = newEdges[newEdges.length - 1];
+
+        debugLog('Adding edge: ', newEdge);
+        debugLog('Edge state: ', edgeState);
+
+        // Register edge state
+        setEdgeStates((prev) => ({
+          ...prev,
+          [newEdge.id]: edgeState,
+        }));
+
+        return newEdges;
+      });
+    },
+    [setEdges]
+  );
+
+  /**
+   * Deletes an edge and cleans up its state.
+   *
+   * @param {string} edgeId - ID of the edge to delete
+   */
+  const deleteEdge = useCallback(
+    (edgeId) => {
+      setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+
+      // Clean up edge state
+      setEdgeStates((prev) => {
+        const newStates = { ...prev };
+        delete newStates[edgeId];
+        return newStates;
+      });
+    },
+    [setEdges]
+  );
+
+  /**
+   * Updates multiple edges at once, maintaining their states.
+   * Used for bulk operations like port reconfiguration.
+   *
+   * @param {Array} newEdges - Array of updated edges
+   * @param {Array} removedEdgeIds - Array of edge IDs that were removed
+   */
+  const updateEdges = useCallback(
+    (newEdges, removedEdgeIds = []) => {
+      setEdges(newEdges);
+
+      // Clean up states for removed edges
+      if (removedEdgeIds.length > 0) {
+        setEdgeStates((prev) => {
+          const newStates = { ...prev };
+          removedEdgeIds.forEach((edgeId) => {
+            delete newStates[edgeId];
+          });
+          return newStates;
+        });
+      }
+    },
+    [setEdges]
+  );
+
   return (
     <NodeContext.Provider
       value={{
@@ -674,6 +808,7 @@ export const NodeProvider = ({ children }) => {
         deleteNode,
         reset,
         updateNodeParameter,
+        updateEdgeParameter,
         startEditing,
         onChange,
         onKeyDown,
@@ -684,6 +819,10 @@ export const NodeProvider = ({ children }) => {
         saveToFile,
         generateSaveData,
         loadFromFile,
+        edgeStates,
+        addCustomEdge,
+        deleteEdge,
+        updateEdges,
       }}
     >
       {children}

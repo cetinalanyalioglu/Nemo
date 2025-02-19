@@ -50,9 +50,9 @@ export const elementInfo = createElementInfo({
 const LosslessSplitter = ({ id, selected, type }) => {
   const {
     edges,
-    setEdges,
     nodeStates,
     editingStates,
+    updateEdges,
     startEditing: contextStartEditing,
     onChange: contextOnChange,
     onKeyDown: contextOnKeyDown,
@@ -96,7 +96,7 @@ const LosslessSplitter = ({ id, selected, type }) => {
 
     try {
       let needsUpdate = false;
-      let edgesRemoved = 0;
+      let removedEdgeIds = [];
       const currentEdges = [...edges];
 
       // Step 1: Filter out edges connected to ports that will no longer exist
@@ -115,7 +115,7 @@ const LosslessSplitter = ({ id, selected, type }) => {
         const portNumber = parseInt(portMatch[1], 10);
         const keepEdge = portNumber <= rightPortCount;
         if (!keepEdge) {
-          edgesRemoved++;
+          removedEdgeIds.push(edge.id);
           needsUpdate = true;
         }
         return keepEdge;
@@ -148,20 +148,20 @@ const LosslessSplitter = ({ id, selected, type }) => {
       // Step 3: Update edge state and node internals
       if (needsUpdate) {
         // Only log when actual changes occur
-        if (edgesRemoved > 0) {
-          debugLog(`[${id}] Removed ${edgesRemoved} edges due to port reduction`);
+        if (removedEdgeIds.length > 0) {
+          debugLog(`[${id}] Removed ${removedEdgeIds.length} edges due to port reduction`);
         }
         if (handlesUpdated > 0) {
           debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
         }
-        setEdges(newEdges);
+        updateEdges(newEdges, removedEdgeIds);
       }
       updateNodeInternals(id);
     } catch (error) {
       debugLog(`[${id}] Error in edge management: ${error.message}`);
       console.error('Error updating LosslessSplitter edges:', error);
     }
-  }, [rightPortCount, rightPorts, id, nodeState, updateNodeInternals, edges, setEdges]);
+  }, [rightPortCount, rightPorts, id, nodeState, updateNodeInternals, edges, updateEdges]);
 
   // If the node state is not available, render nothing. This triggers during deletion.
   if (!nodeState) return null;

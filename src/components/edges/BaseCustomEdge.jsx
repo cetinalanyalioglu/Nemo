@@ -3,6 +3,25 @@ import { BaseEdge, getBezierPath } from 'reactflow';
 import PropTypes from 'prop-types';
 
 /**
+ * Base configuration object that defines common properties for all custom edges.
+ * This will be merged with specific edge configurations.
+ */
+export const edgeInfo = {
+  // Base parameters that all edges should have
+  parameters: {
+    solverIndex: {
+      label: 'Solver Index',
+      type: 'number',
+      defaultValue: undefined,
+      category: 'Connectivity',
+      description: 'Index used by the network solver',
+      editable: false,
+      visible: true,
+    },
+  },
+};
+
+/**
  * BaseCustomEdge is a foundational component for creating custom edges in the flow diagram.
  * It provides basic edge rendering with bezier curves and maintains compatibility with ReactFlow.
  *
