@@ -24,6 +24,35 @@ export const elementInfo = createElementInfo({
     label: {
       defaultValue: 'SuddenExpansion',
     },
+    allowsAreaChange: {
+      label: 'Allows area change',
+      type: 'boolean',
+      defaultValue: true,
+      category: 'Logic',
+      description: 'Whether this node allows a change in the areas of edges connected to it',
+      editable: false,
+      visible: false,
+    },
+    minimumAreaRatio: {
+      label: 'Minimum area ratio',
+      type: 'float',
+      defaultValue: 1,
+      category: 'Parameters',
+      min: 1,
+      description: 'Minimum area ratio across this node',
+      editable: false,
+      visible: false,
+    },
+    maximumAreaRatio: {
+      label: 'Maximum area ratio',
+      type: 'float',
+      defaultValue: Infinity,
+      category: 'Parameters',
+      min: 1,
+      description: 'Maximum area ratio across this node',
+      editable: false,
+      visible: false,
+    },
   },
 });
 

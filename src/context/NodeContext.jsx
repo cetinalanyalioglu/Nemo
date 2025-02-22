@@ -149,13 +149,55 @@ export const NodeProvider = ({ children }) => {
         return false;
       }
 
-      // Get source and target nodes
+      // Get source and target nodes and their states
       const sourceNode = nodes.find((node) => node.id === connection.source);
       const targetNode = nodes.find((node) => node.id === connection.target);
+      const sourceNodeState = nodeStates[sourceNode.id];
+      const targetNodeState = nodeStates[targetNode.id];
 
       if (!sourceNode || !targetNode) {
         debugLog('Invalid connection: Source or target node not found');
         return false;
+      }
+
+      // Create a temporary connection context
+      const connectionContext = {
+        parameters: {}, // Will hold edge parameters like area
+        metadata: {}, // Any other metadata nodes might want to share
+      };
+
+      // Get node handlers
+      const sourceHandler = elementInfo[sourceNode.type]?.onConnectionStart;
+      const targetHandler = elementInfo[targetNode.type]?.onConnectionStart;
+
+      // Warn if sourceHandler or targetHandler is not defined
+      if (!sourceHandler) {
+        console.warn(`No source handler defined for node type: ${sourceNode.type}`);
+      }
+      if (!targetHandler) {
+        console.warn(`No target handler defined for node type: ${targetNode.type}`);
+      }
+
+      // Let nodes prepare the connection
+      if (sourceHandler) {
+        sourceHandler(
+          connection,
+          sourceNode,
+          targetNode,
+          sourceNodeState,
+          targetNodeState,
+          connectionContext
+        );
+      }
+      if (targetHandler) {
+        targetHandler(
+          connection,
+          sourceNode,
+          targetNode,
+          sourceNodeState,
+          targetNodeState,
+          connectionContext
+        );
       }
 
       // Get node type validators
@@ -172,7 +214,16 @@ export const NodeProvider = ({ children }) => {
 
       // Check source node's validation rules
       if (sourceValidator) {
-        const sourceValidation = sourceValidator(connection, sourceNode, targetNode);
+        const sourceValidation = sourceValidator(
+          connection,
+          sourceNode,
+          targetNode,
+          sourceNodeState,
+          targetNodeState,
+          connectionContext,
+          edges,
+          edgeStates
+        );
         if (!sourceValidation.isValid) {
           debugLog(`Invalid connection: ${sourceValidation.reason}`);
           return false;
@@ -181,37 +232,131 @@ export const NodeProvider = ({ children }) => {
 
       // Check target node's validation rules
       if (targetValidator) {
-        const targetValidation = targetValidator(connection, sourceNode, targetNode);
+        const targetValidation = targetValidator(
+          connection,
+          sourceNode,
+          targetNode,
+          sourceNodeState,
+          targetNodeState,
+          connectionContext,
+          edges,
+          edgeStates
+        );
         if (!targetValidation.isValid) {
           debugLog(`Invalid connection: ${targetValidation.reason}`);
           return false;
         }
       }
 
+      // Store the connection context for edge creation
+      connection.context = connectionContext;
       return true;
     },
-    [edges, nodes]
+    [edges, nodeStates, nodes, edgeStates]
   );
 
   /**
    * updateNodeParameter updates a specific parameter of a node.
+   * It also triggers any parameter change handlers defined in the node's elementInfo.
    *
    * @param {string} nodeId - The id of the node to update.
    * @param {string} paramName - The name of the parameter to update.
    * @param {*} value - The new value for the parameter.
+   * @returns {boolean} - Whether the update was successful
    */
-  const updateNodeParameter = useCallback((nodeId, paramName, value) => {
-    setNodeStates((prev) => ({
-      ...prev,
-      [nodeId]: {
-        ...prev[nodeId],
-        parameters: {
-          ...prev[nodeId]?.parameters,
-          [paramName]: value,
+  const updateNodeParameter = useCallback(
+    (nodeId, paramName, value) => {
+      // Get the node's current state and type
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        console.error(`Cannot update parameter: Node ${nodeId} not found`);
+        return false;
+      }
+
+      const nodeType = node.type;
+      const nodeElementInfo = elementInfo[nodeType];
+      if (!nodeElementInfo) {
+        console.error(`Cannot update parameter: Element info not found for type "${nodeType}"`);
+        return false;
+      }
+
+      // Get the current value before update
+      const oldValue = nodeStates[nodeId]?.parameters[paramName];
+
+      // If the value hasn't changed, no need to proceed
+      if (oldValue === value) {
+        return true;
+      }
+
+      // Get parameter change handlers
+      const handlers = nodeElementInfo.onParameterChange || {};
+      const specificHandler = handlers[paramName];
+      const defaultHandler = handlers['*'];
+
+      if (specificHandler || defaultHandler) {
+        // Create a temporary state with the new value for validation
+        const tempNodeStates = {
+          ...nodeStates,
+          [nodeId]: {
+            ...nodeStates[nodeId],
+            parameters: {
+              ...nodeStates[nodeId]?.parameters,
+              [paramName]: value,
+            },
+          },
+        };
+
+        // Call specific handler if it exists
+        if (specificHandler) {
+          const result = specificHandler(
+            nodeId,
+            paramName,
+            value,
+            oldValue,
+            tempNodeStates,
+            edges,
+            edgeStates
+          );
+          if (!result.isValid) {
+            debugLog(`Parameter change rejected by specific handler: ${result.reason}`);
+            return false;
+          }
+        }
+
+        // Call default handler if it exists
+        if (defaultHandler) {
+          const result = defaultHandler(
+            nodeId,
+            paramName,
+            value,
+            oldValue,
+            tempNodeStates,
+            edges,
+            edgeStates
+          );
+          if (!result.isValid) {
+            debugLog(`Parameter change rejected by default handler: ${result.reason}`);
+            return false;
+          }
+        }
+      }
+
+      // If we get here, all validations passed, update the state
+      setNodeStates((prev) => ({
+        ...prev,
+        [nodeId]: {
+          ...prev[nodeId],
+          parameters: {
+            ...prev[nodeId]?.parameters,
+            [paramName]: value,
+          },
         },
-      },
-    }));
-  }, []);
+      }));
+
+      return true;
+    },
+    [nodes, nodeStates, edges, edgeStates]
+  );
 
   /**
    * startEditing marks a node as being edited and initializes its temporary value.
@@ -800,9 +945,12 @@ export const NodeProvider = ({ children }) => {
         defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
       }
 
-      // Create the edge state
+      // Create the edge state, merging default parameters with any from the connection context
       const edgeState = {
-        parameters: defaultParameters,
+        parameters: {
+          ...defaultParameters,
+          ...(params.context?.parameters || {}),
+        },
       };
 
       // Add the edge to ReactFlow

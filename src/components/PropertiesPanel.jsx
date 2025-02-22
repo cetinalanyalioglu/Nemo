@@ -58,8 +58,14 @@ const PropertiesPanel = () => {
 
   // Add state for tracking invalid inputs
   const [invalidInputs, setInvalidInputs] = useState({});
-  // Add state for temporary values during editing
+  // Add state for temporary values during editing - now keyed by elementId and paramKey
   const [tempValues, setTempValues] = useState({});
+
+  // Clear temporary values when switching between elements
+  useEffect(() => {
+    setTempValues({});
+    setInvalidInputs({});
+  }, [selectedNodeId, selectedEdgeId]);
 
   // Update panel visibility when selected element changes
   useEffect(() => {
@@ -149,13 +155,13 @@ const PropertiesPanel = () => {
     // Clear invalid state when user starts editing
     setInvalidInputs((prev) => ({
       ...prev,
-      [paramKey]: undefined,
+      [`${elementId}_${paramKey}`]: undefined,
     }));
 
     // Update temporary value during editing
     setTempValues((prev) => ({
       ...prev,
-      [paramKey]: value,
+      [`${elementId}_${paramKey}`]: value,
     }));
   };
 
@@ -174,7 +180,7 @@ const PropertiesPanel = () => {
       if (isNaN(numValue)) {
         setInvalidInputs((prev) => ({
           ...prev,
-          [paramKey]: 'Please enter a valid number',
+          [`${elementId}_${paramKey}`]: 'Please enter a valid number',
         }));
         return;
       }
@@ -184,26 +190,68 @@ const PropertiesPanel = () => {
       if (!validation.isValid) {
         setInvalidInputs((prev) => ({
           ...prev,
-          [paramKey]: validation.message,
+          [`${elementId}_${paramKey}`]: validation.message,
         }));
         return;
       }
 
-      // If we get here, the value is valid
-      setInvalidInputs((prev) => ({
-        ...prev,
-        [paramKey]: undefined,
-      }));
+      // If we get here, try to update the value
+      const updateSuccess = updateParameter(elementId, paramKey, numValue);
 
-      // Clear temporary value and update element state
-      setTempValues((prev) => ({
-        ...prev,
-        [paramKey]: undefined,
-      }));
-      updateParameter(elementId, paramKey, numValue);
+      if (!updateSuccess) {
+        // If update failed, keep the old value and show error
+        setInvalidInputs((prev) => ({
+          ...prev,
+          [`${elementId}_${paramKey}`]: 'Parameter update was rejected',
+        }));
+        // Reset to the current value in the node state
+        setTempValues((prev) => ({
+          ...prev,
+          [`${elementId}_${paramKey}`]: elementState.parameters[paramKey],
+        }));
+        return;
+      }
+
+      // If update succeeded, clear temporary value and invalid state
+      setInvalidInputs((prev) => {
+        const newState = { ...prev };
+        delete newState[`${elementId}_${paramKey}`];
+        return newState;
+      });
+      setTempValues((prev) => {
+        const newState = { ...prev };
+        delete newState[`${elementId}_${paramKey}`];
+        return newState;
+      });
     } else {
-      // For non-numeric types, just update the value
-      updateParameter(elementId, paramKey, value);
+      // For non-numeric types, try to update the value
+      const updateSuccess = updateParameter(elementId, paramKey, value);
+
+      if (!updateSuccess) {
+        // If update failed, keep the old value and show error
+        setInvalidInputs((prev) => ({
+          ...prev,
+          [`${elementId}_${paramKey}`]: 'Parameter update was rejected',
+        }));
+        // Reset to the current value in the node state
+        setTempValues((prev) => ({
+          ...prev,
+          [`${elementId}_${paramKey}`]: elementState.parameters[paramKey],
+        }));
+        return;
+      }
+
+      // If update succeeded, clear any error state
+      setInvalidInputs((prev) => {
+        const newState = { ...prev };
+        delete newState[`${elementId}_${paramKey}`];
+        return newState;
+      });
+      setTempValues((prev) => {
+        const newState = { ...prev };
+        delete newState[`${elementId}_${paramKey}`];
+        return newState;
+      });
     }
   };
 
@@ -402,6 +450,7 @@ const PropertiesPanel = () => {
                 if (!isParameterVisible(info, elementState)) return null;
 
                 const isEditable = isParameterEditable(info);
+                const tempValueKey = `${selectedId}_${key}`;
 
                 return (
                   <div key={key} className="parameter-row">
@@ -424,8 +473,8 @@ const PropertiesPanel = () => {
                               info.type === 'number' || info.type === 'float' ? 'number' : 'text'
                             }
                             value={
-                              tempValues[key] !== undefined
-                                ? tempValues[key]
+                              tempValues[tempValueKey] !== undefined
+                                ? tempValues[tempValueKey]
                                 : formatNumber(getSafeValue(value, info))
                             }
                             onChange={(e) =>
@@ -435,9 +484,9 @@ const PropertiesPanel = () => {
                               isEditable && handleInputBlur(selectedId, key, info, e.target.value)
                             }
                             className={`parameter-input 
-                                                            ${invalidInputs[key] ? 'invalid' : ''} 
+                                                            ${invalidInputs[tempValueKey] ? 'invalid' : ''} 
                                                             ${!isEditable ? 'readonly' : ''}`}
-                            title={invalidInputs[key] || ''}
+                            title={invalidInputs[tempValueKey] || ''}
                             disabled={!isEditable}
                           />
                           {isEditable && info.type === 'number' && info.step !== undefined && (
@@ -446,14 +495,16 @@ const PropertiesPanel = () => {
                                 className="number-control-btn"
                                 onClick={() => {
                                   const newValue = incrementValue(
-                                    tempValues[key] !== undefined ? tempValues[key] : value,
+                                    tempValues[tempValueKey] !== undefined
+                                      ? tempValues[tempValueKey]
+                                      : value,
                                     info.step,
                                     info
                                   );
                                   // Update temp value during editing
                                   setTempValues((prev) => ({
                                     ...prev,
-                                    [key]: newValue.toString(),
+                                    [tempValueKey]: newValue.toString(),
                                   }));
                                   // Also update node parameter
                                   updateParameter(selectedId, key, newValue);
@@ -465,14 +516,16 @@ const PropertiesPanel = () => {
                                 className="number-control-btn"
                                 onClick={() => {
                                   const newValue = decrementValue(
-                                    tempValues[key] !== undefined ? tempValues[key] : value,
+                                    tempValues[tempValueKey] !== undefined
+                                      ? tempValues[tempValueKey]
+                                      : value,
                                     info.step,
                                     info
                                   );
                                   // Update temp value during editing
                                   setTempValues((prev) => ({
                                     ...prev,
-                                    [key]: newValue.toString(),
+                                    [tempValueKey]: newValue.toString(),
                                   }));
                                   // Also update node parameter
                                   updateParameter(selectedId, key, newValue);

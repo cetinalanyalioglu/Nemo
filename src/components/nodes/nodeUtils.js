@@ -47,9 +47,10 @@ export const mergeWithBaseElementInfo = (nodeElementInfo) => {
     source: [...mergedInfo.ports.source, ...(nodeElementInfo.ports?.source || [])],
   };
 
-  // Handle isConnectionValid function - use node's validator if provided, otherwise keep base validator
+  // Handle functions, use the base node's function if provided, otherwise keep the base node's function
   // This works because we did a shallow copy of baseElementInfo, preserving the original function reference
   mergedInfo.isConnectionValid = nodeElementInfo.isConnectionValid || mergedInfo.isConnectionValid;
+  mergedInfo.onConnectionStart = nodeElementInfo.onConnectionStart || mergedInfo.onConnectionStart;
 
   // Final merge of all properties while ensuring our carefully merged properties aren't overwritten
   // Order is important here:

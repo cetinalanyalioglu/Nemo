@@ -34,6 +34,15 @@ export const elementInfo = createElementInfo({
       category: 'Ports',
       description: 'Number of output ports',
     },
+    allowsAreaChange: {
+      label: 'Allows area change',
+      type: 'boolean',
+      defaultValue: true,
+      category: 'Logic',
+      description: 'Whether this node allows a change in the areas of edges connected to it',
+      editable: false,
+      visible: false,
+    },
   },
 });
 

@@ -6,6 +6,7 @@ import { elementIcons } from './nodeTypes';
 import { useNodeContext } from '../../context/NodeContext';
 import { useAppState } from '../../context/AppStateContext';
 import PropTypes from 'prop-types';
+import { validateConnectionAreaChange, assignConnectionArea } from '../../utils/connectionUtils';
 
 /**
  * Base configuration object that defines common properties for all custom nodes.
@@ -50,7 +51,7 @@ export const elementInfo = {
       editable: false,
       visible: true,
     },
-    allowAreaChange: {
+    allowsAreaChange: {
       label: 'Allows area change',
       type: 'boolean',
       defaultValue: false,
@@ -75,12 +76,109 @@ export const elementInfo = {
     source: [],
   },
   // Default connection validation function
-  isConnectionValid: (connection, sourceNode, targetNode) => {
-    // By default, all connections are valid
-    return {
-      isValid: true,
-      reason: null,
-    };
+  isConnectionValid: (
+    connection,
+    sourceNode,
+    targetNode,
+    sourceNodeState,
+    targetNodeState,
+    connectionContext,
+    edges,
+    edgeStates
+  ) => {
+    return validateConnectionAreaChange(
+      connection,
+      sourceNode,
+      targetNode,
+      sourceNodeState,
+      targetNodeState,
+      connectionContext,
+      edges,
+      edgeStates
+    );
+  },
+  // Default connection start handler
+  onConnectionStart: (
+    connection,
+    sourceNode,
+    targetNode,
+    sourceNodeState,
+    targetNodeState,
+    connectionContext
+  ) => {
+    assignConnectionArea(
+      connection,
+      sourceNode,
+      targetNode,
+      sourceNodeState,
+      targetNodeState,
+      connectionContext
+    );
+  },
+  // Parameter change handlers
+  onParameterChange: {
+    // If the node provides area and user changes the area, we need to re-run the validator for all edges connected to the node
+    // as if we were re-connecting all edges associated with this node
+    area: (nodeId, paramName, newValue, oldValue, nodeStates, edges, edgeStates) => {
+      // If the node does not provide area, we don't need to run the validator
+      if (!nodeStates[nodeId].parameters.providesArea) {
+        console.warn(
+          `Node ${nodeId} does not provide area, but has the area parameter set to ${newValue}`
+        );
+        return { isValid: true };
+      }
+
+      // Find all edges connected to this node
+      const connectedEdges = edges.filter(
+        (edge) => edge.source === nodeId || edge.target === nodeId
+      );
+
+      // For each connected edge, validate if the area change would be allowed
+      for (const edge of connectedEdges) {
+        // Get the source and target nodes for this edge
+        const sourceNodeState =
+          edge.source === nodeId ? nodeStates[nodeId] : nodeStates[edge.source];
+        const targetNodeState =
+          edge.target === nodeId ? nodeStates[nodeId] : nodeStates[edge.target];
+
+        // Create a temporary connection context with the new area value
+        const connectionContext = {
+          parameters: {
+            area: newValue,
+          },
+          metadata: {},
+        };
+
+        // Run the validation
+        const validation = validateConnectionAreaChange(
+          edge,
+          { id: edge.source }, // Minimal source node object
+          { id: edge.target }, // Minimal target node object
+          sourceNodeState,
+          targetNodeState,
+          connectionContext,
+          edges,
+          edgeStates
+        );
+
+        // If any validation fails, return the failure
+        if (!validation.isValid) {
+          return validation;
+        }
+      }
+
+      // If all validations pass, set the edge states to the new area value and return success
+      for (const edge of connectedEdges) {
+        edgeStates[edge.id].parameters.area = newValue;
+      }
+      return { isValid: true };
+    },
+    // Default handler for any parameter
+    // eslint-disable-next-line no-unused-vars
+    '*': (nodeId, paramName, newValue, oldValue, nodeStates, edges, edgeStates) => {
+      // By default, do nothing
+      return { isValid: true };
+    },
   },
 };
 

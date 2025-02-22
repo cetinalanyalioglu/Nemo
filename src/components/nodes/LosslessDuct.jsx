@@ -24,13 +24,13 @@ export const elementInfo = createElementInfo({
     label: {
       defaultValue: 'LosslessDuct',
     },
-    diameter: {
-      label: 'Diameter',
+    area: {
+      label: 'Area',
       type: 'float',
-      defaultValue: 0.1,
-      unit: 'm',
+      defaultValue: 1,
+      unit: 'm^2',
       category: 'Parameters',
-      min: 0.000001, // Minimum diameter: 1 micron
+      min: 0.000001,
     },
     length: {
       label: 'Length',
@@ -39,6 +39,15 @@ export const elementInfo = createElementInfo({
       unit: 'm',
       category: 'Parameters',
       min: 0.000001, // Minimum length: 1 micron
+    },
+    providesArea: {
+      label: 'Provides area',
+      type: 'boolean',
+      defaultValue: true,
+      category: 'Logic',
+      description: 'Whether this node provides an area value to connected edges',
+      editable: false,
+      visible: false,
     },
   },
 });
