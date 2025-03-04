@@ -4,6 +4,7 @@ import { useAppState } from '../context/AppStateContext';
 import { FaBars, FaSave, FaFolderOpen } from 'react-icons/fa';
 import { BsGrid } from 'react-icons/bs';
 import '../styles/navigation-controls.css';
+import LayoutButton from './controls/LayoutButton';
 
 /**
  * NavigationControls component provides file operations and sidebar toggle functionality.
@@ -86,6 +87,8 @@ const NavigationControls = () => {
       >
         <BsGrid />
       </button>
+
+      <LayoutButton />
     </div>
   );
 };
