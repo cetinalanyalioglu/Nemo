@@ -89,6 +89,7 @@ const validateNodeAreaChange = (
  * @param {Object} connectionContext - Context for the connection
  * @param {Array} edges - Array of all edges
  * @param {Object} edgeStates - States of all edges
+ * @param {string} [skipNode] - ID of the node to skip validation for
  * @returns {Object} Validation result with isValid and reason properties
  */
 export const validateConnectionAreaChange = (
@@ -99,7 +100,8 @@ export const validateConnectionAreaChange = (
   targetNodeState,
   connectionContext,
   edges,
-  edgeStates
+  edgeStates,
+  skipNode = null
 ) => {
   // Check if the connection has an area value
   if (!connectionContext.parameters.area) {
@@ -110,8 +112,8 @@ export const validateConnectionAreaChange = (
     };
   }
 
-  // Check source node's area constraints if it doesn't allow area change
-  if (!sourceNodeState.parameters.allowsAreaChange) {
+  // Check source node's area constraints if it doesn't allow area change and is not skipped
+  if (!sourceNodeState.parameters.allowsAreaChange && sourceNode.id !== skipNode) {
     const sourceValidation = validateNodeAreaChange(
       sourceNode.id,
       connection,
@@ -124,8 +126,8 @@ export const validateConnectionAreaChange = (
     }
   }
 
-  // Check target node's area constraints if it doesn't allow area change
-  if (!targetNodeState.parameters.allowsAreaChange) {
+  // Check target node's area constraints if it doesn't allow area change and is not skipped
+  if (!targetNodeState.parameters.allowsAreaChange && targetNode.id !== skipNode) {
     const targetValidation = validateNodeAreaChange(
       targetNode.id,
       connection,

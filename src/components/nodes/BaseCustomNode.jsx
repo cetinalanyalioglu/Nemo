@@ -158,7 +158,8 @@ export const elementInfo = {
           targetNodeState,
           connectionContext,
           edges,
-          edgeStates
+          edgeStates,
+          nodeId // No need to validate the node itself
         );
 
         // If any validation fails, return the failure
