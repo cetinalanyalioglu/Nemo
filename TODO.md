@@ -17,6 +17,8 @@
 - [ ] Edges should be able to display information using a label
 - [ ] Management of edge and node based data
 - [ ] Rendering edge and node based data
+- [ ] Settings panel triggered from navigation controls
+    - [ ] Automatic layout customization
 
 ## Extensibility
 
