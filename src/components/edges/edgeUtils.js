@@ -1,4 +1,4 @@
-import { edgeInfo as baseEdgeInfo } from './BaseCustomEdge';
+import { baseEdgeInfo } from './GenericEdge';
 
 /**
  * Deep merges two edgeInfo objects, with the specific edge's configuration taking precedence.

@@ -3,11 +3,10 @@ import { BaseEdge, getBezierPath } from 'reactflow';
 import PropTypes from 'prop-types';
 
 /**
- * Base configuration object that defines common properties for all custom edges.
- * This will be merged with specific edge configurations.
+ * Base configuration object that defines common properties for all edges.
+ * Generic parameters that all edges should have.
  */
-export const edgeInfo = {
-  // Base parameters that all edges should have
+export const baseEdgeInfo = {
   parameters: {
     solverIndex: {
       label: 'Solver Index',
@@ -22,7 +21,7 @@ export const edgeInfo = {
 };
 
 /**
- * BaseCustomEdge is a foundational component for creating custom edges in the flow diagram.
+ * GenericEdge is a universal component for all edge types in the flow diagram.
  * It provides basic edge rendering with bezier curves and maintains compatibility with ReactFlow.
  *
  * @component
@@ -37,7 +36,7 @@ export const edgeInfo = {
  * @param {boolean} props.selected - Whether the edge is currently selected
  * @param {Object} props.style - Custom style object for the edge
  */
-const BaseCustomEdge = ({
+const GenericEdge = ({
   id,
   sourceX,
   sourceY,
@@ -45,7 +44,8 @@ const BaseCustomEdge = ({
   targetY,
   sourcePosition,
   targetPosition,
-  selected,
+  // eslint-disable-next-line no-unused-vars
+  selected: _selected, // Intentionally unused - kept for ReactFlow API compatibility
   style = {},
 }) => {
   // Get the path for the edge using ReactFlow's bezier path generator
@@ -65,7 +65,7 @@ const BaseCustomEdge = ({
   );
 };
 
-BaseCustomEdge.propTypes = {
+GenericEdge.propTypes = {
   id: PropTypes.string.isRequired,
   sourceX: PropTypes.number.isRequired,
   sourceY: PropTypes.number.isRequired,
@@ -77,4 +77,4 @@ BaseCustomEdge.propTypes = {
   style: PropTypes.object,
 };
 
-export default BaseCustomEdge;
+export default GenericEdge;

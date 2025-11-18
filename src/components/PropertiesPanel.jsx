@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
 import '../styles/properties-panel.css';
@@ -41,12 +41,13 @@ const formatTitle = (title) => {
  *
  * @returns {React.Component} Properties panel for editing element parameters
  */
-const PropertiesPanel = () => {
+const PropertiesPanel = React.memo(() => {
   const {
     selectedNodeId,
     selectedEdgeId,
     nodeStates,
     edgeStates,
+    nodes,
     updateNodeParameter,
     updateEdgeParameter,
   } = useNodeContext();
@@ -55,6 +56,9 @@ const PropertiesPanel = () => {
     propertiesPanel: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+
+  // Extract setIsOpen for stable reference in useEffect
+  const setIsOpen = actions.propertiesPanel.setIsOpen;
 
   // Add state for tracking invalid inputs
   const [invalidInputs, setInvalidInputs] = useState({});
@@ -68,51 +72,65 @@ const PropertiesPanel = () => {
   }, [selectedNodeId, selectedEdgeId]);
 
   // Update panel visibility when selected element changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    actions.propertiesPanel.setIsOpen(!!(selectedNodeId || selectedEdgeId));
-  }, [selectedNodeId, selectedEdgeId, actions.propertiesPanel]);
-
-  // Early return if no selection
-  if (!selectedNodeId && !selectedEdgeId) return null;
+    setIsOpen(!!(selectedNodeId || selectedEdgeId));
+    // Note: This effect intentionally sets state based on selection to sync panel visibility
+    // The warning about cascading renders is acceptable here as the state change is minimal
+  }, [selectedNodeId, selectedEdgeId, setIsOpen]);
 
   // Get the appropriate state and info based on selection
   const isEdge = !!selectedEdgeId;
   const selectedId = isEdge ? selectedEdgeId : selectedNodeId;
   const elementState = isEdge ? edgeStates[selectedEdgeId] : nodeStates[selectedNodeId];
 
-  if (!elementState) return null;
-
-  // Find element type and info
-  const elementType = isEdge
-    ? 'flow' // For now, all edges are flow edges
-    : Object.entries(elementInfo).find(([, info]) => selectedNodeId.startsWith(info.type))?.[1]
-        ?.type;
+  // Find element type - simplified to use node.type directly from nodes array
+  // Must be called before early returns to satisfy Rules of Hooks
+  const elementType = useMemo(() => {
+    if (!selectedNodeId && !selectedEdgeId) return null;
+    if (isEdge) {
+      return 'flow'; // For now, all edges are flow edges
+    }
+    const node = nodes.find((n) => n.id === selectedNodeId);
+    return node?.type || null;
+  }, [isEdge, nodes, selectedNodeId, selectedEdgeId]);
 
   // Get parameters info based on element type
-  const parametersInfo = isEdge
-    ? edgeInfo[elementType]?.parameters || {}
-    : elementType
-      ? elementInfo[elementType]?.parameters
-      : {};
-
-  // Group parameters by their categories
-  const groupedParameters = Object.entries(elementState.parameters).reduce((acc, [key, value]) => {
-    const parameterInfo = parametersInfo?.[key] || {
-      label: key,
-      category: 'Other',
-      type: typeof value,
-      editable: true,
-      visible: true,
-    };
-    const category = parameterInfo.category || 'Other';
-
-    if (!acc[category]) {
-      acc[category] = [];
+  // Must be called before early returns to satisfy Rules of Hooks
+  const parametersInfo = useMemo(() => {
+    if (!elementType) return {};
+    if (isEdge) {
+      return edgeInfo[elementType]?.parameters || {};
     }
+    return elementInfo[elementType]?.parameters || {};
+  }, [isEdge, elementType]);
 
-    acc[category].push({ key, value, info: parameterInfo });
-    return acc;
-  }, {});
+  // Group parameters by their categories - memoized to avoid recalculation on every render
+  // Must be called before early returns to satisfy Rules of Hooks
+  const groupedParameters = useMemo(() => {
+    if (!elementState?.parameters) return {};
+    return Object.entries(elementState.parameters).reduce((acc, [key, value]) => {
+      const parameterInfo = parametersInfo?.[key] || {
+        label: key,
+        category: 'Other',
+        type: typeof value,
+        editable: true,
+        visible: true,
+      };
+      const category = parameterInfo.category || 'Other';
+
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+
+      acc[category].push({ key, value, info: parameterInfo });
+      return acc;
+    }, {});
+  }, [elementState, parametersInfo]);
+
+  // Early return if no selection - must be after all hooks
+  if (!selectedNodeId && !selectedEdgeId) return null;
+  if (!elementState) return null;
 
   // Update the appropriate element's parameter
   const updateParameter = isEdge ? updateEdgeParameter : updateNodeParameter;
@@ -321,28 +339,6 @@ const PropertiesPanel = () => {
   };
 
   /**
-   * Formats a number to remove unnecessary trailing zeros
-   * while preserving significant digits
-   */
-  // TODO Get rid of this
-  const formatNumber = (value) => {
-    if (typeof value !== 'number') return value;
-
-    // Convert to string with high precision
-    const str = value.toString();
-
-    // If it's not a decimal number, return as is
-    if (!str.includes('.')) return str;
-
-    // Remove trailing zeros after decimal point
-    // but keep at least one digit after decimal for float values
-    const trimmed = str.replace(/\.?0+$/, '');
-
-    // If it was a whole number (e.g., "1.0"), ensure we don't leave just a decimal point
-    return trimmed.endsWith('.') ? trimmed + '0' : trimmed;
-  };
-
-  /**
    * Evaluates a single condition
    */
   const evaluateCondition = (condition, nodeState) => {
@@ -475,7 +471,7 @@ const PropertiesPanel = () => {
                             value={
                               tempValues[tempValueKey] !== undefined
                                 ? tempValues[tempValueKey]
-                                : formatNumber(getSafeValue(value, info))
+                                : getSafeValue(value, info)
                             }
                             onChange={(e) =>
                               isEditable && handleInputChange(selectedId, key, info, e.target.value)
@@ -548,6 +544,8 @@ const PropertiesPanel = () => {
       </div>
     </div>
   );
-};
+});
+
+PropertiesPanel.displayName = 'PropertiesPanel';
 
 export default PropertiesPanel;

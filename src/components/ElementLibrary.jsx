@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoLibrary,
@@ -24,7 +24,7 @@ const formatCategoryName = (category) => {
  *
  * @returns {React.Component} Elements panel component
  */
-const ElementLibrary = () => {
+const ElementLibrary = React.memo(() => {
   // Get states and actions from AppState context
   const {
     sidebar: { isOpen, collapsedGroups },
@@ -40,15 +40,17 @@ const ElementLibrary = () => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  // Group elements by their categories
-  const groupedElements = Object.entries(elementInfo).reduce((acc, [type, info]) => {
-    const category = info.category;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push({ type, info });
-    return acc;
-  }, {});
+  // Group elements by their categories - memoized to avoid recalculation on every render
+  const groupedElements = useMemo(() => {
+    return Object.entries(elementInfo).reduce((acc, [type, info]) => {
+      const category = info.category;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push({ type, info });
+      return acc;
+    }, {});
+  }, []);
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -105,6 +107,8 @@ const ElementLibrary = () => {
       ))}
     </div>
   );
-};
+});
+
+ElementLibrary.displayName = 'ElementLibrary';
 
 export default ElementLibrary;

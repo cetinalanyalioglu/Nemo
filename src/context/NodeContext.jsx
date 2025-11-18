@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { elementInfo } from '../components/nodes/nodeTypes';
 import { useNodesState, useEdgesState, addEdge } from 'reactflow';
 import { debugLog } from '../utils/debug';
@@ -20,6 +20,8 @@ export const NodeProvider = ({ children }) => {
   // Node states for parameters and editing
   const [nodeStates, setNodeStates] = useState({});
   const [editingStates, setEditingStates] = useState({});
+  // nodeCounters: tracks current count of nodes per type (decremented on delete)
+  // totalNodeCounters: tracks total nodes ever created per type (never decremented, used for unique ID/label generation)
   const [nodeCounters, setNodeCounters] = useState({});
   const [totalNodeCounters, setTotalNodeCounters] = useState({});
 
@@ -37,18 +39,31 @@ export const NodeProvider = ({ children }) => {
     setTotalNodeCounters(initialCounters);
   }, []);
 
+  // Create a Set of used labels for O(1) lookup performance
+  const usedLabels = useMemo(() => {
+    const labels = new Set();
+    Object.values(nodeStates).forEach((nodeState) => {
+      if (nodeState?.parameters?.label) {
+        labels.add(nodeState.parameters.label);
+      }
+    });
+    return labels;
+  }, [nodeStates]);
+
   /**
    * Private function to check if a label is already in use
+   * Optimized to use Set for O(1) lookup
    */
   const isLabelInUse = useCallback(
     (label) => {
-      return Object.values(nodeStates).some((nodeState) => nodeState.parameters.label === label);
+      return usedLabels.has(label);
     },
-    [nodeStates]
+    [usedLabels]
   );
 
   /**
    * Private function to check if an id is already in use
+   * Already O(1) using hasOwnProperty
    */
   const isIdInUse = useCallback(
     (id) => {
@@ -122,22 +137,29 @@ export const NodeProvider = ({ children }) => {
 
   /**
    * Validates if a connection between two nodes is allowed
+   * Simplified to only check:
+   * - Connection from "out" port (source) to "in" port (target) - enforced by ReactFlow handle types
+   * - One connection per port
+   * - A node can't connect to itself
    *
    * @param {Object} connection - The connection parameters
    * @returns {boolean} - Whether the connection is valid
    */
   const isValidConnection = useCallback(
     (connection) => {
+      // Check if handles exist (ReactFlow enforces source/target handle types)
       if (!connection.sourceHandle || !connection.targetHandle) {
         debugLog('Invalid connection: No source or target handle');
         return false;
       }
 
+      // Check that a node can't connect to itself
       if (connection.source === connection.target) {
         debugLog('Invalid connection: Source and target are the same');
         return false;
       }
 
+      // Check that each port can only have one connection
       const existingEdges = edges.filter(
         (edge) =>
           edge.sourceHandle === connection.sourceHandle ||
@@ -145,114 +167,13 @@ export const NodeProvider = ({ children }) => {
       );
 
       if (existingEdges.length > 0) {
-        debugLog('Invalid connection: Port is not empty');
+        debugLog('Invalid connection: Port is already connected');
         return false;
       }
 
-      // Get source and target nodes and their states
-      const sourceNode = nodes.find((node) => node.id === connection.source);
-      const targetNode = nodes.find((node) => node.id === connection.target);
-      const sourceNodeState = nodeStates[sourceNode.id];
-      const targetNodeState = nodeStates[targetNode.id];
-
-      if (!sourceNode || !targetNode) {
-        debugLog('Invalid connection: Source or target node not found');
-        return false;
-      }
-
-      // Create a temporary connection context
-      const connectionContext = {
-        parameters: {}, // Will hold edge parameters like area
-        metadata: {}, // Any other metadata nodes might want to share
-      };
-
-      // Get node handlers
-      const sourceHandler = elementInfo[sourceNode.type]?.onConnectionStart;
-      const targetHandler = elementInfo[targetNode.type]?.onConnectionStart;
-
-      // Warn if sourceHandler or targetHandler is not defined
-      if (!sourceHandler) {
-        console.warn(`No source handler defined for node type: ${sourceNode.type}`);
-      }
-      if (!targetHandler) {
-        console.warn(`No target handler defined for node type: ${targetNode.type}`);
-      }
-
-      // Let nodes prepare the connection
-      if (sourceHandler) {
-        sourceHandler(
-          connection,
-          sourceNode,
-          targetNode,
-          sourceNodeState,
-          targetNodeState,
-          connectionContext
-        );
-      }
-      if (targetHandler) {
-        targetHandler(
-          connection,
-          sourceNode,
-          targetNode,
-          sourceNodeState,
-          targetNodeState,
-          connectionContext
-        );
-      }
-
-      // Get node type validators
-      const sourceValidator = elementInfo[sourceNode.type]?.isConnectionValid;
-      const targetValidator = elementInfo[targetNode.type]?.isConnectionValid;
-
-      // Warn if sourceValidator or targetValidator is not defined
-      if (!sourceValidator) {
-        console.warn(`No source validator defined for node type: ${sourceNode.type}`);
-      }
-      if (!targetValidator) {
-        console.warn(`No target validator defined for node type: ${targetNode.type}`);
-      }
-
-      // Check source node's validation rules
-      if (sourceValidator) {
-        const sourceValidation = sourceValidator(
-          connection,
-          sourceNode,
-          targetNode,
-          sourceNodeState,
-          targetNodeState,
-          connectionContext,
-          edges,
-          edgeStates
-        );
-        if (!sourceValidation.isValid) {
-          debugLog(`Invalid connection: ${sourceValidation.reason}`);
-          return false;
-        }
-      }
-
-      // Check target node's validation rules
-      if (targetValidator) {
-        const targetValidation = targetValidator(
-          connection,
-          sourceNode,
-          targetNode,
-          sourceNodeState,
-          targetNodeState,
-          connectionContext,
-          edges,
-          edgeStates
-        );
-        if (!targetValidation.isValid) {
-          debugLog(`Invalid connection: ${targetValidation.reason}`);
-          return false;
-        }
-      }
-
-      // Store the connection context for edge creation
-      connection.context = connectionContext;
       return true;
     },
-    [edges, nodeStates, nodes, edgeStates]
+    [edges]
   );
 
   /**
@@ -363,15 +284,18 @@ export const NodeProvider = ({ children }) => {
    *
    * @param {string} nodeId - The id of the node that is starting to be edited.
    */
-  const startEditing = (nodeId) => {
-    setEditingStates((prev) => ({
-      ...prev,
-      [nodeId]: {
-        isEditing: true,
-        tempLabel: nodeStates[nodeId]?.parameters?.label || '',
-      },
-    }));
-  };
+  const startEditing = useCallback(
+    (nodeId) => {
+      setEditingStates((prev) => ({
+        ...prev,
+        [nodeId]: {
+          isEditing: true,
+          tempLabel: nodeStates[nodeId]?.parameters?.label || '',
+        },
+      }));
+    },
+    [nodeStates]
+  );
 
   /**
    * onChange updates the temporary editing value as the user modifies it.
@@ -379,7 +303,7 @@ export const NodeProvider = ({ children }) => {
    * @param {string} nodeId - The id of the node being edited.
    * @param {Object} evt - The event object containing the new value.
    */
-  const onChange = (nodeId, evt) => {
+  const onChange = useCallback((nodeId, evt) => {
     setEditingStates((prev) => ({
       ...prev,
       [nodeId]: {
@@ -387,7 +311,7 @@ export const NodeProvider = ({ children }) => {
         tempLabel: evt.target.value,
       },
     }));
-  };
+  }, []);
 
   /**
    * finishEditing finalizes the editing process by updating the node's label if a new non-empty
@@ -527,13 +451,13 @@ export const NodeProvider = ({ children }) => {
       }
 
       // Get node info before deletion
-      const nodeState = nodeStates[nodeId];
-      if (!nodeState) {
-        console.error(`Cannot delete node: Node state not found for ID ${nodeId}`);
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        console.error(`Cannot delete node: Node not found for ID ${nodeId}`);
         return;
       }
 
-      const type = nodeState.type;
+      const type = node.type;
 
       // Find and delete all edges connected to this node
       setEdges((eds) => {
@@ -586,7 +510,7 @@ export const NodeProvider = ({ children }) => {
 
       debugLog('Successfully deleted node: ', nodeId);
     },
-    [nodeStates, setNodes, selectedNodeId, setEdges, setEdgeStates]
+    [nodes, setNodes, selectedNodeId, setEdges, setEdgeStates]
   );
 
   /**
@@ -945,11 +869,10 @@ export const NodeProvider = ({ children }) => {
         defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
       }
 
-      // Create the edge state, merging default parameters with any from the connection context
+      // Create the edge state with default parameters
       const edgeState = {
         parameters: {
           ...defaultParameters,
-          ...(params.context?.parameters || {}),
         },
       };
 
@@ -1017,45 +940,77 @@ export const NodeProvider = ({ children }) => {
     [setEdges]
   );
 
-  return (
-    <NodeContext.Provider
-      value={{
-        nodeStates,
-        editingStates,
-        nodeCounters,
-        totalNodeCounters,
-        nodes,
-        edges,
-        onNodesChange,
-        onEdgesChange,
-        setNodes,
-        setEdges,
-        addNode,
-        deleteNode,
-        reset,
-        updateNodeParameter,
-        updateEdgeParameter,
-        startEditing,
-        onChange,
-        onKeyDown,
-        finishEditing,
-        selectedNodeId,
-        selectedEdgeId,
-        setSelectedNodeId,
-        setSelectedEdgeId,
-        isValidConnection,
-        saveToFile,
-        generateSaveData,
-        loadFromFile,
-        edgeStates,
-        addCustomEdge,
-        deleteEdge,
-        updateEdges,
-      }}
-    >
-      {children}
-    </NodeContext.Provider>
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      nodeStates,
+      editingStates,
+      nodeCounters,
+      totalNodeCounters,
+      nodes,
+      edges,
+      onNodesChange,
+      onEdgesChange,
+      setNodes,
+      setEdges,
+      addNode,
+      deleteNode,
+      reset,
+      updateNodeParameter,
+      updateEdgeParameter,
+      startEditing,
+      onChange,
+      onKeyDown,
+      finishEditing,
+      selectedNodeId,
+      selectedEdgeId,
+      setSelectedNodeId,
+      setSelectedEdgeId,
+      isValidConnection,
+      saveToFile,
+      generateSaveData,
+      loadFromFile,
+      edgeStates,
+      addCustomEdge,
+      deleteEdge,
+      updateEdges,
+    }),
+    [
+      nodeStates,
+      editingStates,
+      nodeCounters,
+      totalNodeCounters,
+      nodes,
+      edges,
+      onNodesChange,
+      onEdgesChange,
+      setNodes,
+      setEdges,
+      addNode,
+      deleteNode,
+      reset,
+      updateNodeParameter,
+      updateEdgeParameter,
+      startEditing,
+      onChange,
+      onKeyDown,
+      finishEditing,
+      selectedNodeId,
+      selectedEdgeId,
+      setSelectedNodeId,
+      setSelectedEdgeId,
+      isValidConnection,
+      saveToFile,
+      generateSaveData,
+      loadFromFile,
+      edgeStates,
+      addCustomEdge,
+      deleteEdge,
+      updateEdges,
+    ]
   );
+
+  return <NodeContext.Provider value={contextValue}>{children}</NodeContext.Provider>;
 };
 
 /**

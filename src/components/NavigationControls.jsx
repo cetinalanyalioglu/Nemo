@@ -15,7 +15,7 @@ import LayoutButton from './controls/LayoutButton';
  *
  * @returns {React.Component} Navigation controls bar
  */
-const NavigationControls = () => {
+const NavigationControls = React.memo(() => {
   // Get file operation functions from context
   const { saveToFile, loadFromFile } = useNodeContext();
 
@@ -91,6 +91,8 @@ const NavigationControls = () => {
       <LayoutButton />
     </div>
   );
-};
+});
+
+NavigationControls.displayName = 'NavigationControls';
 
 export default NavigationControls;

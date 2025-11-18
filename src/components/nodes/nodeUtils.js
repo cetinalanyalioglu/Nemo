@@ -1,10 +1,10 @@
-import { elementInfo as baseElementInfo } from './BaseCustomNode';
+import { baseElementInfo } from './GenericNode';
 
 /**
  * Deep merges two elementInfo objects, with the specific node's configuration taking precedence.
  * This allows nodes to inherit and override base configuration as needed.
  *
- * Special care is taken to handle function properties (like isConnectionValid) correctly:
+ * Special care is taken to handle function properties correctly:
  * - JSON.parse/stringify cannot serialize functions, so we avoid deep copying them
  * - Instead, we use a hybrid approach: shallow copy for the base object to preserve functions,
  *   and deep copy only for data structures (parameters and ports)
@@ -14,7 +14,7 @@ import { elementInfo as baseElementInfo } from './BaseCustomNode';
  */
 export const mergeWithBaseElementInfo = (nodeElementInfo) => {
   // Create shallow copy of base element info first
-  // This preserves function references like isConnectionValid
+  // This preserves function references
   const mergedInfo = { ...baseElementInfo };
 
   // Deep copy only the data structures that need it
@@ -47,11 +47,6 @@ export const mergeWithBaseElementInfo = (nodeElementInfo) => {
     source: [...mergedInfo.ports.source, ...(nodeElementInfo.ports?.source || [])],
   };
 
-  // Handle functions, use the base node's function if provided, otherwise keep the base node's function
-  // This works because we did a shallow copy of baseElementInfo, preserving the original function reference
-  mergedInfo.isConnectionValid = nodeElementInfo.isConnectionValid || mergedInfo.isConnectionValid;
-  mergedInfo.onConnectionStart = nodeElementInfo.onConnectionStart || mergedInfo.onConnectionStart;
-
   // Final merge of all properties while ensuring our carefully merged properties aren't overwritten
   // Order is important here:
   // 1. First spread mergedInfo (contains base properties with merged data)
@@ -62,7 +57,6 @@ export const mergeWithBaseElementInfo = (nodeElementInfo) => {
     ...nodeElementInfo,
     parameters: mergedInfo.parameters,
     ports: mergedInfo.ports,
-    isConnectionValid: mergedInfo.isConnectionValid,
   };
 };
 

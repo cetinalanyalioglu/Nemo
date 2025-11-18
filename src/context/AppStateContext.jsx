@@ -1,113 +1,113 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
 const AppStateContext = createContext(null);
 
 export const AppStateProvider = ({ children }) => {
   // Define all app states in a single object
-  const appStates = {
-    viewport: {
-      id: 'viewport',
-      persist: true,
-      state: useState({
-        zoom: 1,
-      }),
-    },
-    sidebar: {
-      id: 'sidebar',
-      persist: false,
-      state: useState({
-        isOpen: true,
-        collapsedGroups: {},
-      }),
-    },
-    propertiesPanel: {
-      id: 'propertiesPanel',
-      persist: false,
-      state: useState({
-        isOpen: false,
-        collapsedGroups: {},
-      }),
-    },
-    grid: {
-      id: 'grid',
-      persist: true,
-      state: useState({
-        snapToGrid: true,
-        size: 15,
-      }),
-    },
-  };
+  const [viewportState, setViewport] = useState({
+    zoom: 1,
+  });
+  const [sidebarState, setSidebar] = useState({
+    isOpen: true,
+    collapsedGroups: {},
+  });
+  const [propertiesPanelState, setPropertiesPanel] = useState({
+    isOpen: false,
+    collapsedGroups: {},
+  });
+  const [gridState, setGrid] = useState({
+    snapToGrid: true,
+    size: 15,
+  });
 
-  // Define actions for each state
-  const appActions = {
-    viewport: {
-      updateZoom: (newZoom) => {
-        const [_, setViewport] = appStates.viewport.state;
-        setViewport((prev) => ({ ...prev, zoom: newZoom }));
+  // Define actions with useCallback for stable references (required for React 19)
+  const updateZoom = useCallback((newZoom) => {
+    setViewport((prev) => ({ ...prev, zoom: newZoom }));
+  }, []);
+
+  const sidebarToggle = useCallback(() => {
+    setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+  }, []);
+
+  const sidebarToggleGroup = useCallback((category) => {
+    setSidebar((prev) => ({
+      ...prev,
+      collapsedGroups: {
+        ...prev.collapsedGroups,
+        [category]: !prev.collapsedGroups[category],
       },
-    },
-    sidebar: {
-      toggle: () => {
-        const [state, setState] = appStates.sidebar.state;
-        setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+    }));
+  }, []);
+
+  const propertiesPanelToggle = useCallback(() => {
+    setPropertiesPanel((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+  }, []);
+
+  const propertiesPanelToggleGroup = useCallback((category) => {
+    setPropertiesPanel((prev) => ({
+      ...prev,
+      collapsedGroups: {
+        ...prev.collapsedGroups,
+        [category]: !prev.collapsedGroups[category],
       },
-      toggleGroup: (category) => {
-        const [state, setState] = appStates.sidebar.state;
-        setState((prev) => ({
-          ...prev,
-          collapsedGroups: {
-            ...prev.collapsedGroups,
-            [category]: !prev.collapsedGroups[category],
-          },
-        }));
+    }));
+  }, []);
+
+  const propertiesPanelSetIsOpen = useCallback((isOpen) => {
+    setPropertiesPanel((prev) => ({ ...prev, isOpen }));
+  }, []);
+
+  const gridToggleSnap = useCallback(() => {
+    setGrid((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
+  }, []);
+
+  const gridUpdateSize = useCallback((size) => {
+    setGrid((prev) => ({ ...prev, size }));
+  }, []);
+
+  // Memoize actions object
+  const appActions = useMemo(
+    () => ({
+      viewport: {
+        updateZoom,
       },
-    },
-    propertiesPanel: {
-      toggle: () => {
-        const [state, setState] = appStates.propertiesPanel.state;
-        setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+      sidebar: {
+        toggle: sidebarToggle,
+        toggleGroup: sidebarToggleGroup,
       },
-      toggleGroup: (category) => {
-        const [state, setState] = appStates.propertiesPanel.state;
-        setState((prev) => ({
-          ...prev,
-          collapsedGroups: {
-            ...prev.collapsedGroups,
-            [category]: !prev.collapsedGroups[category],
-          },
-        }));
+      propertiesPanel: {
+        toggle: propertiesPanelToggle,
+        toggleGroup: propertiesPanelToggleGroup,
+        setIsOpen: propertiesPanelSetIsOpen,
       },
-      setIsOpen: (isOpen) => {
-        const [_, setState] = appStates.propertiesPanel.state;
-        setState((prev) => ({ ...prev, isOpen }));
+      grid: {
+        toggleSnap: gridToggleSnap,
+        updateSize: gridUpdateSize,
       },
-    },
-    grid: {
-      toggleSnap: () => {
-        const [state, setState] = appStates.grid.state;
-        setState((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
-      },
-      updateSize: (size) => {
-        const [_, setState] = appStates.grid.state;
-        setState((prev) => ({ ...prev, size }));
-      },
-    },
-  };
+    }),
+    [
+      updateZoom,
+      sidebarToggle,
+      sidebarToggleGroup,
+      propertiesPanelToggle,
+      propertiesPanelToggleGroup,
+      propertiesPanelSetIsOpen,
+      gridToggleSnap,
+      gridUpdateSize,
+    ]
+  );
 
   // Create provider value with states and actions
-  const providerValue = {
-    // States
-    ...Object.entries(appStates).reduce(
-      (acc, [key, slice]) => ({
-        ...acc,
-        [key]: slice.state[0],
-      }),
-      {}
-    ),
-
-    // Actions
-    actions: appActions,
-  };
+  const providerValue = useMemo(
+    () => ({
+      viewport: viewportState,
+      sidebar: sidebarState,
+      propertiesPanel: propertiesPanelState,
+      grid: gridState,
+      actions: appActions,
+    }),
+    [viewportState, sidebarState, propertiesPanelState, gridState, appActions]
+  );
 
   return <AppStateContext.Provider value={providerValue}>{children}</AppStateContext.Provider>;
 };

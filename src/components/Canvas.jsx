@@ -47,6 +47,9 @@ const Canvas = () => {
     actions,
   } = useAppState();
 
+  // Extract updateZoom for stable reference in useCallback
+  const updateZoom = actions.viewport.updateZoom;
+
   /**
    * Initializes the ReactFlow instance. After that the ReactFlow instance can be obtained from the context.
    *
@@ -68,9 +71,9 @@ const Canvas = () => {
    */
   const onMove = useCallback(
     (_, viewPort) => {
-      actions.viewport.updateZoom(viewPort.zoom);
+      updateZoom(viewPort.zoom);
     },
-    [actions.viewport]
+    [updateZoom]
   );
 
   /**

@@ -10,10 +10,8 @@
 - [x] Custom edge type to display information on the edges
 - [x] Edge properties panel
 - [x] Individual connection validation functions for each node type to be called alongside global connection validation logic
-- [x] Individual `onConnect` handling for each node type, e.g. to assign area to the connected edge if the node type provides area
+- [x] Individual `onConnect` handling for each node type
     - [x] Best, we may come up with a structure where we can assign custom triggers on parameter change individually for each parameter.
-    - [x] Dedicated standalone routines to perform area constraint checks
-    - [x] When the area parameter of a node with `providesArea` attribute is changed, it should update edge areas and trigger connection validators.
 - [ ] Edges should be able to display information using a label
 - [ ] Management of edge and node based data
 - [ ] Rendering edge and node based data

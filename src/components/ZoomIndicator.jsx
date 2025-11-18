@@ -13,8 +13,10 @@ const ZoomIndicator = ({ zoom }) => {
   // Track visibility state of the indicator
   const [isVisible, setIsVisible] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Show indicator when zoom changes
+    // Note: This effect intentionally sets state to show the indicator when zoom changes
     setIsVisible(true);
 
     // Hide indicator after 1.5 seconds

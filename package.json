@@ -2,15 +2,19 @@
   "name": "fnetlib-ui",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "@types/dagre": "^0.7.52",
-    "axios": "^1.4.0",
+    "axios": "^1.13.1",
     "dagre": "^0.8.5",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^4.12.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.5.0",
     "react-scripts": "5.0.1",
-    "reactflow": "^11.10.4"
+    "reactflow": "^11.11.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -32,14 +36,14 @@
     ]
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.3",
-    "eslint-plugin-react": "^7.37.4",
-    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
-    "prettier": "^3.5.1",
+    "prettier": "^3.6.2",
     "serve": "^14.2.4"
   },
   "husky": {
