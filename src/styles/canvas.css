@@ -70,6 +70,18 @@
   border-radius: 4px;
 }
 
+.react-flow__controls-button.react-flow__controls-snapgrid svg,
+.react-flow__controls-button.react-flow__controls-interactive svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.react-flow__controls-button.react-flow__controls-snapgrid.active {
+  background-color: #d4a72c;
+  color: #fff;
+}
+
 .react-flow__minimap {
   z-index: 101;
   position: absolute;

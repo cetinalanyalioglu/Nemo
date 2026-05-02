@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, BackgroundVariant } from 'reactflow';
+import { SnapToGridControl, FlowInteractiveToggle } from './canvas-flow-controls';
 import type { Node, Edge, ReactFlowInstance, Connection } from 'reactflow';
 import 'reactflow/dist/style.css';
 import '../styles/edges.css';
@@ -191,7 +192,10 @@ const Canvas = () => {
             color="#d9d9d9"
           />
         </>
-        <Controls />
+        <Controls showInteractive={false}>
+          <SnapToGridControl />
+          <FlowInteractiveToggle />
+        </Controls>
         <MiniMap />
       </ReactFlow>
       <ZoomIndicator zoom={zoom} />
