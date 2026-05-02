@@ -8,7 +8,6 @@ import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 import { AppStateProvider } from './context/AppStateContext';
 
-// Main application logic component
 function AppContent() {
   return (
     <div className="app">

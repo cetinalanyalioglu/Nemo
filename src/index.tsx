@@ -8,27 +8,22 @@ if (isDebugMode()) {
   console.log('Debug mode is enabled.');
 }
 
-// Suppress ResizeObserver loop warnings - these are harmless and occur during node resizing
-// React Flow uses ResizeObserver internally and these errors don't indicate actual problems
 const originalError = console.error;
-console.error = (...args) => {
-  if (
-    args[0]?.toString().includes('ResizeObserver loop') ||
-    args[0]?.toString().includes('ResizeObserver loop completed')
-  ) {
-    return; // Suppress this specific error
+console.error = (...args: unknown[]) => {
+  const msg = args[0]?.toString() ?? '';
+  if (msg.includes('ResizeObserver loop') || msg.includes('ResizeObserver loop completed')) {
+    return;
   }
-  originalError.apply(console, args);
+  originalError.apply(console, args as never);
 };
 
-// Also suppress ResizeObserver errors in window error handler
 const originalHandler = window.onerror;
 window.onerror = (message, source, lineno, colno, error) => {
   if (
     typeof message === 'string' &&
     (message.includes('ResizeObserver loop') || message.includes('ResizeObserver loop completed'))
   ) {
-    return true; // Suppress error
+    return true;
   }
   if (originalHandler) {
     return originalHandler(message, source, lineno, colno, error);
@@ -37,6 +32,9 @@ window.onerror = (message, source, lineno, colno, error) => {
 };
 
 const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Root element #root not found');
+}
 const root = createRoot(container);
 root.render(
   <React.StrictMode>

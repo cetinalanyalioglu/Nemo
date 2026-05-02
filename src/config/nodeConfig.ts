@@ -1,17 +1,29 @@
+import type { IconType } from 'react-icons';
 import { BsArrowDownCircle } from 'react-icons/bs';
 import { BsArrowUpCircle } from 'react-icons/bs';
 import { BsArrowLeftRight } from 'react-icons/bs';
 import { BsArrowsExpand } from 'react-icons/bs';
 import { BsDiagram2 } from 'react-icons/bs';
 import { BsLightningFill } from 'react-icons/bs';
+import type { ParameterInfo } from '../types/flow';
+
+export type NodePorts = { target: string[]; source: string[] };
+
+export interface NodeConfigEntry {
+  customParameters: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
+  ports: NodePorts;
+  icon: IconType;
+  displayName: string;
+  category: string;
+  dynamicPorts: boolean;
+}
 
 /**
  * Node configuration file containing custom parameters, ports, icons, and metadata for each node type.
  * Generic parameters (label, width, height, solverIndex) are defined
  * in the base component and merged at runtime.
  */
-
-export const nodeConfig = {
+export const nodeConfig: Record<string, NodeConfigEntry> = {
   MassFlowInlet: {
     customParameters: {
       label: {
@@ -172,7 +184,7 @@ export const nodeConfig = {
     },
     ports: {
       target: ['0'],
-      source: [], // Dynamic - calculated from rightPorts parameter
+      source: [],
     },
     icon: BsDiagram2,
     displayName: 'Lossless Splitter',
@@ -204,8 +216,8 @@ export const nodeConfig = {
       },
     },
     ports: {
-      target: [], // Dynamic - calculated from leftPorts parameter
-      source: [], // Dynamic - calculated from rightPorts parameter
+      target: [],
+      source: [],
     },
     icon: BsLightningFill,
     displayName: 'Junction',

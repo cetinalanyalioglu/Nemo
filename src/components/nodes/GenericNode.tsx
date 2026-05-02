@@ -1,19 +1,30 @@
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
-import { Handle, useReactFlow, useUpdateNodeInternals } from 'reactflow';
+import { Handle, useReactFlow, useUpdateNodeInternals, Position } from 'reactflow';
+import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { nodeConfig } from '../../config/nodeConfig';
 import { useNodeContext } from '../../context/NodeContext';
 import { useAppState } from '../../context/AppStateContext';
-import PropTypes from 'prop-types';
 import { debugLog } from '../../utils/debug';
+import type { ParameterChangeHandler, ElementInfoEntry } from '../../types/flow';
+
+type ResizeSession = {
+  startX?: number;
+  startY?: number;
+  startWidth?: number;
+  startHeight?: number;
+  pendingWidth?: number;
+  pendingHeight?: number;
+  updateTimer?: ReturnType<typeof setTimeout>;
+  rafId?: number;
+  cleanup?: () => void;
+};
 
 /**
  * Base configuration object that defines common properties for all nodes.
- * Generic parameters that all nodes should have.
  */
-export const baseElementInfo = {
-  // Base parameters that all nodes should have
+export const baseElementInfo: ElementInfoEntry = {
   parameters: {
     label: {
       label: 'Label',
@@ -52,34 +63,18 @@ export const baseElementInfo = {
       visible: true,
     },
   },
-  // Default empty ports configuration
   ports: {
     target: [],
     source: [],
   },
-  // Parameter change handlers
   onParameterChange: {
-    '*': () => {
+    '*': ((_nodeId, _paramName, _value, _oldValue, _tempNodeStates, _edges, _edgeStates) => {
       return { isValid: true };
-    },
+    }) as ParameterChangeHandler,
   },
 };
 
-/**
- * GenericNode is a universal React component for all node types in the flow diagram.
- * It provides resizing capabilities, port management, label editing, and dynamic port support.
- *
- * @component
- * @param {Object} props
- * @param {string} props.id - Unique identifier for the node
- * @param {boolean} props.selected - Whether the node is currently selected
- * @param {string} props.type - Type of the node (used to look up config)
- * @param {Object} props.data - Node data from ReactFlow (not used, label comes from nodeState)
- */
-// eslint-disable-next-line no-unused-vars
-const GenericNode = ({ id, selected, type, data: _data }) => {
-  // =========== Hooks ===========
-  // All hooks MUST be called unconditionally before any early returns
+const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const {
     nodeStates,
     updateNodeParameter,
@@ -97,33 +92,29 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     grid: { snapToGrid, size: gridSize },
     viewport: { zoom },
   } = useAppState();
-  const nodeRef = useRef(null);
-  const resizeRef = useRef({});
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
 
-  // Get node configuration and state
-  const config = nodeConfig[type];
+  const config = type ? nodeConfig[type as keyof typeof nodeConfig] : undefined;
   const nodeState = nodeStates[id];
   const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
-  // =========== Dynamic Ports Calculation ===========
-  // This hook must be called unconditionally
   const calculatedPorts = useMemo(() => {
     if (!config || !config.dynamicPorts) {
       return config?.ports || { target: [], source: [] };
     }
 
-    // Dynamic ports - calculate from parameters
     if (type === 'Junction') {
       const leftPortCount = (() => {
         if (!nodeState?.parameters?.leftPorts) return 2;
-        const parsed = parseInt(nodeState.parameters.leftPorts, 10);
+        const parsed = parseInt(String(nodeState.parameters.leftPorts), 10);
         return isNaN(parsed) ? 2 : Math.max(1, parsed);
       })();
 
       const rightPortCount = (() => {
         if (!nodeState?.parameters?.rightPorts) return 1;
-        const parsed = parseInt(nodeState.parameters.rightPorts, 10);
+        const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
         return isNaN(parsed) ? 1 : Math.max(1, parsed);
       })();
 
@@ -137,7 +128,7 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     } else if (type === 'LosslessSplitter') {
       const rightPortCount = (() => {
         if (!nodeState?.parameters?.rightPorts) return 2;
-        const parsed = parseInt(nodeState.parameters.rightPorts, 10);
+        const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
         return isNaN(parsed) ? 2 : Math.max(2, parsed);
       })();
 
@@ -148,39 +139,37 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     return config.ports;
   }, [config, type, nodeState]);
 
-  // =========== Dynamic Ports Edge Management ===========
   useLayoutEffect(() => {
-    if (!config.dynamicPorts || !nodeState || !edges) return;
+    if (!config?.dynamicPorts || !nodeState || !edges) return;
 
     try {
       let needsUpdate = false;
-      let removedEdgeIds = [];
+      const removedEdgeIds: string[] = [];
       let handlesUpdated = 0;
       const currentEdges = [...edges];
 
       if (type === 'Junction') {
         const leftPortCount = (() => {
           if (!nodeState?.parameters?.leftPorts) return 2;
-          const parsed = parseInt(nodeState.parameters.leftPorts, 10);
+          const parsed = parseInt(String(nodeState.parameters.leftPorts), 10);
           return isNaN(parsed) ? 2 : Math.max(1, parsed);
         })();
 
         const rightPortCount = (() => {
           if (!nodeState?.parameters?.rightPorts) return 1;
-          const parsed = parseInt(nodeState.parameters.rightPorts, 10);
+          const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
           return isNaN(parsed) ? 1 : Math.max(1, parsed);
         })();
 
-        // Filter out edges connected to ports that no longer exist
         const newEdges = currentEdges.filter((edge) => {
           if (edge.source !== id && edge.target !== id) return true;
 
-          let portMatch;
-          let portNumber;
+          let portMatch: RegExpMatchArray | null;
+          let portNumber: number;
           let keepEdge = true;
 
           if (edge.source === id) {
-            portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
+            portMatch = edge.sourceHandle?.match(/-port-(\d+)$/) ?? null;
             if (!portMatch) {
               debugLog(`[${id}] Invalid source handle format: ${edge.sourceHandle}`);
               return true;
@@ -188,7 +177,7 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
             portNumber = parseInt(portMatch[1], 10);
             keepEdge = portNumber >= leftPortCount && portNumber < leftPortCount + rightPortCount;
           } else if (edge.target === id) {
-            portMatch = edge.targetHandle?.match(/-port-(\d+)$/);
+            portMatch = edge.targetHandle?.match(/-port-(\d+)$/) ?? null;
             if (!portMatch) {
               debugLog(`[${id}] Invalid target handle format: ${edge.targetHandle}`);
               return true;
@@ -204,7 +193,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
           return keepEdge;
         });
 
-        // Update remaining edges if their handles need to change
         newEdges.forEach((edge) => {
           let updated = false;
           let newEdge = { ...edge };
@@ -253,11 +241,10 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
       } else if (type === 'LosslessSplitter') {
         const rightPortCount = (() => {
           if (!nodeState?.parameters?.rightPorts) return 2;
-          const parsed = parseInt(nodeState.parameters.rightPorts, 10);
+          const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
           return isNaN(parsed) ? 2 : Math.max(2, parsed);
         })();
 
-        // Filter out edges connected to ports that no longer exist
         const newEdges = currentEdges.filter((edge) => {
           if (edge.source !== id) return true;
 
@@ -276,7 +263,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
           return keepEdge;
         });
 
-        // Update remaining edges if their handles need to change
         const remainingRightEdges = newEdges.filter((edge) => edge.source === id);
         remainingRightEdges.forEach((edge) => {
           const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
@@ -310,12 +296,13 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
       }
 
       updateNodeInternals(id);
-    } catch (error) {
-      debugLog(`[${id}] Error in edge management: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      debugLog(`[${id}] Error in edge management: ${message}`);
       console.error('Error updating dynamic port edges:', error);
     }
   }, [
-    config.dynamicPorts,
+    config?.dynamicPorts,
     type,
     id,
     nodeState,
@@ -326,31 +313,26 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     updateNodeInternals,
   ]);
 
-  // Function to snap a value to the nearest grid size
-  const snapToGridSize = (value) => {
+  const snapToGridSize = (value: number) => {
     if (!snapToGrid) return value;
     return Math.round(value / gridSize) * gridSize;
   };
 
-  // =========== Style Calculation ===========
-  // This hook must be called unconditionally
-  const style = useMemo(() => {
+  const style = useMemo((): React.CSSProperties => {
     if (!nodeState?.parameters) return {};
     const width = nodeState.parameters.width;
     const height = nodeState.parameters.height;
 
     if (width || height) {
       return {
-        ...(width && { width: `${width}px` }),
-        ...(height && { height: `${height}px` }),
+        ...(width ? { width: `${width}px` } : {}),
+        ...(height ? { height: `${height}px` } : {}),
         boxSizing: 'content-box',
       };
     }
     return {};
   }, [nodeState]);
 
-  // =========== Port Setup ===========
-  // This hook must be called unconditionally
   const portSetup = useMemo(() => {
     const targetPorts = Array.isArray(calculatedPorts.target) ? calculatedPorts.target : [];
     const sourcePorts = Array.isArray(calculatedPorts.source) ? calculatedPorts.source : [];
@@ -373,21 +355,20 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     isResizing ? 'resizing' : '',
   ].join(' ');
 
-  // =========== Resize Handlers ===========
-  const handleResizeStart = (e) => {
+  const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.preventDefault();
 
     setIsResizing(true);
 
     const node = getNode(id);
-    if (!node) return;
+    if (!node || !nodeRef.current) return;
 
     const initialWidth = node.style?.width
-      ? parseInt(node.style.width)
+      ? parseInt(String(node.style.width), 10)
       : nodeRef.current.offsetWidth;
     const initialHeight = node.style?.height
-      ? parseInt(node.style.height)
+      ? parseInt(String(node.style.height), 10)
       : nodeRef.current.offsetHeight;
 
     resizeRef.current = {
@@ -397,12 +378,18 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
       startHeight: initialHeight,
     };
 
-    const onPointerMove = (eMove) => {
-      const deltaX = eMove.clientX - resizeRef.current.startX;
-      const deltaY = eMove.clientY - resizeRef.current.startY;
+    const onPointerMove = (eMove: PointerEvent) => {
+      const r = resizeRef.current;
+      if (r.startX === undefined || r.startY === undefined) return;
 
-      const newWidth = Math.max(snapToGridSize(resizeRef.current.startWidth + deltaX), gridSize);
-      const newHeight = Math.max(snapToGridSize(resizeRef.current.startHeight + deltaY), gridSize);
+      const deltaX = eMove.clientX - r.startX;
+      const deltaY = eMove.clientY - r.startY;
+
+      const sw = r.startWidth ?? 0;
+      const sh = r.startHeight ?? 0;
+
+      const newWidth = Math.max(snapToGridSize(sw + deltaX), gridSize);
+      const newHeight = Math.max(snapToGridSize(sh + deltaY), gridSize);
 
       const roundedWidth = Math.round(newWidth);
       const roundedHeight = Math.round(newHeight);
@@ -435,15 +422,17 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
 
       if (resizeRef.current.updateTimer) {
         clearTimeout(resizeRef.current.updateTimer);
-        resizeRef.current.updateTimer = null;
+        resizeRef.current.updateTimer = undefined;
       }
 
       if (
         resizeRef.current.pendingWidth !== undefined ||
         resizeRef.current.pendingHeight !== undefined
       ) {
-        const finalWidth = resizeRef.current.pendingWidth ?? resizeRef.current.startWidth;
-        const finalHeight = resizeRef.current.pendingHeight ?? resizeRef.current.startHeight;
+        const finalWidth =
+          resizeRef.current.pendingWidth ?? resizeRef.current.startWidth ?? initialWidth;
+        const finalHeight =
+          resizeRef.current.pendingHeight ?? resizeRef.current.startHeight ?? initialHeight;
         updateNodeParameter(id, 'width', finalWidth);
         updateNodeParameter(id, 'height', finalHeight);
         resizeRef.current.pendingWidth = undefined;
@@ -457,7 +446,7 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const autoResize = (e) => {
+  const autoResize = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
 
     if (resizeRef.current.rafId) {
@@ -470,7 +459,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     });
   };
 
-  // =========== Memoized Port Renders ===========
   const renderTargetPorts = useMemo(() => {
     return targetPorts.map((portId) => (
       <div key={portId} className="port-wrapper port-wrapper-left port-wrapper-target">
@@ -478,7 +466,7 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
         <span className="port-index">{portId}</span>
         <Handle
           type="target"
-          position="left"
+          position={Position.Left}
           id={`${id}-port-${portId}`}
           className="react-flow__handle custom-handle-target"
         />
@@ -495,7 +483,7 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
           <IoChevronBack className="port-icon port-icon-source" />
           <Handle
             type="source"
-            position="right"
+            position={Position.Right}
             id={`${id}-port-${portIndex}`}
             className="react-flow__handle custom-handle-source"
           />
@@ -504,8 +492,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     });
   }, [sourcePorts, targetPorts.length, id]);
 
-  // =========== Effects ===========
-  // These hooks must be called unconditionally
   useEffect(() => {
     if (isResizing) {
       return () => {
@@ -530,16 +516,16 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
 
         const borderWidth = parseFloat(computedStyle.borderWidth || '0');
 
-        const safeParseFloat = (val) => {
+        const safeParseFloat = (val: string) => {
           const parsed = parseFloat(val);
           return isNaN(parsed) ? 0 : parsed;
         };
 
-        const pTop = safeParseFloat(paddingTop);
-        const pRight = safeParseFloat(paddingRight);
-        const pBottom = safeParseFloat(paddingBottom);
-        const pLeft = safeParseFloat(paddingLeft);
-        const bWidth = safeParseFloat(borderWidth);
+        const pTop = safeParseFloat(paddingTop ?? '0');
+        const pRight = safeParseFloat(paddingRight ?? '0');
+        const pBottom = safeParseFloat(paddingBottom ?? '0');
+        const pLeft = safeParseFloat(paddingLeft ?? '0');
+        const bWidth = safeParseFloat(String(borderWidth));
 
         const unscaledWidth = rect.width / zoom;
         const unscaledHeight = rect.height / zoom;
@@ -557,7 +543,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     }
   }, [nodeState, id, updateNodeParameter, zoom]);
 
-  // Early return checks (after all hooks)
   if (!config) {
     console.error(`No configuration found for node type: ${type}`);
     return null;
@@ -567,21 +552,14 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
     return null;
   }
 
-  // =========== Icon Setup ===========
   const TypeIcon = config.icon;
 
-  // =========== Render ===========
   return (
     <div className={nodeClasses} ref={nodeRef} style={style}>
-      {/* Input ports container */}
       <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>
 
-      {/* Middle section with icon and content */}
       <div className="middle-section">
-        {/* Node type icon */}
         {TypeIcon && <TypeIcon className="node-type-icon" />}
-
-        {/* Node content area with label/input */}
         <div className="custom-node-content">
           {editingState.isEditing ? (
             <input
@@ -591,21 +569,19 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
               onKeyDown={(e) => contextOnKeyDown(id, e)}
               autoFocus
               className="custom-node-input"
-              spellCheck="false"
+              spellCheck={false}
             />
           ) : (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
-              {nodeState.parameters.label}
+              {String(nodeState.parameters.label)}
             </div>
           )}
           <div className="custom-node-type">{type}</div>
         </div>
       </div>
 
-      {/* Output ports container */}
       <div className="custom-port-container custom-port-right">{renderSourcePorts}</div>
 
-      {/* Resize handle - only visible when node is selected */}
       {selected && (
         <div
           className="resize-handle"
@@ -615,14 +591,6 @@ const GenericNode = ({ id, selected, type, data: _data }) => {
       )}
     </div>
   );
-};
-
-// =========== PropTypes ===========
-GenericNode.propTypes = {
-  id: PropTypes.string.isRequired,
-  selected: PropTypes.bool,
-  type: PropTypes.string.isRequired,
-  data: PropTypes.object, // ReactFlow passes this but we don't use it
 };
 
 export default GenericNode;

@@ -1,27 +1,54 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
-const AppStateContext = createContext(null);
+type CollapsedGroups = Record<string, boolean>;
 
-export const AppStateProvider = ({ children }) => {
-  // Define all app states in a single object
-  const [viewportState, setViewport] = useState({
-    zoom: 1,
-  });
-  const [sidebarState, setSidebar] = useState({
+type AppStateSnapshot = {
+  viewport: { zoom: number };
+  sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups };
+  propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
+  grid: { snapToGrid: boolean; size: number };
+};
+
+type AppActions = {
+  viewport: { updateZoom: (newZoom: number) => void };
+  sidebar: {
+    toggle: () => void;
+    toggleGroup: (category: string) => void;
+  };
+  propertiesPanel: {
+    toggle: () => void;
+    toggleGroup: (category: string) => void;
+    setIsOpen: (isOpen: boolean) => void;
+  };
+  grid: {
+    toggleSnap: () => void;
+    updateSize: (size: number) => void;
+  };
+};
+
+export type AppStateContextValue = AppStateSnapshot & { actions: AppActions };
+
+const AppStateContext = createContext<AppStateContextValue | null>(null);
+
+export const AppStateProvider = ({ children }: { children: React.ReactNode }) => {
+  const [viewportState, setViewport] = useState({ zoom: 1 });
+  const [sidebarState, setSidebar] = useState<{
+    isOpen: boolean;
+    collapsedGroups: CollapsedGroups;
+  }>({
     isOpen: true,
     collapsedGroups: {},
   });
-  const [propertiesPanelState, setPropertiesPanel] = useState({
+  const [propertiesPanelState, setPropertiesPanel] = useState<{
+    isOpen: boolean;
+    collapsedGroups: CollapsedGroups;
+  }>({
     isOpen: false,
     collapsedGroups: {},
   });
-  const [gridState, setGrid] = useState({
-    snapToGrid: true,
-    size: 15,
-  });
+  const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
 
-  // Define actions with useCallback for stable references (required for React 19)
-  const updateZoom = useCallback((newZoom) => {
+  const updateZoom = useCallback((newZoom: number) => {
     setViewport((prev) => ({ ...prev, zoom: newZoom }));
   }, []);
 
@@ -29,7 +56,7 @@ export const AppStateProvider = ({ children }) => {
     setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }));
   }, []);
 
-  const sidebarToggleGroup = useCallback((category) => {
+  const sidebarToggleGroup = useCallback((category: string) => {
     setSidebar((prev) => ({
       ...prev,
       collapsedGroups: {
@@ -43,7 +70,7 @@ export const AppStateProvider = ({ children }) => {
     setPropertiesPanel((prev) => ({ ...prev, isOpen: !prev.isOpen }));
   }, []);
 
-  const propertiesPanelToggleGroup = useCallback((category) => {
+  const propertiesPanelToggleGroup = useCallback((category: string) => {
     setPropertiesPanel((prev) => ({
       ...prev,
       collapsedGroups: {
@@ -53,7 +80,7 @@ export const AppStateProvider = ({ children }) => {
     }));
   }, []);
 
-  const propertiesPanelSetIsOpen = useCallback((isOpen) => {
+  const propertiesPanelSetIsOpen = useCallback((isOpen: boolean) => {
     setPropertiesPanel((prev) => ({ ...prev, isOpen }));
   }, []);
 
@@ -61,11 +88,10 @@ export const AppStateProvider = ({ children }) => {
     setGrid((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
   }, []);
 
-  const gridUpdateSize = useCallback((size) => {
+  const gridUpdateSize = useCallback((size: number) => {
     setGrid((prev) => ({ ...prev, size }));
   }, []);
 
-  // Memoize actions object
   const appActions = useMemo(
     () => ({
       viewport: {
@@ -97,9 +123,8 @@ export const AppStateProvider = ({ children }) => {
     ]
   );
 
-  // Create provider value with states and actions
   const providerValue = useMemo(
-    () => ({
+    (): AppStateContextValue => ({
       viewport: viewportState,
       sidebar: sidebarState,
       propertiesPanel: propertiesPanelState,
@@ -112,7 +137,7 @@ export const AppStateProvider = ({ children }) => {
   return <AppStateContext.Provider value={providerValue}>{children}</AppStateContext.Provider>;
 };
 
-export const useAppState = () => {
+export const useAppState = (): AppStateContextValue => {
   const context = useContext(AppStateContext);
   if (!context) {
     throw new Error('useAppState must be used within an AppStateProvider');

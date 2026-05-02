@@ -1,47 +1,98 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import type { ChangeEvent as ReactChangeEvent } from 'react';
+import type { Connection, Edge, Node, XYPosition } from 'reactflow';
 import { elementInfo } from '../components/nodes/nodeTypes';
 import { useNodesState, useEdgesState, addEdge } from 'reactflow';
 import { debugLog } from '../utils/debug';
 import { edgeInfo } from '../components/edges/edgeTypes';
+import type {
+  EditingState,
+  EdgeRuntimeState,
+  NodeRuntimeState,
+  ParameterChangeHandler,
+  SaveFilePayload,
+} from '../types/flow';
 
 // Define save file version at module level
 const SAVE_FILE_VERSION = '1.0.0';
 
-const NodeContext = createContext();
+export interface NodeContextValue {
+  nodeStates: Record<string, NodeRuntimeState>;
+  editingStates: Record<string, EditingState>;
+  nodeCounters: Record<string, number>;
+  totalNodeCounters: Record<string, number>;
+  nodes: Node[];
+  edges: Edge[];
+  onNodesChange: ReturnType<typeof useNodesState>[2];
+  onEdgesChange: ReturnType<typeof useEdgesState>[2];
+  setNodes: ReturnType<typeof useNodesState>[1];
+  setEdges: ReturnType<typeof useEdgesState>[1];
+  addNode: (payload: {
+    type: string;
+    position?: XYPosition;
+    data?: Record<string, unknown>;
+    parameters?: Record<string, unknown>;
+  }) => Node | undefined;
+  deleteNode: (nodeId: string) => void;
+  reset: () => void;
+  updateNodeParameter: (nodeId: string, paramName: string, value: unknown) => boolean;
+  updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => void;
+  startEditing: (nodeId: string) => void;
+  onChange: (nodeId: string, evt: ReactChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (nodeId: string, event: React.KeyboardEvent<HTMLInputElement>) => void;
+  finishEditing: (nodeId: string) => void;
+  selectedNodeId: string | null;
+  selectedEdgeId: string | null;
+  setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedEdgeId: React.Dispatch<React.SetStateAction<string | null>>;
+  isValidConnection: (connection: Connection) => boolean;
+  saveToFile: () => void;
+  generateSaveData: () => Record<string, unknown>;
+  loadFromFile: (file: File) => void;
+  edgeStates: Record<string, EdgeRuntimeState>;
+  addCustomEdge: (params: Connection, type?: string) => void;
+  deleteEdge: (edgeId: string) => void;
+  updateEdges: (newEdges: Edge[], removedEdgeIds?: string[]) => void;
+}
 
-export const NodeProvider = ({ children }) => {
+const NodeContext = createContext<NodeContextValue | undefined>(undefined);
+
+export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   // Add selected node state
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   // ReactFlow states
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // Node states for parameters and editing
-  const [nodeStates, setNodeStates] = useState({});
-  const [editingStates, setEditingStates] = useState({});
+  const [nodeStates, setNodeStates] = useState<Record<string, NodeRuntimeState>>({});
+  const [editingStates, setEditingStates] = useState<Record<string, EditingState>>({});
   // nodeCounters: tracks current count of nodes per type (decremented on delete)
   // totalNodeCounters: tracks total nodes ever created per type (never decremented, used for unique ID/label generation)
-  const [nodeCounters, setNodeCounters] = useState({});
-  const [totalNodeCounters, setTotalNodeCounters] = useState({});
+  const [nodeCounters, setNodeCounters] = useState<Record<string, number>>({});
+  const [totalNodeCounters, setTotalNodeCounters] = useState<Record<string, number>>({});
 
   // Add edgeStates for managing edge parameters
-  const [edgeStates, setEdgeStates] = useState({});
-  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [edgeStates, setEdgeStates] = useState<Record<string, EdgeRuntimeState>>({});
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   // Initialize counters when component mounts
   useEffect(() => {
-    const initialCounters = Object.keys(elementInfo).reduce((acc, type) => {
-      acc[type] = 0;
-      return acc;
-    }, {});
+    const initialCounters = Object.keys(elementInfo).reduce(
+      (acc, type) => {
+        acc[type] = 0;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
     setNodeCounters(initialCounters);
     setTotalNodeCounters(initialCounters);
   }, []);
 
   // Create a Set of used labels for O(1) lookup performance
   const usedLabels = useMemo(() => {
-    const labels = new Set();
+    const labels = new Set<unknown>();
     Object.values(nodeStates).forEach((nodeState) => {
       if (nodeState?.parameters?.label) {
         labels.add(nodeState.parameters.label);
@@ -55,7 +106,7 @@ export const NodeProvider = ({ children }) => {
    * Optimized to use Set for O(1) lookup
    */
   const isLabelInUse = useCallback(
-    (label) => {
+    (label: unknown) => {
       return usedLabels.has(label);
     },
     [usedLabels]
@@ -66,7 +117,7 @@ export const NodeProvider = ({ children }) => {
    * Already O(1) using hasOwnProperty
    */
   const isIdInUse = useCallback(
-    (id) => {
+    (id: string) => {
       return Object.prototype.hasOwnProperty.call(nodeStates, id);
     },
     [nodeStates]
@@ -75,7 +126,7 @@ export const NodeProvider = ({ children }) => {
   /**
    * Private function to generate a random string of specified length
    */
-  const generateRandomSuffix = (length = 3) => {
+  const generateRandomSuffix = (length: number = 3) => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -90,7 +141,7 @@ export const NodeProvider = ({ children }) => {
    * Example: MassFlowInlet-1-x7k
    */
   const getNewNodeId = useCallback(
-    (type) => {
+    (type: string) => {
       // Get the current counter for this type
       const counter = totalNodeCounters[type] || 0;
 
@@ -114,16 +165,16 @@ export const NodeProvider = ({ children }) => {
    * Private function to generate unique node label
    */
   const getNewNodeLabel = useCallback(
-    (type) => {
+    (type: string) => {
       const currentCount = totalNodeCounters[type] || 0;
       const nextCount = currentCount + 1;
       const defaultLabel = elementInfo[type]?.parameters?.label?.defaultValue;
 
-      if (!defaultLabel) {
+      if (defaultLabel === undefined || defaultLabel === null) {
         throw new Error(`Default label not found for node type: ${type}`);
       }
 
-      let newLabel = `${defaultLabel}${nextCount}`;
+      let newLabel = `${String(defaultLabel)}${nextCount}`;
 
       // Check if label is already in use
       if (isLabelInUse(newLabel)) {
@@ -146,7 +197,7 @@ export const NodeProvider = ({ children }) => {
    * @returns {boolean} - Whether the connection is valid
    */
   const isValidConnection = useCallback(
-    (connection) => {
+    (connection: Connection) => {
       // Check if handles exist (ReactFlow enforces source/target handle types)
       if (!connection.sourceHandle || !connection.targetHandle) {
         debugLog('Invalid connection: No source or target handle');
@@ -186,7 +237,7 @@ export const NodeProvider = ({ children }) => {
    * @returns {boolean} - Whether the update was successful
    */
   const updateNodeParameter = useCallback(
-    (nodeId, paramName, value) => {
+    (nodeId: string, paramName: string, value: unknown) => {
       // Get the node's current state and type
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) {
@@ -194,7 +245,7 @@ export const NodeProvider = ({ children }) => {
         return false;
       }
 
-      const nodeType = node.type;
+      const nodeType = node.type!;
       const nodeElementInfo = elementInfo[nodeType];
       if (!nodeElementInfo) {
         console.error(`Cannot update parameter: Element info not found for type "${nodeType}"`);
@@ -210,7 +261,8 @@ export const NodeProvider = ({ children }) => {
       }
 
       // Get parameter change handlers
-      const handlers = nodeElementInfo.onParameterChange || {};
+      const handlers: Record<string, ParameterChangeHandler> = (nodeElementInfo.onParameterChange ||
+        {}) as Record<string, ParameterChangeHandler>;
       const specificHandler = handlers[paramName];
       const defaultHandler = handlers['*'];
 
@@ -285,12 +337,12 @@ export const NodeProvider = ({ children }) => {
    * @param {string} nodeId - The id of the node that is starting to be edited.
    */
   const startEditing = useCallback(
-    (nodeId) => {
+    (nodeId: string) => {
       setEditingStates((prev) => ({
         ...prev,
         [nodeId]: {
           isEditing: true,
-          tempLabel: nodeStates[nodeId]?.parameters?.label || '',
+          tempLabel: String(nodeStates[nodeId]?.parameters?.label || ''),
         },
       }));
     },
@@ -299,11 +351,8 @@ export const NodeProvider = ({ children }) => {
 
   /**
    * onChange updates the temporary editing value as the user modifies it.
-   *
-   * @param {string} nodeId - The id of the node being edited.
-   * @param {Object} evt - The event object containing the new value.
    */
-  const onChange = useCallback((nodeId, evt) => {
+  const onChange = useCallback((nodeId: string, evt: ReactChangeEvent<HTMLInputElement>) => {
     setEditingStates((prev) => ({
       ...prev,
       [nodeId]: {
@@ -316,11 +365,9 @@ export const NodeProvider = ({ children }) => {
   /**
    * finishEditing finalizes the editing process by updating the node's label if a new non-empty
    * value exists, and then resets the editing state for that node.
-   *
-   * @param {string} nodeId - The id of the node finishing editing.
    */
   const finishEditing = useCallback(
-    (nodeId) => {
+    (nodeId: string) => {
       setEditingStates((prev) => {
         const newLabel = prev[nodeId]?.tempLabel?.trim();
         if (newLabel) {
@@ -342,7 +389,7 @@ export const NodeProvider = ({ children }) => {
    * Handles keyboard events during label editing
    */
   const onKeyDown = useCallback(
-    (nodeId, event) => {
+    (nodeId: string, event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         finishEditing(nodeId);
@@ -363,7 +410,17 @@ export const NodeProvider = ({ children }) => {
 
   // Add node function that handles both node creation and registration
   const addNode = useCallback(
-    ({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} }) => {
+    ({
+      type,
+      position = { x: 0, y: 0 },
+      data = {},
+      parameters = {},
+    }: {
+      type: string;
+      position?: XYPosition;
+      data?: Record<string, unknown>;
+      parameters?: Record<string, unknown>;
+    }) => {
       debugLog('Adding node with type: ', type);
 
       if (!type) {
@@ -389,7 +446,7 @@ export const NodeProvider = ({ children }) => {
       const label = getNewNodeLabel(type);
 
       // Get default parameters from elementInfo
-      const defaultParameters = {};
+      const defaultParameters: Record<string, unknown> = {};
       for (const key in nodeTemplate.parameters) {
         defaultParameters[key] = nodeTemplate.parameters[key].defaultValue;
       }
@@ -413,7 +470,7 @@ export const NodeProvider = ({ children }) => {
       }));
 
       // Create the node for ReactFlow
-      const newNode = {
+      const newNode: Node = {
         id,
         type,
         position,
@@ -442,7 +499,7 @@ export const NodeProvider = ({ children }) => {
   );
 
   const deleteNode = useCallback(
-    (nodeId) => {
+    (nodeId: string) => {
       debugLog('Deleting node with id: ', nodeId);
 
       if (!nodeId) {
@@ -457,7 +514,7 @@ export const NodeProvider = ({ children }) => {
         return;
       }
 
-      const type = node.type;
+      const type = node.type!;
 
       // Find and delete all edges connected to this node
       setEdges((eds) => {
@@ -533,10 +590,13 @@ export const NodeProvider = ({ children }) => {
 
     // Reset current node counters
     setNodeCounters((prev) => {
-      return Object.keys(prev).reduce((acc, key) => {
-        acc[key] = 0;
-        return acc;
-      }, {});
+      return Object.keys(prev).reduce(
+        (acc, key) => {
+          acc[key] = 0;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
     });
 
     // Clear selected node
@@ -549,7 +609,7 @@ export const NodeProvider = ({ children }) => {
   }, [setNodes, setEdges]);
 
   // Define updateEdgeParameter similar to updateNodeParameter
-  const updateEdgeParameter = useCallback((edgeId, paramName, value) => {
+  const updateEdgeParameter = useCallback((edgeId: string, paramName: string, value: unknown) => {
     setEdgeStates((prev) => ({
       ...prev,
       [edgeId]: {
@@ -571,17 +631,23 @@ export const NodeProvider = ({ children }) => {
    * @returns {Object} Object containing updated node and edge states with solver indices
    */
   const generateSolverIndices = useCallback(() => {
-    const nodeIndexMap = {};
-    const edgeIndexMap = {};
+    const nodeIndexMap: Record<string, number> = {};
+    const edgeIndexMap: Record<string, number> = {};
     let currentNodeIndex = 0;
     let currentEdgeIndex = 0;
 
     // Create deep copies of current states
-    const updatedNodeStates = JSON.parse(JSON.stringify(nodeStates));
-    const updatedEdgeStates = JSON.parse(JSON.stringify(edgeStates));
+    const updatedNodeStates = JSON.parse(JSON.stringify(nodeStates)) as Record<
+      string,
+      NodeRuntimeState
+    >;
+    const updatedEdgeStates = JSON.parse(JSON.stringify(edgeStates)) as Record<
+      string,
+      EdgeRuntimeState
+    >;
 
     // Create an adjacency list representation of the network
-    const adjacencyList = {};
+    const adjacencyList: Record<string, { connectedNodes: Set<string>; edges: Edge[] }> = {};
     nodes.forEach((node) => {
       adjacencyList[node.id] = {
         connectedNodes: new Set(),
@@ -598,12 +664,12 @@ export const NodeProvider = ({ children }) => {
     });
 
     // Helper function for BFS traversal
-    const bfs = (startNodeId) => {
-      const queue = [startNodeId];
+    const bfs = (startNodeId: string) => {
+      const queue: string[] = [startNodeId];
       const visited = new Set([startNodeId]);
 
       while (queue.length > 0) {
-        const currentId = queue.shift();
+        const currentId = queue.shift()!;
 
         // Assign index to this node if not already assigned
         if (!(currentId in nodeIndexMap)) {
@@ -615,15 +681,14 @@ export const NodeProvider = ({ children }) => {
         }
 
         // Index all edges connected to this node that haven't been indexed yet
-        adjacencyList[currentId].edges.forEach((edge) => {
+        for (const edge of adjacencyList[currentId].edges) {
           if (!(edge.id in edgeIndexMap)) {
             edgeIndexMap[edge.id] = currentEdgeIndex++;
-            // Update the edge's solver index parameter in our copy
             if (updatedEdgeStates[edge.id]) {
               updatedEdgeStates[edge.id].parameters.solverIndex = edgeIndexMap[edge.id];
             }
           }
-        });
+        }
 
         // Add unvisited neighbors to queue
         adjacencyList[currentId].connectedNodes.forEach((neighborId) => {
@@ -638,7 +703,7 @@ export const NodeProvider = ({ children }) => {
     // Process all nodes using BFS, starting new traversals for unvisited components
     const unvisitedNodes = new Set(nodes.map((node) => node.id));
     while (unvisitedNodes.size > 0) {
-      const startNode = unvisitedNodes.values().next().value;
+      const startNode = unvisitedNodes.values().next().value!;
       bfs(startNode);
       // Remove all nodes that were visited in this BFS traversal
       Object.keys(nodeIndexMap).forEach((id) => unvisitedNodes.delete(id));
@@ -744,12 +809,16 @@ export const NodeProvider = ({ children }) => {
    * @param {File} file - The JSON file to load
    */
   const loadFromFile = useCallback(
-    (file) => {
+    (file: File) => {
       const reader = new FileReader();
 
-      reader.onload = (event) => {
+      reader.onload = (event: ProgressEvent<FileReader>) => {
         try {
-          const saveData = JSON.parse(event.target.result);
+          const raw = event.target?.result;
+          if (typeof raw !== 'string') {
+            throw new Error('Invalid file contents');
+          }
+          const saveData = JSON.parse(raw) as SaveFilePayload;
 
           // Check version compatibility
           if (!saveData.version) {
@@ -767,7 +836,7 @@ export const NodeProvider = ({ children }) => {
           reset();
 
           // Restore node states first
-          const newNodeStates = {};
+          const newNodeStates: Record<string, NodeRuntimeState> = {};
           saveData.nodes.forEach((node) => {
             if (node.state) {
               newNodeStates[node.id] = node.state;
@@ -786,7 +855,7 @@ export const NodeProvider = ({ children }) => {
           );
 
           // Create edge states for each edge
-          const newEdgeStates = {};
+          const newEdgeStates: Record<string, EdgeRuntimeState> = {};
           saveData.edges.forEach((edge) => {
             if (edge.state) {
               // Use saved state if it exists
@@ -799,7 +868,7 @@ export const NodeProvider = ({ children }) => {
               }
 
               // Get default parameters from edgeInfo
-              const defaultParameters = {};
+              const defaultParameters: Record<string, unknown> = {};
               if (edgeTemplate) {
                 for (const key in edgeTemplate.parameters) {
                   defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
@@ -827,9 +896,10 @@ export const NodeProvider = ({ children }) => {
           if (saveData.timestamp) {
             debugLog('File was saved on: ' + new Date(saveData.timestamp).toLocaleString());
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Error loading canvas state:', error);
-          alert('Error loading file: ' + error.message);
+          const message = error instanceof Error ? error.message : String(error);
+          alert('Error loading file: ' + message);
         }
       };
 
@@ -855,7 +925,7 @@ export const NodeProvider = ({ children }) => {
    * @returns {Object} The newly created edge
    */
   const addCustomEdge = useCallback(
-    (params, type = 'flow') => {
+    (params: Connection, type: string = 'flow') => {
       // Get edge template from edgeInfo
       const edgeTemplate = edgeInfo[type];
       if (!edgeTemplate) {
@@ -864,13 +934,13 @@ export const NodeProvider = ({ children }) => {
       }
 
       // Get default parameters from edgeInfo
-      const defaultParameters = {};
+      const defaultParameters: Record<string, unknown> = {};
       for (const key in edgeTemplate.parameters) {
         defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
       }
 
       // Create the edge state with default parameters
-      const edgeState = {
+      const edgeState: EdgeRuntimeState = {
         parameters: {
           ...defaultParameters,
         },
@@ -878,8 +948,8 @@ export const NodeProvider = ({ children }) => {
 
       // Add the edge to ReactFlow
       setEdges((eds) => {
-        const newEdges = addEdge({ ...params, type }, eds);
-        const newEdge = newEdges[newEdges.length - 1];
+        const newEdges = addEdge({ ...params, type } as Connection & { type: string }, eds);
+        const newEdge = newEdges[newEdges.length - 1]!;
 
         debugLog('Adding edge: ', newEdge);
         debugLog('Edge state: ', edgeState);
@@ -902,7 +972,7 @@ export const NodeProvider = ({ children }) => {
    * @param {string} edgeId - ID of the edge to delete
    */
   const deleteEdge = useCallback(
-    (edgeId) => {
+    (edgeId: string) => {
       setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
 
       // Clean up edge state
@@ -923,7 +993,7 @@ export const NodeProvider = ({ children }) => {
    * @param {Array} removedEdgeIds - Array of edge IDs that were removed
    */
   const updateEdges = useCallback(
-    (newEdges, removedEdgeIds = []) => {
+    (newEdges: Edge[], removedEdgeIds: string[] = []) => {
       setEdges(newEdges);
 
       // Clean up states for removed edges
@@ -941,7 +1011,7 @@ export const NodeProvider = ({ children }) => {
   );
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(
+  const contextValue = useMemo<NodeContextValue>(
     () => ({
       nodeStates,
       editingStates,

@@ -13,23 +13,20 @@ const LayoutButton = () => {
 
     const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges);
 
-    // Create change objects for each node's position
     const changes = layoutedNodes.map((node) => ({
-      type: 'position',
+      type: 'position' as const,
       id: node.id,
       position: node.position,
     }));
 
-    // Apply all position changes
     onNodesChange(changes);
 
-    // Maintain viewport
     const { x, y, zoom } = reactFlowInstance.getViewport();
     reactFlowInstance.setViewport({ x, y, zoom });
   }, [nodes, edges, reactFlowInstance, onNodesChange]);
 
   return (
-    <button onClick={onLayout} className="control-button" title="Auto Layout">
+    <button type="button" onClick={onLayout} className="control-button" title="Auto Layout">
       <IoGitNetwork />
     </button>
   );

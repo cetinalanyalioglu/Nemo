@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, BackgroundVariant } from 'reactflow';
+import type { Node, Edge, ReactFlowInstance, Connection } from 'reactflow';
 import 'reactflow/dist/style.css';
 import '../styles/edges.css';
 import '../styles/sidebar.css';
@@ -11,21 +12,11 @@ import { useNodeContext } from '../context/NodeContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppState } from '../context/AppStateContext';
 
-/**
- * Canvas component that provides the main drawing area for the flow diagram.
- * Handles node placement, connections, and user interactions with the diagram.
- * Uses ReactFlow for rendering and managing the flow diagram.
- *
- * @returns {React.Component} Canvas component with flow diagram functionality
- */
 const Canvas = () => {
-  // Reference to the ReactFlow wrapper div for drag-and-drop operations
-  const reactFlowWrapper = useRef(null);
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
-  // Get ReactFlow instance from context for programmatic control
   const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
 
-  // Get node management functions and state from context
   const {
     nodes,
     edges,
@@ -40,23 +31,16 @@ const Canvas = () => {
     addCustomEdge,
   } = useNodeContext();
 
-  // Get states and actions from AppState context
   const {
     grid: { snapToGrid, size: gridSize },
     viewport: { zoom },
     actions,
   } = useAppState();
 
-  // Extract updateZoom for stable reference in useCallback
   const updateZoom = actions.viewport.updateZoom;
 
-  /**
-   * Initializes the ReactFlow instance. After that the ReactFlow instance can be obtained from the context.
-   *
-   * @param {ReactFlowInstance} instance - The ReactFlow instance being initialized
-   */
   const onInit = useCallback(
-    (instance) => {
+    (instance: ReactFlowInstance | null) => {
       setReactFlowInstance(instance);
       if (!instance) {
         console.error('Can not initialize ReactFlow instance.');
@@ -66,45 +50,33 @@ const Canvas = () => {
     [setReactFlowInstance]
   );
 
-  /**
-   * Updates zoom level state when the viewport changes
-   */
   const onMove = useCallback(
-    (_, viewPort) => {
+    (_evt: MouseEvent | TouchEvent | null, viewPort: { zoom: number }) => {
       updateZoom(viewPort.zoom);
     },
     [updateZoom]
   );
 
-  /**
-   * Handles the dragover event for node drag and drop
-   */
-  const onDragOver = useCallback((event) => {
+  const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  /**
-   * Handles node creation when a node is dropped onto the canvas
-   */
   const onDrop = useCallback(
-    (event) => {
+    (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
 
-      // Check if the ReactFlow instance is initialized
       if (!reactFlowInstance) {
         console.error('ReactFlow instance is not initialized.');
         return;
       }
 
-      // Get the node type from the data transfer
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) {
         console.error('No node type provided.');
         return;
       }
 
-      // Convert screen coordinates to flow coordinates and create the node
       const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -115,11 +87,8 @@ const Canvas = () => {
     [reactFlowInstance, addNode]
   );
 
-  /**
-   * Handles creation of new edges between nodes
-   */
   const onConnect = useCallback(
-    (params) => {
+    (params: Connection) => {
       if (isValidConnection(params)) {
         addCustomEdge(params);
       }
@@ -127,53 +96,37 @@ const Canvas = () => {
     [isValidConnection, addCustomEdge]
   );
 
-  /**
-   * Updates selected node when a node is clicked
-   */
-  const handleNodeClick = (event, node) => {
+  const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
   };
 
-  /**
-   * Updates selected edge when an edge is clicked
-   */
-  const handleEdgeClick = (event, edge) => {
+  const handleEdgeClick = (_event: React.MouseEvent, edge: Edge) => {
     setSelectedEdgeId(edge.id);
   };
 
-  /**
-   * Clears node selection when clicking on the canvas
-   */
   const handlePaneClick = () => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
   };
 
-  /**
-   * Handles keyboard events for node/edge deletion
-   */
   const handleKeyDown = useCallback(
-    (event) => {
+    (event: KeyboardEvent) => {
       if (!reactFlowInstance) return;
 
-      // Don't handle delete if target is an input, textarea, or contentEditable element
+      const target = event.target as HTMLElement | null;
       if (
-        event.target.tagName === 'INPUT' ||
-        event.target.tagName === 'TEXTAREA' ||
-        event.target.isContentEditable
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
       ) {
         return;
       }
 
-      // Delete selected nodes and edges on Delete/Backspace
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        // Delete selected nodes
         const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
         selectedNodes.forEach((node) => {
           deleteNode(node.id);
         });
 
-        // Delete selected edges
         const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
         selectedEdges.forEach((edge) => {
           deleteEdge(edge.id);
@@ -183,7 +136,6 @@ const Canvas = () => {
     [reactFlowInstance, deleteNode, deleteEdge]
   );
 
-  // Set up keyboard event listeners
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
     return () => {
