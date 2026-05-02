@@ -1,7 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { ControlButton, useStore, useStoreApi } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
+import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState } from '../context/AppStateContext';
+import { useReactFlow } from '../context/ReactFlowContext';
+import { useNodeContext } from '../context/NodeContext';
+import { getLayoutedElements } from '../utils/layoutUtils';
 
 const LockIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 32" aria-hidden>
@@ -42,6 +46,42 @@ export const SnapToGridControl = memo(() => {
 });
 
 SnapToGridControl.displayName = 'SnapToGridControl';
+
+export const AutoLayoutControl = memo(() => {
+  const { reactFlowInstance } = useReactFlow();
+  const { nodes, edges, onNodesChange } = useNodeContext();
+
+  const onLayout = useCallback(() => {
+    if (!reactFlowInstance) return;
+
+    const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges);
+
+    const changes = layoutedNodes.map((node) => ({
+      type: 'position' as const,
+      id: node.id,
+      position: node.position,
+    }));
+
+    onNodesChange(changes);
+
+    const { x, y, zoom } = reactFlowInstance.getViewport();
+    reactFlowInstance.setViewport({ x, y, zoom });
+  }, [nodes, edges, reactFlowInstance, onNodesChange]);
+
+  return (
+    <ControlButton
+      type="button"
+      className="react-flow__controls-autolayout"
+      onClick={onLayout}
+      title="Auto Layout"
+      aria-label="Auto layout"
+    >
+      <IoGitNetwork />
+    </ControlButton>
+  );
+});
+
+AutoLayoutControl.displayName = 'AutoLayoutControl';
 
 export const FlowInteractiveToggle = memo(() => {
   const store = useStoreApi();
