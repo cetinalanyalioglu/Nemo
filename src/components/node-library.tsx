@@ -13,7 +13,7 @@ const formatCategoryName = (category: string) => {
   return category.toUpperCase().replace(/I/g, 'I');
 };
 
-const ElementLibrary = React.memo(() => {
+const NodeLibrary = React.memo(() => {
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -43,7 +43,7 @@ const ElementLibrary = React.memo(() => {
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoLibrary className="panel-icon" />
-          <span className="panel-title">ELEMENT LIBRARY</span>
+          <span className="panel-title">NODE LIBRARY</span>
         </div>
         <IoChevronBackCircleOutline
           className={`toggle-icon ${!isOpen ? 'closed' : ''}`}
@@ -95,6 +95,6 @@ const ElementLibrary = React.memo(() => {
   );
 });
 
-ElementLibrary.displayName = 'ElementLibrary';
+NodeLibrary.displayName = 'NODE LIBRARY';
 
-export default ElementLibrary;
+export default NodeLibrary;
