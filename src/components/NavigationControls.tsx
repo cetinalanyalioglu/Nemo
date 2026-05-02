@@ -2,7 +2,6 @@ import React, { useRef } from 'react';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
 import { FaSave, FaFolderOpen } from 'react-icons/fa';
-import { BsGrid } from 'react-icons/bs';
 import { IoLibrary } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
 import LayoutButton from './controls/LayoutButton';
@@ -12,7 +11,6 @@ const NavigationControls = React.memo(() => {
 
   const {
     sidebar: { isOpen },
-    grid: { snapToGrid },
     actions,
   } = useAppState();
 
@@ -58,15 +56,6 @@ const NavigationControls = React.memo(() => {
         title="Load canvas"
       >
         <FaFolderOpen />
-      </button>
-
-      <button
-        type="button"
-        className={`nav-button ${snapToGrid ? 'active' : ''}`}
-        onClick={actions.grid.toggleSnap}
-        title="Toggle snapping to grid lines"
-      >
-        <BsGrid />
       </button>
 
       <LayoutButton />
