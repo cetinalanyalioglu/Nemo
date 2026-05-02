@@ -1,9 +1,16 @@
+import type { ParameterInfo } from '../types/flow';
+
+export interface EdgeConfigEntry {
+  customParameters: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
+  displayName: string;
+  category: string;
+}
+
 /**
  * Edge configuration file containing custom parameters and metadata for each edge type.
  * Generic parameters (solverIndex) are defined in the base component and merged at runtime.
  */
-
-export const edgeConfig = {
+export const edgeConfig: Record<string, EdgeConfigEntry> = {
   flow: {
     customParameters: {
       area: {

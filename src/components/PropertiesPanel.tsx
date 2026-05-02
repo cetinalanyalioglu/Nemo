@@ -1,4 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import type {
+  ParameterInfo,
+  VisibilityCondition,
+  NodeRuntimeState,
+  EdgeRuntimeState,
+} from '../types/flow';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
 import '../styles/properties-panel.css';
@@ -19,16 +25,11 @@ import { edgeInfo } from './edges/edgeTypes';
  * @param {string} category The category name to format
  * @returns {string} Formatted category name
  */
-const formatCategoryName = (category) => {
+const formatCategoryName = (category: string) => {
   return category.toUpperCase().replace(/I/g, 'I');
 };
 
-/**
- * Formats a title to uppercase, preserving 'I' characters
- * @param {string} title The title to format
- * @returns {string} Formatted title
- */
-const formatTitle = (title) => {
+const formatTitle = (title: string) => {
   return title.toUpperCase().replace(/I/g, 'I');
 };
 
@@ -61,9 +62,8 @@ const PropertiesPanel = React.memo(() => {
   const setIsOpen = actions.propertiesPanel.setIsOpen;
 
   // Add state for tracking invalid inputs
-  const [invalidInputs, setInvalidInputs] = useState({});
-  // Add state for temporary values during editing - now keyed by elementId and paramKey
-  const [tempValues, setTempValues] = useState({});
+  const [invalidInputs, setInvalidInputs] = useState<Record<string, string | undefined>>({});
+  const [tempValues, setTempValues] = useState<Record<string, string>>({});
 
   // Clear temporary values when switching between elements
   useEffect(() => {
@@ -81,8 +81,8 @@ const PropertiesPanel = React.memo(() => {
 
   // Get the appropriate state and info based on selection
   const isEdge = !!selectedEdgeId;
-  const selectedId = isEdge ? selectedEdgeId : selectedNodeId;
-  const elementState = isEdge ? edgeStates[selectedEdgeId] : nodeStates[selectedNodeId];
+  const selectedId = isEdge ? selectedEdgeId! : selectedNodeId!;
+  const elementState = isEdge ? edgeStates[selectedEdgeId!] : nodeStates[selectedNodeId!];
 
   // Find element type - simplified to use node.type directly from nodes array
   // Must be called before early returns to satisfy Rules of Hooks
@@ -98,7 +98,7 @@ const PropertiesPanel = React.memo(() => {
   // Get parameters info based on element type
   // Must be called before early returns to satisfy Rules of Hooks
   const parametersInfo = useMemo(() => {
-    if (!elementType) return {};
+    if (!elementType) return {} as Record<string, ParameterInfo>;
     if (isEdge) {
       return edgeInfo[elementType]?.parameters || {};
     }
@@ -108,53 +108,57 @@ const PropertiesPanel = React.memo(() => {
   // Group parameters by their categories - memoized to avoid recalculation on every render
   // Must be called before early returns to satisfy Rules of Hooks
   const groupedParameters = useMemo(() => {
-    if (!elementState?.parameters) return {};
-    return Object.entries(elementState.parameters).reduce((acc, [key, value]) => {
-      const parameterInfo = parametersInfo?.[key] || {
-        label: key,
-        category: 'Other',
-        type: typeof value,
-        editable: true,
-        visible: true,
-      };
-      const category = parameterInfo.category || 'Other';
+    if (!elementState?.parameters)
+      return {} as Record<string, Array<{ key: string; value: unknown; info: ParameterInfo }>>;
+    return Object.entries(elementState.parameters).reduce(
+      (acc, [key, value]) => {
+        const parameterInfo: ParameterInfo =
+          parametersInfo[key] ||
+          ({
+            label: key,
+            category: 'Other',
+            type: typeof value as string,
+            editable: true,
+            visible: true,
+          } as ParameterInfo);
+        const category = (parameterInfo.category as string | undefined) || 'Other';
 
-      if (!acc[category]) {
-        acc[category] = [];
-      }
+        if (!acc[category]) {
+          acc[category] = [];
+        }
 
-      acc[category].push({ key, value, info: parameterInfo });
-      return acc;
-    }, {});
+        acc[category].push({ key, value, info: parameterInfo });
+        return acc;
+      },
+      {} as Record<string, Array<{ key: string; value: unknown; info: ParameterInfo }>>
+    );
   }, [elementState, parametersInfo]);
 
   // Early return if no selection - must be after all hooks
   if (!selectedNodeId && !selectedEdgeId) return null;
   if (!elementState) return null;
 
-  // Update the appropriate element's parameter
   const updateParameter = isEdge ? updateEdgeParameter : updateNodeParameter;
 
-  /**
-   * Validates a numeric value against parameter constraints
-   */
-  const validateNumber = (value, info) => {
+  type ValidateNumberResult = { isValid: true } | { isValid: false; message: string };
+
+  const validateNumber = (value: number, info: ParameterInfo): ValidateNumberResult => {
     // Handle both number and float types
     if (info.type === 'number' || info.type === 'float') {
-      if (info.min !== undefined && value < info.min) {
+      if (info.min !== undefined && value < (info.min as number)) {
         return {
           isValid: false,
           message: `Value must be at least ${info.min}${info.unit ? ' ' + info.unit : ''}`,
         };
       }
-      if (info.max !== undefined && value > info.max) {
+      if (info.max !== undefined && value > (info.max as number)) {
         return {
           isValid: false,
           message: `Value must not exceed ${info.max}${info.unit ? ' ' + info.unit : ''}`,
         };
       }
     }
-    return { isValid: true };
+    return { isValid: true as const };
   };
 
   /**
@@ -164,8 +168,12 @@ const PropertiesPanel = React.memo(() => {
    * @param {Object} info - Parameter metadata
    * @param {string} value - New value from the input
    */
-  const handleInputChange = (elementId, paramKey, info, value) => {
-    // For numeric inputs, only allow numeric characters and decimal point
+  const handleInputChange = (
+    elementId: string,
+    paramKey: string,
+    info: ParameterInfo,
+    value: string
+  ) => {
     if (info.type === 'number' || info.type === 'float') {
       if (!/^-?\d*\.?\d*$/.test(value)) return;
     }
@@ -190,7 +198,12 @@ const PropertiesPanel = React.memo(() => {
    * @param {Object} info - Parameter metadata
    * @param {string} value - Final value from the input
    */
-  const handleInputBlur = (elementId, paramKey, info, value) => {
+  const handleInputBlur = (
+    elementId: string,
+    paramKey: string,
+    info: ParameterInfo,
+    value: string
+  ) => {
     if (info.type === 'number' || info.type === 'float') {
       const numValue = parseFloat(value);
 
@@ -214,7 +227,9 @@ const PropertiesPanel = React.memo(() => {
       }
 
       // If we get here, try to update the value
-      const updateSuccess = updateParameter(elementId, paramKey, numValue);
+      const updateSuccess = (
+        updateParameter as (id: string, key: string, val: unknown) => boolean | void
+      )(elementId, paramKey, numValue);
 
       if (!updateSuccess) {
         // If update failed, keep the old value and show error
@@ -225,7 +240,7 @@ const PropertiesPanel = React.memo(() => {
         // Reset to the current value in the node state
         setTempValues((prev) => ({
           ...prev,
-          [`${elementId}_${paramKey}`]: elementState.parameters[paramKey],
+          [`${elementId}_${paramKey}`]: String(elementState.parameters[paramKey] ?? ''),
         }));
         return;
       }
@@ -243,7 +258,9 @@ const PropertiesPanel = React.memo(() => {
       });
     } else {
       // For non-numeric types, try to update the value
-      const updateSuccess = updateParameter(elementId, paramKey, value);
+      const updateSuccess = (
+        updateParameter as (id: string, key: string, val: unknown) => boolean | void
+      )(elementId, paramKey, value);
 
       if (!updateSuccess) {
         // If update failed, keep the old value and show error
@@ -254,7 +271,7 @@ const PropertiesPanel = React.memo(() => {
         // Reset to the current value in the node state
         setTempValues((prev) => ({
           ...prev,
-          [`${elementId}_${paramKey}`]: elementState.parameters[paramKey],
+          [`${elementId}_${paramKey}`]: String(elementState.parameters[paramKey] ?? ''),
         }));
         return;
       }
@@ -279,12 +296,12 @@ const PropertiesPanel = React.memo(() => {
    * @param {Object} info - Parameter info from elementInfo
    * @returns {*} A safe value for the input
    */
-  const getSafeValue = (value, info) => {
+  const getSafeValue = (value: unknown, info: ParameterInfo) => {
     if (value === undefined || value === null) {
       // Return appropriate default based on parameter type
-      switch (info.type) {
+      switch (info.type as string | undefined) {
         case 'number':
-          return ''; // or return '0' if you prefer
+          return '';
         case 'string':
           return '';
         case 'boolean':
@@ -293,23 +310,28 @@ const PropertiesPanel = React.memo(() => {
           return '';
       }
     }
-    return value;
+    return value as string | number | boolean;
   };
 
   /**
    * Increments a numeric value while respecting max constraint
    */
-  const incrementValue = (value, step, info) => {
-    const currentValue = parseFloat(value) || 0;
-    const increment = step || info.step || 1; // Use parameter's step if defined, otherwise 1
+  const incrementValue = (
+    value: string | number,
+    step: number | undefined,
+    info: ParameterInfo & { key?: string }
+  ) => {
+    const currentValue = parseFloat(String(value)) || 0;
+    const increment = step || (typeof info.step === 'number' ? info.step : undefined) || 1;
     const newValue = currentValue + increment;
 
     // Validate the new value
     const validation = validateNumber(newValue, info);
     if (!validation.isValid) {
+      const key = String(info.key);
       setInvalidInputs((prev) => ({
         ...prev,
-        [info.key]: validation.message,
+        [key]: validation.message,
       }));
       return currentValue;
     }
@@ -320,17 +342,22 @@ const PropertiesPanel = React.memo(() => {
   /**
    * Decrements a numeric value while respecting min constraint
    */
-  const decrementValue = (value, step, info) => {
-    const currentValue = parseFloat(value) || 0;
-    const decrement = step || info.step || 1; // Use parameter's step if defined, otherwise 1
+  const decrementValue = (
+    value: string | number,
+    step: number | undefined,
+    info: ParameterInfo & { key?: string }
+  ) => {
+    const currentValue = parseFloat(String(value)) || 0;
+    const decrement = step || (typeof info.step === 'number' ? info.step : undefined) || 1;
     const newValue = currentValue - decrement;
 
     // Validate the new value
     const validation = validateNumber(newValue, info);
     if (!validation.isValid) {
+      const key = String(info.key);
       setInvalidInputs((prev) => ({
         ...prev,
-        [info.key]: validation.message,
+        [key]: validation.message,
       }));
       return currentValue;
     }
@@ -341,31 +368,34 @@ const PropertiesPanel = React.memo(() => {
   /**
    * Evaluates a single condition
    */
-  const evaluateCondition = (condition, nodeState) => {
+  const evaluateCondition = (
+    condition: VisibilityCondition | undefined | null,
+    nodeState: NodeRuntimeState | EdgeRuntimeState
+  ): boolean => {
     if (!condition) return true;
 
-    if (condition.parameter) {
+    if ('parameter' in condition && condition.parameter) {
       const paramValue = nodeState.parameters[condition.parameter];
 
       if (condition.equals !== undefined) {
         return paramValue === condition.equals;
       }
       if (condition.greaterThan !== undefined) {
-        return paramValue > condition.greaterThan;
+        return (paramValue as number) > condition.greaterThan;
       }
       if (condition.lessThan !== undefined) {
-        return paramValue < condition.lessThan;
+        return (paramValue as number) < condition.lessThan;
       }
-      if (condition.oneOf !== undefined) {
+      if (condition.oneOf !== undefined && Array.isArray(condition.oneOf)) {
         return condition.oneOf.includes(paramValue);
       }
     }
 
-    if (condition.and) {
+    if ('and' in condition && condition.and) {
       return condition.and.every((subCond) => evaluateCondition(subCond, nodeState));
     }
 
-    if (condition.or) {
+    if ('or' in condition && condition.or) {
       return condition.or.some((subCond) => evaluateCondition(subCond, nodeState));
     }
 
@@ -375,7 +405,10 @@ const PropertiesPanel = React.memo(() => {
   /**
    * Determines if a parameter should be visible based on its configuration
    */
-  const isParameterVisible = (paramInfo, elementState) => {
+  const isParameterVisible = (
+    paramInfo: ParameterInfo | undefined,
+    eltState: NodeRuntimeState | EdgeRuntimeState
+  ) => {
     // Handle case where paramInfo is undefined
     if (!paramInfo) return true;
 
@@ -384,7 +417,7 @@ const PropertiesPanel = React.memo(() => {
 
     // Check visibility conditions
     if (paramInfo.visibleIf) {
-      return evaluateCondition(paramInfo.visibleIf, elementState);
+      return evaluateCondition(paramInfo.visibleIf as VisibilityCondition, eltState);
     }
 
     return true;
@@ -393,7 +426,7 @@ const PropertiesPanel = React.memo(() => {
   /**
    * Determines if a parameter is editable
    */
-  const isParameterEditable = (paramInfo) => {
+  const isParameterEditable = (paramInfo: ParameterInfo | undefined) => {
     // Handle case where paramInfo is undefined
     if (!paramInfo) return true;
 
@@ -471,7 +504,7 @@ const PropertiesPanel = React.memo(() => {
                             value={
                               tempValues[tempValueKey] !== undefined
                                 ? tempValues[tempValueKey]
-                                : getSafeValue(value, info)
+                                : String(getSafeValue(value, info) ?? '')
                             }
                             onChange={(e) =>
                               isEditable && handleInputChange(selectedId, key, info, e.target.value)
@@ -488,14 +521,15 @@ const PropertiesPanel = React.memo(() => {
                           {isEditable && info.type === 'number' && info.step !== undefined && (
                             <div className="number-controls">
                               <button
+                                type="button"
                                 className="number-control-btn"
                                 onClick={() => {
                                   const newValue = incrementValue(
                                     tempValues[tempValueKey] !== undefined
                                       ? tempValues[tempValueKey]
-                                      : value,
-                                    info.step,
-                                    info
+                                      : String(value ?? ''),
+                                    typeof info.step === 'number' ? info.step : undefined,
+                                    { ...info, key }
                                   );
                                   // Update temp value during editing
                                   setTempValues((prev) => ({
@@ -509,14 +543,15 @@ const PropertiesPanel = React.memo(() => {
                                 <IoAdd />
                               </button>
                               <button
+                                type="button"
                                 className="number-control-btn"
                                 onClick={() => {
                                   const newValue = decrementValue(
                                     tempValues[tempValueKey] !== undefined
                                       ? tempValues[tempValueKey]
-                                      : value,
-                                    info.step,
-                                    info
+                                      : String(value ?? ''),
+                                    typeof info.step === 'number' ? info.step : undefined,
+                                    { ...info, key }
                                   );
                                   // Update temp value during editing
                                   setTempValues((prev) => ({

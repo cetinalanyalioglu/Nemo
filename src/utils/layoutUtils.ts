@@ -1,6 +1,11 @@
 import dagre from 'dagre';
+import type { Edge, Node } from 'reactflow';
 
-export const getLayoutedElements = (nodes, edges, direction = 'LR') => {
+export const getLayoutedElements = (
+  nodes: Node[],
+  edges: Edge[],
+  direction: 'TB' | 'LR' | 'BT' | 'RL' = 'LR'
+): { nodes: Node[]; edges: Edge[] } => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -11,11 +16,13 @@ export const getLayoutedElements = (nodes, edges, direction = 'LR') => {
     ranksep: 100,
   });
 
-  // Use nodeStates for dimensions if available
   nodes.forEach((node) => {
     const width = node.style?.width || 150;
     const height = node.style?.height || 50;
-    dagreGraph.setNode(node.id, { width, height });
+    dagreGraph.setNode(node.id, {
+      width: width as number,
+      height: height as number,
+    });
   });
 
   edges.forEach((edge) => {
