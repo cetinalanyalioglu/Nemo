@@ -4,7 +4,6 @@ import { useAppState } from '../context/AppStateContext';
 import { FaSave, FaFolderOpen } from 'react-icons/fa';
 import { IoLibrary } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
-import LayoutButton from './controls/LayoutButton';
 
 const NavigationControls = React.memo(() => {
   const { saveToFile, loadFromFile } = useNodeContext();
@@ -57,8 +56,6 @@ const NavigationControls = React.memo(() => {
       >
         <FaFolderOpen />
       </button>
-
-      <LayoutButton />
     </div>
   );
 });

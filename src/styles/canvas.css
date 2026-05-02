@@ -71,6 +71,7 @@
 }
 
 .react-flow__controls-button.react-flow__controls-snapgrid svg,
+.react-flow__controls-button.react-flow__controls-autolayout svg,
 .react-flow__controls-button.react-flow__controls-interactive svg {
   width: 16px;
   height: 16px;
