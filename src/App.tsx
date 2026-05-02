@@ -1,6 +1,6 @@
 import React from 'react';
 import { NodeProvider } from './context/NodeContext';
-import ElementLibrary from './components/ElementLibrary';
+import NodeLibrary from './components/node-library';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
 import NavigationControls from './components/NavigationControls';
@@ -12,7 +12,7 @@ function AppContent() {
   return (
     <div className="app">
       <NavigationControls />
-      <ElementLibrary />
+      <NodeLibrary />
       <div className="canvas-container">
         <Canvas />
       </div>

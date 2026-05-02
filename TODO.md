@@ -20,8 +20,8 @@
 
 ## Extensibility
 
-- [ ] Instead of having a file for each element type, build the element library in runtime using JSON based element definitions
-- [ ] The set of elements displayed in the element library should be replacable via providing a different set of JSON files
+- [ ] Instead of having a file for each element type, build NodeLibrary in runtime using JSON based element definitions
+- [ ] The set of elements displayed in NodeLibrary should be replacable via providing a different set of JSON files
 
 ## Minor
 - [ ] Solver index does not get displayed instantly when it is generated

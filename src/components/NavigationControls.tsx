@@ -1,8 +1,9 @@
 import React, { useRef } from 'react';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
-import { FaBars, FaSave, FaFolderOpen } from 'react-icons/fa';
+import { FaSave, FaFolderOpen } from 'react-icons/fa';
 import { BsGrid } from 'react-icons/bs';
+import { IoLibrary } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
 import LayoutButton from './controls/LayoutButton';
 
@@ -32,9 +33,9 @@ const NavigationControls = React.memo(() => {
           type="button"
           onClick={actions.sidebar.toggle}
           className="nav-button"
-          title="Open the element library"
+          title="Open node library"
         >
-          <FaBars />
+          <IoLibrary />
         </button>
       )}
 
