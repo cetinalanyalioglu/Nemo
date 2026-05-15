@@ -1,23 +1,32 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoDocumentTextOutline,
   IoChevronDown,
-  IoDocumentOutline,
+  IoFolderOpenOutline,
+  IoSaveOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
+import { useNodeContext } from '../context/NodeContext';
 
-const DOCUMENT_PLACEHOLDER_GROUP = '__document_placeholder__';
-
-const DOCUMENT_INTRO_COPY =
-  'This workspace is reserved for document-level tooling. Topology save and load, metadata, or release notes might live here in a future build. For now, this paragraph is placeholder copy so layout and typography can be reviewed alongside the canvas.';
+const DOCUMENT_FILE_GROUP = '__document_file__';
 
 const DocumentPane = React.memo(() => {
+  const { saveToFile, loadFromFile } = useNodeContext();
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      loadFromFile(file);
+      event.target.value = '';
+    }
+  };
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -32,38 +41,43 @@ const DocumentPane = React.memo(() => {
         />
       </div>
 
-      <div className="action-icons">
-        <button type="button" className="action-button" title="Document actions (placeholder)">
-          <IoDocumentOutline className="action-icon" />
-        </button>
-      </div>
-
-      <div
-        className={`elements-group ${collapsedGroups[DOCUMENT_PLACEHOLDER_GROUP] ? 'collapsed' : ''}`}
-      >
+      <div className={`elements-group ${collapsedGroups[DOCUMENT_FILE_GROUP] ? 'collapsed' : ''}`}>
         <div
           className="group-header"
-          onClick={() => actions.sidebar.toggleGroup(DOCUMENT_PLACEHOLDER_GROUP)}
+          onClick={() => actions.sidebar.toggleGroup(DOCUMENT_FILE_GROUP)}
         >
           <div className="group-header-content">
-            <span>PLACEMENT AREA</span>
+            <span>FILE</span>
             <IoChevronDown
               className="group-collapse-icon"
               style={{
-                transform: collapsedGroups[DOCUMENT_PLACEHOLDER_GROUP]
-                  ? 'rotate(-90deg)'
-                  : 'rotate(0deg)',
+                transform: collapsedGroups[DOCUMENT_FILE_GROUP] ? 'rotate(-90deg)' : 'rotate(0deg)',
               }}
             />
           </div>
         </div>
-        <div
-          className={`group-content ${collapsedGroups[DOCUMENT_PLACEHOLDER_GROUP] ? 'collapsed' : ''}`}
-        >
-          <p className="document-pane-placeholder">{DOCUMENT_INTRO_COPY}</p>
-          <p className="document-pane-placeholder">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere erat a ante.
-          </p>
+        <div className={`group-content ${collapsedGroups[DOCUMENT_FILE_GROUP] ? 'collapsed' : ''}`}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept=".json"
+            style={{ display: 'none' }}
+          />
+          <div className="document-pane-file-actions">
+            <button type="button" className="document-pane-file-button" onClick={saveToFile}>
+              <IoSaveOutline className="document-pane-file-button-icon" />
+              <span>Save</span>
+            </button>
+            <button
+              type="button"
+              className="document-pane-file-button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <IoFolderOpenOutline className="document-pane-file-button-icon" />
+              <span>Load</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
