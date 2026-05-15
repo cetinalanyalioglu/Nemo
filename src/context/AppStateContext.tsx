@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
+export type SidebarPane = 'library' | 'document';
+
 type CollapsedGroups = Record<string, boolean>;
 
 type AppStateSnapshot = {
   viewport: { zoom: number };
-  sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups };
+  sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   grid: { snapToGrid: boolean; size: number };
 };
@@ -14,6 +16,7 @@ type AppActions = {
   sidebar: {
     toggle: () => void;
     toggleGroup: (category: string) => void;
+    selectPane: (pane: SidebarPane) => void;
   };
   propertiesPanel: {
     toggle: () => void;
@@ -35,9 +38,11 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   const [sidebarState, setSidebar] = useState<{
     isOpen: boolean;
     collapsedGroups: CollapsedGroups;
+    activePane: SidebarPane;
   }>({
     isOpen: true,
     collapsedGroups: {},
+    activePane: 'library',
   });
   const [propertiesPanelState, setPropertiesPanel] = useState<{
     isOpen: boolean;
@@ -54,6 +59,15 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
 
   const sidebarToggle = useCallback(() => {
     setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+  }, []);
+
+  const sidebarSelectPane = useCallback((pane: SidebarPane) => {
+    setSidebar((prev) => {
+      if (prev.isOpen && prev.activePane === pane) {
+        return { ...prev, isOpen: false };
+      }
+      return { ...prev, isOpen: true, activePane: pane };
+    });
   }, []);
 
   const sidebarToggleGroup = useCallback((category: string) => {
@@ -100,6 +114,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       sidebar: {
         toggle: sidebarToggle,
         toggleGroup: sidebarToggleGroup,
+        selectPane: sidebarSelectPane,
       },
       propertiesPanel: {
         toggle: propertiesPanelToggle,
@@ -115,6 +130,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       updateZoom,
       sidebarToggle,
       sidebarToggleGroup,
+      sidebarSelectPane,
       propertiesPanelToggle,
       propertiesPanelToggleGroup,
       propertiesPanelSetIsOpen,

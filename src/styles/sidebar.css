@@ -333,3 +333,14 @@
 .toggle-icon:hover {
   color: #d4a72c;
 }
+
+.document-pane-placeholder {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #6c757d;
+}
+
+.document-pane-placeholder:last-child {
+  margin-bottom: 0;
+}
