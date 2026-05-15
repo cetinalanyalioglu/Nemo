@@ -1,18 +1,21 @@
 import React from 'react';
 import { NodeProvider } from './context/NodeContext';
 import NodeLibrary from './components/node-library';
+import DocumentPane from './components/document-pane';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
 import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
-import { AppStateProvider } from './context/AppStateContext';
+import { AppStateProvider, useAppState } from './context/AppStateContext';
 
 function AppContent() {
+  const { sidebar } = useAppState();
+
   return (
     <div className="app">
       <NavigationControls />
-      <NodeLibrary />
+      {sidebar.activePane === 'library' ? <NodeLibrary /> : <DocumentPane />}
       <div className="canvas-container">
         <Canvas />
       </div>

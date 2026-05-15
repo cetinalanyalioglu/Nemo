@@ -2,14 +2,14 @@ import React, { useRef } from 'react';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
 import { FaSave, FaFolderOpen } from 'react-icons/fa';
-import { IoLibrary } from 'react-icons/io5';
+import { IoDocumentTextOutline, IoLibrary } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
 
 const NavigationControls = React.memo(() => {
   const { saveToFile, loadFromFile } = useNodeContext();
 
   const {
-    sidebar: { isOpen },
+    sidebar: { isOpen, activePane },
     actions,
   } = useAppState();
 
@@ -25,16 +25,23 @@ const NavigationControls = React.memo(() => {
 
   return (
     <div className="navigation-controls">
-      {!isOpen && (
-        <button
-          type="button"
-          onClick={actions.sidebar.toggle}
-          className="nav-button"
-          title="Open node library"
-        >
-          <IoLibrary />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('document')}
+        className={`nav-button ${isOpen && activePane === 'document' ? 'active' : ''}`}
+        title="Document pane"
+      >
+        <IoDocumentTextOutline />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('library')}
+        className={`nav-button ${isOpen && activePane === 'library' ? 'active' : ''}`}
+        title="Node library"
+      >
+        <IoLibrary />
+      </button>
 
       <button type="button" onClick={saveToFile} className="nav-button" title="Save canvas">
         <FaSave />
