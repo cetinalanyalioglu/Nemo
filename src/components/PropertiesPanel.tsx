@@ -7,6 +7,7 @@ import type {
 } from '../types/flow';
 import { useNodeContext } from '../context/NodeContext';
 import { useAppState } from '../context/AppStateContext';
+import { useModel } from '../context/ModelContext';
 import '../styles/properties-panel.css';
 import {
   IoSettingsOutline,
@@ -17,8 +18,6 @@ import {
   IoSquareOutline,
   IoGitBranch,
 } from 'react-icons/io5';
-import { elementInfo } from './nodes/nodeTypes';
-import { edgeInfo } from './edges/edgeTypes';
 
 /**
  * Formats a category name to uppercase, preserving 'I' characters
@@ -57,6 +56,10 @@ const PropertiesPanel = React.memo(() => {
     propertiesPanel: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+
+  const { model } = useModel();
+  const elementInfo = useMemo(() => model?.elementInfo ?? {}, [model]);
+  const edgeInfo = useMemo(() => model?.edgeInfo ?? {}, [model]);
 
   // Extract setIsOpen for stable reference in useEffect
   const setIsOpen = actions.propertiesPanel.setIsOpen;
@@ -103,7 +106,7 @@ const PropertiesPanel = React.memo(() => {
       return edgeInfo[elementType]?.parameters || {};
     }
     return elementInfo[elementType]?.parameters || {};
-  }, [isEdge, elementType]);
+  }, [isEdge, elementType, elementInfo, edgeInfo]);
 
   // Group parameters by their categories - memoized to avoid recalculation on every render
   // Must be called before early returns to satisfy Rules of Hooks

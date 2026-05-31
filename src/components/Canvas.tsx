@@ -5,17 +5,21 @@ import {
   AutoLayoutControl,
   FlowInteractiveToggle,
 } from './canvas-flow-controls';
-import type { Node, Edge, ReactFlowInstance, Connection } from 'reactflow';
+import type { Node, Edge, ReactFlowInstance, Connection, NodeTypes, EdgeTypes } from 'reactflow';
 import 'reactflow/dist/style.css';
 import '../styles/edges.css';
 import '../styles/sidebar.css';
 import '../styles/canvas.css';
-import { nodeTypes } from './nodes/nodeTypes';
-import { edgeTypes } from './edges/edgeTypes';
 import ZoomIndicator from './ZoomIndicator';
 import { useNodeContext } from '../context/NodeContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppState } from '../context/AppStateContext';
+import { useModel } from '../context/ModelContext';
+
+// Stable fallbacks so ReactFlow never receives undefined type maps while a
+// model is loading.
+const EMPTY_NODE_TYPES: NodeTypes = {};
+const EMPTY_EDGE_TYPES: EdgeTypes = {};
 
 const Canvas = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -41,6 +45,10 @@ const Canvas = () => {
     viewport: { zoom },
     actions,
   } = useAppState();
+
+  const { model } = useModel();
+  const nodeTypes = model?.nodeTypes ?? EMPTY_NODE_TYPES;
+  const edgeTypes = model?.edgeTypes ?? EMPTY_EDGE_TYPES;
 
   const updateZoom = actions.viewport.updateZoom;
 

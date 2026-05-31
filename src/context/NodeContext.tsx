@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { ChangeEvent as ReactChangeEvent } from 'react';
 import type { Connection, Edge, Node, XYPosition } from 'reactflow';
-import { elementInfo } from '../components/nodes/nodeTypes';
 import { useNodesState, useEdgesState, addEdge } from 'reactflow';
 import { debugLog } from '../utils/debug';
-import { edgeInfo } from '../components/edges/edgeTypes';
+import { useModel } from './ModelContext';
 import type {
   EditingState,
   EdgeRuntimeState,
+  ElementInfoEntry,
+  EdgeInfoEntry,
   NodeRuntimeState,
   ParameterChangeHandler,
   SaveFilePayload,
@@ -15,6 +16,10 @@ import type {
 
 // Define save file version at module level
 const SAVE_FILE_VERSION = '1.0.0';
+
+// Stable fallbacks used while the active model is still loading.
+const EMPTY_ELEMENT_INFO: Record<string, ElementInfoEntry> = {};
+const EMPTY_EDGE_INFO: Record<string, EdgeInfoEntry> = {};
 
 export interface NodeContextValue {
   nodeStates: Record<string, NodeRuntimeState>;
@@ -58,6 +63,13 @@ export interface NodeContextValue {
 const NodeContext = createContext<NodeContextValue | undefined>(undefined);
 
 export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
+  // Active model provides the available node/edge definitions. Falls back to
+  // empty maps while the first model is loading.
+  const { model } = useModel();
+  const elementInfo = model?.elementInfo ?? EMPTY_ELEMENT_INFO;
+  const edgeInfo = model?.edgeInfo ?? EMPTY_EDGE_INFO;
+  const modelId = model?.id;
+
   // Add selected node state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
@@ -77,8 +89,20 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   const [edgeStates, setEdgeStates] = useState<Record<string, EdgeRuntimeState>>({});
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  // Initialize counters when component mounts
+  // Initialize counters when the active model becomes available and reset the
+  // canvas whenever the model changes. Switching models clears any existing
+  // nodes/edges so the canvas always reflects the selected model.
   useEffect(() => {
+    if (!modelId) return;
+
+    setNodes([]);
+    setEdges([]);
+    setNodeStates({});
+    setEditingStates({});
+    setEdgeStates({});
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+
     const initialCounters = Object.keys(elementInfo).reduce(
       (acc, type) => {
         acc[type] = 0;
@@ -88,7 +112,8 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     );
     setNodeCounters(initialCounters);
     setTotalNodeCounters(initialCounters);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelId]);
 
   // Create a Set of used labels for O(1) lookup performance
   const usedLabels = useMemo(() => {
@@ -183,7 +208,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       return newLabel;
     },
-    [totalNodeCounters, isLabelInUse]
+    [totalNodeCounters, isLabelInUse, elementInfo]
   );
 
   /**
@@ -328,7 +353,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       return true;
     },
-    [nodes, nodeStates, edges, edgeStates]
+    [nodes, nodeStates, edges, edgeStates, elementInfo]
   );
 
   /**
@@ -495,7 +520,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       return newNode;
     },
-    [getNewNodeId, getNewNodeLabel, setNodes]
+    [getNewNodeId, getNewNodeLabel, setNodes, elementInfo]
   );
 
   const deleteNode = useCallback(
@@ -585,6 +610,9 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     // Reset node states
     setNodeStates({});
 
+    // Reset edge states
+    setEdgeStates({});
+
     // Reset editing states
     setEditingStates({});
 
@@ -606,7 +634,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     setSelectedEdgeId(null);
 
     debugLog('All nodes and states have been cleared');
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, setEdgeStates]);
 
   // Define updateEdgeParameter similar to updateNodeParameter
   const updateEdgeParameter = useCallback((edgeId: string, paramName: string, value: unknown) => {
@@ -726,6 +754,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     const saveData = {
       version: SAVE_FILE_VERSION,
       timestamp: new Date().toISOString(),
+      model: modelId,
       nodes: nodes.map((node) => {
         // Get the node's state from updated states
         const nodeState = updatedNodeStates[node.id];
@@ -767,7 +796,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return saveData;
-  }, [nodes, edges, nodeCounters, totalNodeCounters, generateSolverIndices]);
+  }, [nodes, edges, nodeCounters, totalNodeCounters, generateSolverIndices, modelId]);
 
   /**
    * Saves the current state to a JSON file
@@ -910,7 +939,16 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       reader.readAsText(file);
     },
-    [reset, setNodes, setEdges, setNodeStates, setNodeCounters, setTotalNodeCounters, setEdgeStates]
+    [
+      reset,
+      setNodes,
+      setEdges,
+      setNodeStates,
+      setNodeCounters,
+      setTotalNodeCounters,
+      setEdgeStates,
+      edgeInfo,
+    ]
   );
 
   /**
@@ -963,7 +1001,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         return newEdges;
       });
     },
-    [setEdges]
+    [setEdges, edgeInfo]
   );
 
   /**

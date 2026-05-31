@@ -8,6 +8,7 @@ import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 import { AppStateProvider, useAppState } from './context/AppStateContext';
+import { ModelProvider } from './context/ModelContext';
 
 function AppContent() {
   const { sidebar } = useAppState();
@@ -27,11 +28,13 @@ function AppContent() {
 function App() {
   return (
     <ReactFlowProvider>
-      <NodeProvider>
-        <AppStateProvider>
-          <AppContent />
-        </AppStateProvider>
-      </NodeProvider>
+      <ModelProvider>
+        <NodeProvider>
+          <AppStateProvider>
+            <AppContent />
+          </AppStateProvider>
+        </NodeProvider>
+      </ModelProvider>
     </ReactFlowProvider>
   );
 }
