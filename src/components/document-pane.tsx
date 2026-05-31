@@ -3,6 +3,7 @@ import {
   IoChevronBackCircleOutline,
   IoDocumentTextOutline,
   IoChevronDown,
+  IoDocumentOutline,
   IoFolderOpenOutline,
   IoSaveOutline,
 } from 'react-icons/io5';
@@ -13,7 +14,7 @@ import { useNodeContext } from '../context/NodeContext';
 const DOCUMENT_FILE_GROUP = '__document_file__';
 
 const DocumentPane = React.memo(() => {
-  const { saveToFile, loadFromFile } = useNodeContext();
+  const { saveToFile, loadFromFile, reset, nodes } = useNodeContext();
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -26,6 +27,14 @@ const DocumentPane = React.memo(() => {
       loadFromFile(file);
       event.target.value = '';
     }
+  };
+
+  const handleNew = () => {
+    if (nodes.length > 0) {
+      const confirmed = window.confirm('Start a new document? This will clear the current canvas.');
+      if (!confirmed) return;
+    }
+    reset();
   };
 
   return (
@@ -65,6 +74,10 @@ const DocumentPane = React.memo(() => {
             style={{ display: 'none' }}
           />
           <div className="document-pane-file-actions">
+            <button type="button" className="document-pane-file-button" onClick={handleNew}>
+              <IoDocumentOutline className="document-pane-file-button-icon" />
+              <span>New</span>
+            </button>
             <button type="button" className="document-pane-file-button" onClick={saveToFile}>
               <IoSaveOutline className="document-pane-file-button-icon" />
               <span>Save</span>

@@ -1,0 +1,9 @@
+{
+  "models": [
+    {
+      "id": "acoustic-network",
+      "name": "Acoustic Network",
+      "file": "acoustic-network.yaml"
+    }
+  ]
+}

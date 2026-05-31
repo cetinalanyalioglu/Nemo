@@ -3,11 +3,39 @@ import { Handle, useReactFlow, useUpdateNodeInternals, Position } from 'reactflo
 import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
-import { nodeConfig } from '../../config/nodeConfig';
 import { useNodeContext } from '../../context/NodeContext';
 import { useAppState } from '../../context/AppStateContext';
+import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
-import type { ParameterChangeHandler, ElementInfoEntry } from '../../types/flow';
+import type {
+  ParameterChangeHandler,
+  ElementInfoEntry,
+  DynamicPortSide,
+  NodePorts,
+} from '../../types/flow';
+
+/**
+ * Resolves the number of ports for one side of a node. When the side is driven
+ * by a parameter (`countParameter`), the value is read from the node state and
+ * clamped to the configured minimum; otherwise the static port count is used.
+ */
+const resolvePortCount = (
+  side: DynamicPortSide | undefined,
+  staticPorts: string[],
+  parameters: Record<string, unknown> | undefined
+): number => {
+  if (!side || !side.countParameter) {
+    return staticPorts.length;
+  }
+  const min = side.min ?? 0;
+  const fallback = Math.max(min, side.default ?? staticPorts.length);
+  const raw = parameters?.[side.countParameter];
+  if (raw === undefined || raw === null || raw === '') {
+    return fallback;
+  }
+  const parsed = parseInt(String(raw), 10);
+  return isNaN(parsed) ? fallback : Math.max(min, parsed);
+};
 
 type ResizeSession = {
   startX?: number;
@@ -88,6 +116,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   } = useNodeContext();
   const { getNode } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
+  const { model } = useModel();
   const {
     grid: { snapToGrid, size: gridSize },
     viewport: { zoom },
@@ -96,203 +125,82 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
 
-  const config = type ? nodeConfig[type as keyof typeof nodeConfig] : undefined;
+  const config = type && model ? model.nodeConfig[type] : undefined;
   const nodeState = nodeStates[id];
   const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
 
-  const calculatedPorts = useMemo(() => {
-    if (!config || !config.dynamicPorts) {
-      return config?.ports || { target: [], source: [] };
+  /**
+   * Computes the ports rendered for this node. For dynamic-port nodes the
+   * counts are derived from parameters via `dynamicPortConfig`. Ports are
+   * numbered sequentially: targets are `0..(T-1)` and sources `T..(T+S-1)`,
+   * matching the positional handle ids used throughout the canvas.
+   */
+  const calculatedPorts = useMemo<NodePorts>(() => {
+    if (!config) {
+      return { target: [], source: [] };
+    }
+    if (!config.dynamicPorts || !config.dynamicPortConfig) {
+      return config.ports || { target: [], source: [] };
     }
 
-    if (type === 'Junction') {
-      const leftPortCount = (() => {
-        if (!nodeState?.parameters?.leftPorts) return 2;
-        const parsed = parseInt(String(nodeState.parameters.leftPorts), 10);
-        return isNaN(parsed) ? 2 : Math.max(1, parsed);
-      })();
+    const dynamic = config.dynamicPortConfig;
+    const params = nodeState?.parameters;
 
-      const rightPortCount = (() => {
-        if (!nodeState?.parameters?.rightPorts) return 1;
-        const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
-        return isNaN(parsed) ? 1 : Math.max(1, parsed);
-      })();
+    const targetCount = resolvePortCount(dynamic.target, config.ports.target, params);
+    const sourceCount = resolvePortCount(dynamic.source, config.ports.source, params);
 
-      const leftPorts = Array.from({ length: leftPortCount }, (_, index) => `${index}`);
-      const rightPorts = Array.from(
-        { length: rightPortCount },
-        (_, index) => `${leftPortCount + index}`
-      );
+    const target = dynamic.target?.countParameter
+      ? Array.from({ length: targetCount }, (_, index) => `${index}`)
+      : config.ports.target;
+    const source = dynamic.source?.countParameter
+      ? Array.from({ length: sourceCount }, (_, index) => `${targetCount + index}`)
+      : config.ports.source;
 
-      return { target: leftPorts, source: rightPorts };
-    } else if (type === 'LosslessSplitter') {
-      const rightPortCount = (() => {
-        if (!nodeState?.parameters?.rightPorts) return 2;
-        const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
-        return isNaN(parsed) ? 2 : Math.max(2, parsed);
-      })();
+    return { target, source };
+  }, [config, nodeState]);
 
-      const rightPorts = Array.from({ length: rightPortCount }, (_, index) => `${index + 1}`);
-      return { target: ['0'], source: rightPorts };
-    }
-
-    return config.ports;
-  }, [config, type, nodeState]);
-
+  // When a dynamic-port count shrinks, prune any edges connected to ports that
+  // no longer exist. Handle ids are positional, so no renumbering is required.
   useLayoutEffect(() => {
-    if (!config?.dynamicPorts || !nodeState || !edges) return;
+    if (!config?.dynamicPorts || !config.dynamicPortConfig || !nodeState || !edges) return;
 
     try {
-      let needsUpdate = false;
+      const targetCount = calculatedPorts.target.length;
+      const sourceCount = calculatedPorts.source.length;
       const removedEdgeIds: string[] = [];
-      let handlesUpdated = 0;
-      const currentEdges = [...edges];
 
-      if (type === 'Junction') {
-        const leftPortCount = (() => {
-          if (!nodeState?.parameters?.leftPorts) return 2;
-          const parsed = parseInt(String(nodeState.parameters.leftPorts), 10);
-          return isNaN(parsed) ? 2 : Math.max(1, parsed);
-        })();
+      const newEdges = edges.filter((edge) => {
+        if (edge.source !== id && edge.target !== id) return true;
 
-        const rightPortCount = (() => {
-          if (!nodeState?.parameters?.rightPorts) return 1;
-          const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
-          return isNaN(parsed) ? 1 : Math.max(1, parsed);
-        })();
+        let keepEdge = true;
 
-        const newEdges = currentEdges.filter((edge) => {
-          if (edge.source !== id && edge.target !== id) return true;
-
-          let portMatch: RegExpMatchArray | null;
-          let portNumber: number;
-          let keepEdge = true;
-
-          if (edge.source === id) {
-            portMatch = edge.sourceHandle?.match(/-port-(\d+)$/) ?? null;
-            if (!portMatch) {
-              debugLog(`[${id}] Invalid source handle format: ${edge.sourceHandle}`);
-              return true;
-            }
-            portNumber = parseInt(portMatch[1], 10);
-            keepEdge = portNumber >= leftPortCount && portNumber < leftPortCount + rightPortCount;
-          } else if (edge.target === id) {
-            portMatch = edge.targetHandle?.match(/-port-(\d+)$/) ?? null;
-            if (!portMatch) {
-              debugLog(`[${id}] Invalid target handle format: ${edge.targetHandle}`);
-              return true;
-            }
-            portNumber = parseInt(portMatch[1], 10);
-            keepEdge = portNumber < leftPortCount;
-          }
-
-          if (!keepEdge) {
-            removedEdgeIds.push(edge.id);
-            needsUpdate = true;
-          }
-          return keepEdge;
-        });
-
-        newEdges.forEach((edge) => {
-          let updated = false;
-          let newEdge = { ...edge };
-
-          if (edge.source === id) {
-            const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
-            if (portMatch) {
-              const portNumber = parseInt(portMatch[1], 10);
-              const newSourceHandle = `${id}-port-${portNumber}`;
-              if (newSourceHandle !== edge.sourceHandle) {
-                newEdge.sourceHandle = newSourceHandle;
-                updated = true;
-              }
-            }
-          } else if (edge.target === id) {
-            const portMatch = edge.targetHandle?.match(/-port-(\d+)$/);
-            if (portMatch) {
-              const portNumber = parseInt(portMatch[1], 10);
-              const newTargetHandle = `${id}-port-${portNumber}`;
-              if (newTargetHandle !== edge.targetHandle) {
-                newEdge.targetHandle = newTargetHandle;
-                updated = true;
-              }
-            }
-          }
-
-          if (updated) {
-            handlesUpdated++;
-            needsUpdate = true;
-            const edgeIndex = newEdges.findIndex((e) => e.id === edge.id);
-            if (edgeIndex !== -1) {
-              newEdges[edgeIndex] = newEdge;
-            }
-          }
-        });
-
-        if (needsUpdate) {
-          if (removedEdgeIds.length > 0) {
-            debugLog(`[${id}] Removed ${removedEdgeIds.length} edges due to port reduction`);
-          }
-          if (handlesUpdated > 0) {
-            debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
-          }
-          updateEdges(newEdges, removedEdgeIds);
-        }
-      } else if (type === 'LosslessSplitter') {
-        const rightPortCount = (() => {
-          if (!nodeState?.parameters?.rightPorts) return 2;
-          const parsed = parseInt(String(nodeState.parameters.rightPorts), 10);
-          return isNaN(parsed) ? 2 : Math.max(2, parsed);
-        })();
-
-        const newEdges = currentEdges.filter((edge) => {
-          if (edge.source !== id) return true;
-
+        if (edge.source === id) {
           const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
           if (!portMatch) {
-            debugLog(`[${id}] Invalid handle format: ${edge.sourceHandle}`);
+            debugLog(`[${id}] Invalid source handle format: ${edge.sourceHandle}`);
             return true;
           }
-
           const portNumber = parseInt(portMatch[1], 10);
-          const keepEdge = portNumber <= rightPortCount;
-          if (!keepEdge) {
-            removedEdgeIds.push(edge.id);
-            needsUpdate = true;
+          keepEdge = portNumber >= targetCount && portNumber < targetCount + sourceCount;
+        } else if (edge.target === id) {
+          const portMatch = edge.targetHandle?.match(/-port-(\d+)$/);
+          if (!portMatch) {
+            debugLog(`[${id}] Invalid target handle format: ${edge.targetHandle}`);
+            return true;
           }
-          return keepEdge;
-        });
-
-        const remainingRightEdges = newEdges.filter((edge) => edge.source === id);
-        remainingRightEdges.forEach((edge) => {
-          const portMatch = edge.sourceHandle?.match(/-port-(\d+)$/);
-          if (!portMatch) return;
-
-          const portNumber = portMatch[1];
-          const newSourceHandle = `${id}-port-${portNumber}`;
-
-          if (newSourceHandle !== edge.sourceHandle) {
-            handlesUpdated++;
-            needsUpdate = true;
-            const edgeIndex = newEdges.findIndex((e) => e.id === edge.id);
-            if (edgeIndex !== -1) {
-              newEdges[edgeIndex] = {
-                ...edge,
-                sourceHandle: newSourceHandle,
-              };
-            }
-          }
-        });
-
-        if (needsUpdate) {
-          if (removedEdgeIds.length > 0) {
-            debugLog(`[${id}] Removed ${removedEdgeIds.length} edges due to port reduction`);
-          }
-          if (handlesUpdated > 0) {
-            debugLog(`[${id}] Updated ${handlesUpdated} edge handles`);
-          }
-          updateEdges(newEdges, removedEdgeIds);
+          const portNumber = parseInt(portMatch[1], 10);
+          keepEdge = portNumber < targetCount;
         }
+
+        if (!keepEdge) {
+          removedEdgeIds.push(edge.id);
+        }
+        return keepEdge;
+      });
+
+      if (removedEdgeIds.length > 0) {
+        debugLog(`[${id}] Removed ${removedEdgeIds.length} edges due to port reduction`);
+        updateEdges(newEdges, removedEdgeIds);
       }
 
       updateNodeInternals(id);
@@ -302,12 +210,11 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       console.error('Error updating dynamic port edges:', error);
     }
   }, [
-    config?.dynamicPorts,
-    type,
+    config,
     id,
     nodeState,
-    nodeState?.parameters?.leftPorts,
-    nodeState?.parameters?.rightPorts,
+    calculatedPorts.target.length,
+    calculatedPorts.source.length,
     edges,
     updateEdges,
     updateNodeInternals,

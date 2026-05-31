@@ -6,8 +6,10 @@ import {
   IoSaveOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
-import { elementInfo } from './nodes/nodeTypes';
 import { useAppState } from '../context/AppStateContext';
+import { useModel } from '../context/ModelContext';
+import { useNodeContext } from '../context/NodeContext';
+import type { ElementInfoEntry } from '../types/flow';
 
 const formatCategoryName = (category: string) => {
   return category.toUpperCase().replace(/I/g, 'I');
@@ -18,11 +20,28 @@ const NodeLibrary = React.memo(() => {
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+  const { models, activeModelId, model, isLoading, error, setActiveModelId } = useModel();
+  const { nodes } = useNodeContext();
 
   const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
   };
+
+  const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newId = event.target.value;
+    if (newId === activeModelId) return;
+    // Switching models clears the canvas; confirm first when work would be lost.
+    if (nodes.length > 0) {
+      const confirmed = window.confirm(
+        'Switching the model will clear the current canvas. Continue?'
+      );
+      if (!confirmed) return;
+    }
+    setActiveModelId(newId);
+  };
+
+  const elementInfo = useMemo(() => model?.elementInfo ?? {}, [model]);
 
   const groupedElements = useMemo(() => {
     return Object.entries(elementInfo).reduce(
@@ -34,9 +53,9 @@ const NodeLibrary = React.memo(() => {
         acc[category].push({ type, info });
         return acc;
       },
-      {} as Record<string, Array<{ type: string; info: (typeof elementInfo)[string] }>>
+      {} as Record<string, Array<{ type: string; info: ElementInfoEntry }>>
     );
-  }, []);
+  }, [elementInfo]);
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -56,6 +75,33 @@ const NodeLibrary = React.memo(() => {
           <IoSaveOutline className="action-icon" />
         </button>
       </div>
+
+      <div className="model-selector">
+        <label className="model-selector-label" htmlFor="model-select">
+          MODEL
+        </label>
+        <div className="model-select-wrapper">
+          <select
+            id="model-select"
+            className="model-select"
+            value={activeModelId ?? ''}
+            onChange={handleModelChange}
+            disabled={models.length === 0}
+          >
+            {models.length === 0 && <option value="">No models available</option>}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <IoChevronDown className="model-select-icon" />
+        </div>
+        {model?.description && <p className="model-selector-description">{model.description}</p>}
+      </div>
+
+      {error && <div className="model-status model-status-error">{error}</div>}
+      {isLoading && !error && <div className="model-status">Loading model…</div>}
 
       {Object.entries(groupedElements).map(([category, elements]) => (
         <div

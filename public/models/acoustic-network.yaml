@@ -1,0 +1,234 @@
+# Acoustic Network model definition
+#
+# This file describes the "Node Library" for an acoustic network: the set of
+# elements (nodes), their parameters, ports and the edge types that connect them.
+#
+# Schema overview
+# ---------------
+# id          Unique identifier of the model (referenced by the UI).
+# name        Human readable name shown in the model selector.
+# description Optional short description of the model.
+#
+# nodes.<Type>
+#   displayName        Label shown in the library and properties panel.
+#   category           Group heading the element is listed under.
+#   icon               Name of a react-icons icon (see src/models/icon-registry.ts).
+#   dynamicPorts       true if the number of ports depends on a parameter.
+#   dynamicPortConfig  When dynamicPorts is true, describes how port counts are
+#                      derived from parameters (per side: target / source).
+#                        countParameter  Parameter that controls the port count.
+#                        default         Fallback count when the parameter is unset.
+#                        min             Minimum allowed count.
+#   ports              Static ports used when a side is not dynamic.
+#   parameters         Custom parameters merged on top of the generic base
+#                      parameters (label, width, height, solverIndex).
+#
+# edges.<Type>
+#   displayName / category / parameters as above (no ports).
+#
+# Notes
+#   - Use `.inf` for an unbounded (Infinity) numeric value.
+#   - Generic parameters are provided by the application and need not be repeated.
+
+id: acoustic-network
+name: Acoustic Network
+description: Default element library for acoustic network models.
+
+edges:
+  flow:
+    displayName: Flow Edge
+    category: Flow Connections
+    parameters:
+      area:
+        label: Area
+        type: float
+        defaultValue: 1
+        unit: m^2
+        category: Parameters
+        description: Cross-sectional area of the flow path
+        editable: true
+        visible: true
+
+nodes:
+  MassFlowInlet:
+    displayName: Mass Flow Inlet
+    category: Single port elements
+    icon: BsArrowDownCircle
+    dynamicPorts: false
+    ports:
+      target: []
+      source: ['0']
+    parameters:
+      label:
+        defaultValue: MassFlowInlet
+      massFlowRate:
+        label: Mass Flow Rate
+        type: float
+        defaultValue: 1.0
+        unit: kg/s
+        category: Parameters
+        min: 0
+        step: 0.1
+      totalTemperature:
+        label: Total Temperature
+        type: float
+        defaultValue: 298.15
+        unit: K
+        category: Parameters
+        min: 0
+
+  PressureOutlet:
+    displayName: Pressure Outlet
+    category: Single port elements
+    icon: BsArrowUpCircle
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: PressureOutlet
+      pressure:
+        label: Pressure
+        type: float
+        defaultValue: 101325
+        unit: Pa
+        category: Parameters
+        min: 0
+        max: .inf
+        editable: true
+      allowReverseFlow:
+        label: Allow reverse flow
+        type: boolean
+        category: Parameters
+        defaultValue: false
+        editable: true
+      totalTemperature:
+        label: Total Temperature
+        type: float
+        defaultValue: 298.15
+        unit: K
+        category: Parameters
+        min: 0
+        editable: true
+        visibleIf:
+          parameter: allowReverseFlow
+          equals: true
+
+  LosslessDuct:
+    displayName: Lossless Duct
+    category: Two port elements
+    icon: BsArrowLeftRight
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: LosslessDuct
+      area:
+        label: Area
+        type: float
+        defaultValue: 1
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+      length:
+        label: Length
+        type: float
+        defaultValue: 1.0
+        unit: m
+        category: Parameters
+        min: 0.000001
+
+  SuddenExpansion:
+    displayName: Sudden Expansion
+    category: Two port elements
+    icon: BsArrowsExpand
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: SuddenExpansion
+      minimumAreaRatio:
+        label: Minimum area ratio
+        type: float
+        defaultValue: 1
+        category: Parameters
+        min: 1
+        description: Minimum area ratio across this node
+        editable: false
+        visible: false
+      maximumAreaRatio:
+        label: Maximum area ratio
+        type: float
+        defaultValue: .inf
+        category: Parameters
+        min: 1
+        description: Maximum area ratio across this node
+        editable: false
+        visible: false
+
+  LosslessSplitter:
+    displayName: Lossless Splitter
+    category: Dynamic Port Elements
+    icon: BsDiagram2
+    dynamicPorts: true
+    dynamicPortConfig:
+      source:
+        countParameter: rightPorts
+        default: 2
+        min: 2
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: LosslessSplitter
+      rightPorts:
+        label: Output Ports
+        type: number
+        defaultValue: 2
+        min: 2
+        step: 1
+        category: Ports
+        description: Number of output ports
+
+  Junction:
+    displayName: Junction
+    category: Dynamic Port Elements
+    icon: BsLightningFill
+    dynamicPorts: true
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 2
+        min: 1
+      source:
+        countParameter: rightPorts
+        default: 1
+        min: 1
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Junction
+      leftPorts:
+        label: Left Ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of left ports
+      rightPorts:
+        label: Right Ports
+        type: number
+        defaultValue: 1
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of right ports
