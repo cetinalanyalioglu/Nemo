@@ -2,6 +2,7 @@ import React from 'react';
 import { NodeProvider } from './context/NodeContext';
 import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
+import ToolsPane from './components/tools-pane';
 import Canvas from './components/Canvas';
 import PropertiesPanel from './components/PropertiesPanel';
 import NavigationControls from './components/NavigationControls';
@@ -13,10 +14,16 @@ import { ModelProvider } from './context/ModelContext';
 function AppContent() {
   const { sidebar } = useAppState();
 
+  const renderPane = () => {
+    if (sidebar.activePane === 'library') return <NodeLibrary />;
+    if (sidebar.activePane === 'tools') return <ToolsPane />;
+    return <DocumentPane />;
+  };
+
   return (
     <div className="app">
       <NavigationControls />
-      {sidebar.activePane === 'library' ? <NodeLibrary /> : <DocumentPane />}
+      {renderPane()}
       <div className="canvas-container">
         <Canvas />
       </div>
