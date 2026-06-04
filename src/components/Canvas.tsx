@@ -45,6 +45,7 @@ const Canvas = () => {
   const {
     grid: { snapToGrid, size: gridSize },
     viewport: { zoom },
+    layout: { showMinimap },
     actions,
   } = useAppState();
 
@@ -227,7 +228,7 @@ const Canvas = () => {
           <AutoLayoutControl />
           <FlowInteractiveToggle />
         </Controls>
-        <MiniMap />
+        {showMinimap && <MiniMap />}
       </ReactFlow>
       <CanvasHistoryControls />
       <ZoomIndicator zoom={zoom} />

@@ -13,7 +13,12 @@ type AppStateSnapshot = {
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   grid: { snapToGrid: boolean; size: number };
   appearance: { theme: ThemeId };
-  layout: { edgePathStyle: EdgePathStyle; nodeSep: number; rankSep: number };
+  layout: {
+    edgePathStyle: EdgePathStyle;
+    nodeSep: number;
+    rankSep: number;
+    showMinimap: boolean;
+  };
 };
 
 type AppActions = {
@@ -39,6 +44,7 @@ type AppActions = {
     setEdgePathStyle: (style: EdgePathStyle) => void;
     setNodeSep: (value: number) => void;
     setRankSep: (value: number) => void;
+    toggleMinimap: () => void;
   };
 };
 
@@ -72,10 +78,12 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     edgePathStyle: EdgePathStyle;
     nodeSep: number;
     rankSep: number;
+    showMinimap: boolean;
   }>({
     edgePathStyle: 'bezier',
     nodeSep: 80,
     rankSep: 100,
+    showMinimap: true,
   });
 
   useEffect(() => {
@@ -156,6 +164,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setLayout((prev) => ({ ...prev, rankSep: value }));
   }, []);
 
+  const layoutToggleMinimap = useCallback(() => {
+    setLayout((prev) => ({ ...prev, showMinimap: !prev.showMinimap }));
+  }, []);
+
   const appActions = useMemo(
     () => ({
       viewport: {
@@ -182,6 +194,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         setEdgePathStyle: layoutSetEdgePathStyle,
         setNodeSep: layoutSetNodeSep,
         setRankSep: layoutSetRankSep,
+        toggleMinimap: layoutToggleMinimap,
       },
     }),
     [
@@ -198,6 +211,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       layoutSetEdgePathStyle,
       layoutSetNodeSep,
       layoutSetRankSep,
+      layoutToggleMinimap,
     ]
   );
 
