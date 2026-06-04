@@ -3,6 +3,7 @@ import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 
 export type SidebarPane = 'library' | 'document' | 'tools' | 'settings';
+export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier';
 
 type CollapsedGroups = Record<string, boolean>;
 
@@ -12,6 +13,7 @@ type AppStateSnapshot = {
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   grid: { snapToGrid: boolean; size: number };
   appearance: { theme: ThemeId };
+  layout: { edgePathStyle: EdgePathStyle; nodeSep: number; rankSep: number };
 };
 
 type AppActions = {
@@ -32,6 +34,11 @@ type AppActions = {
   };
   appearance: {
     setTheme: (theme: ThemeId) => void;
+  };
+  layout: {
+    setEdgePathStyle: (style: EdgePathStyle) => void;
+    setNodeSep: (value: number) => void;
+    setRankSep: (value: number) => void;
   };
 };
 
@@ -61,6 +68,15 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   const [appearanceState, setAppearance] = useState<{ theme: ThemeId }>(() => ({
     theme: readStoredTheme(),
   }));
+  const [layoutState, setLayout] = useState<{
+    edgePathStyle: EdgePathStyle;
+    nodeSep: number;
+    rankSep: number;
+  }>({
+    edgePathStyle: 'bezier',
+    nodeSep: 80,
+    rankSep: 100,
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', appearanceState.theme);
@@ -128,6 +144,18 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance({ theme });
   }, []);
 
+  const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
+    setLayout((prev) => ({ ...prev, edgePathStyle: style }));
+  }, []);
+
+  const layoutSetNodeSep = useCallback((value: number) => {
+    setLayout((prev) => ({ ...prev, nodeSep: value }));
+  }, []);
+
+  const layoutSetRankSep = useCallback((value: number) => {
+    setLayout((prev) => ({ ...prev, rankSep: value }));
+  }, []);
+
   const appActions = useMemo(
     () => ({
       viewport: {
@@ -150,6 +178,11 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearance: {
         setTheme: appearanceSetTheme,
       },
+      layout: {
+        setEdgePathStyle: layoutSetEdgePathStyle,
+        setNodeSep: layoutSetNodeSep,
+        setRankSep: layoutSetRankSep,
+      },
     }),
     [
       updateZoom,
@@ -162,6 +195,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       gridToggleSnap,
       gridUpdateSize,
       appearanceSetTheme,
+      layoutSetEdgePathStyle,
+      layoutSetNodeSep,
+      layoutSetRankSep,
     ]
   );
 
@@ -172,9 +208,18 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanel: propertiesPanelState,
       grid: gridState,
       appearance: appearanceState,
+      layout: layoutState,
       actions: appActions,
     }),
-    [viewportState, sidebarState, propertiesPanelState, gridState, appearanceState, appActions]
+    [
+      viewportState,
+      sidebarState,
+      propertiesPanelState,
+      gridState,
+      appearanceState,
+      layoutState,
+      appActions,
+    ]
   );
 
   return <AppStateContext.Provider value={providerValue}>{children}</AppStateContext.Provider>;

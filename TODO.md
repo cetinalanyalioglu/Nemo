@@ -38,7 +38,8 @@
 - [x] Updated format for saved data
 - [x] Undo/Redo support
 - [ ] Ensure style is completely handled in CSS and placed outside functional code
-- [ ] Theme capability, e.g. dark/light
-- [ ] Edge lengths are too long in the automatically generated layout
+- [x] Theme capability, e.g. dark/light
+- [x] Edge lengths are too long in the automatically generated layout
 - [ ] Minimap should be optional
 - [ ] Console
+- [ ] Add setting: force unique node labels or not

@@ -1,6 +1,13 @@
 import React from 'react';
-import { BaseEdge, getBezierPath } from 'reactflow';
+import {
+  BaseEdge,
+  getBezierPath,
+  getStraightPath,
+  getSmoothStepPath,
+  getSimpleBezierPath,
+} from 'reactflow';
 import type { EdgeProps } from 'reactflow';
+import { useAppState } from '../../context/AppStateContext';
 
 const BaseEdgeStyled = BaseEdge as React.ComponentType<
   React.ComponentProps<typeof BaseEdge> & { className?: string }
@@ -26,7 +33,8 @@ export const baseEdgeInfo = {
 
 /**
  * GenericEdge is a universal component for all edge types in the flow diagram.
- * It provides basic edge rendering with bezier curves and maintains compatibility with ReactFlow.
+ * It provides basic edge rendering and maintains compatibility with ReactFlow.
+ * The edge path style is controlled by the global layout setting.
  */
 const GenericEdge = ({
   id,
@@ -40,14 +48,20 @@ const GenericEdge = ({
   selected: _selected,
   style = {},
 }: EdgeProps) => {
-  const [edgePath] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  const { layout } = useAppState();
+
+  const pathArgs = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
+
+  let edgePath: string;
+  if (layout.edgePathStyle === 'straight') {
+    [edgePath] = getStraightPath(pathArgs);
+  } else if (layout.edgePathStyle === 'smoothstep') {
+    [edgePath] = getSmoothStepPath(pathArgs);
+  } else if (layout.edgePathStyle === 'simplebezier') {
+    [edgePath] = getSimpleBezierPath(pathArgs);
+  } else {
+    [edgePath] = getBezierPath(pathArgs);
+  }
 
   return (
     <>
