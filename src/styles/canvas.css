@@ -59,23 +59,62 @@
 
 .react-flow__controls-button {
   background: var(--color-surface);
+  color: var(--color-text-input);
+  border: 1px solid var(--color-border);
   border-bottom: none !important;
   box-shadow: var(--shadow-sm);
   margin-bottom: 8px;
   border-radius: 4px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.react-flow__controls-button.react-flow__controls-snapgrid svg,
-.react-flow__controls-button.react-flow__controls-autolayout svg,
-.react-flow__controls-button.react-flow__controls-interactive svg {
+.react-flow__controls-button:hover {
+  background: var(--color-surface-control-hover);
+  color: var(--color-text-input);
+}
+
+.react-flow__controls-button svg {
   width: 16px;
   height: 16px;
+  max-width: 16px;
+  max-height: 16px;
   display: block;
+  fill: currentColor;
 }
 
-.react-flow__controls-button.react-flow__controls-snapgrid.active {
+.react-flow__controls-button svg path {
+  fill: currentColor;
+}
+
+.react-flow__controls-button > * {
+  color: inherit;
+}
+
+.react-flow__controls-button:disabled {
+  color: var(--color-text-disabled);
+  opacity: 0.7;
+}
+
+.react-flow__controls-button:disabled svg,
+.react-flow__controls-button:disabled svg path {
+  fill: currentColor;
+  fill-opacity: 1;
+}
+
+.react-flow__controls-button.react-flow__controls-snapgrid.active,
+.react-flow__controls-button.react-flow__controls-autolayout:active,
+.react-flow__controls-button.react-flow__controls-interactive:active {
   background-color: var(--color-accent);
   color: var(--color-text-on-accent);
+  border-color: var(--color-accent);
+}
+
+.react-flow__controls-button.react-flow__controls-snapgrid.active svg,
+.react-flow__controls-button.react-flow__controls-snapgrid.active svg path {
+  fill: currentColor;
 }
 
 .canvas-history-controls {
@@ -96,10 +135,10 @@
   height: 26px;
   padding: 0;
   background: var(--color-surface);
-  border: none;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   box-shadow: var(--shadow-sm);
-  color: var(--color-text-body);
+  color: var(--color-text-input);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -148,4 +187,17 @@
 
 .background-cross {
   opacity: 1;
+}
+
+[data-theme='dark'] .react-flow__minimap {
+  background-color: var(--color-surface-muted);
+}
+
+[data-theme='dark'] .react-flow__minimap-mask {
+  fill: var(--color-surface-subtle);
+}
+
+[data-theme='dark'] .react-flow__minimap-node {
+  fill: var(--color-surface-hover);
+  stroke: var(--color-border);
 }
