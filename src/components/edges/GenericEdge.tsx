@@ -13,7 +13,7 @@ const BaseEdgeStyled = BaseEdge as React.ComponentType<
 export const baseEdgeInfo = {
   parameters: {
     solverIndex: {
-      label: 'Solver Index',
+      label: 'Index',
       type: 'number',
       defaultValue: undefined,
       category: 'Connectivity',

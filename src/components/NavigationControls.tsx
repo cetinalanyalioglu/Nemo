@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppState } from '../context/AppStateContext';
-import { IoDocumentTextOutline, IoLibrary } from 'react-icons/io5';
+import { IoDocumentTextOutline, IoLibrary, IoConstructOutline } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
 
 const NavigationControls = React.memo(() => {
@@ -27,6 +27,15 @@ const NavigationControls = React.memo(() => {
         title="Node library"
       >
         <IoLibrary />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('tools')}
+        className={`nav-button ${isOpen && activePane === 'tools' ? 'active' : ''}`}
+        title="Tools"
+      >
+        <IoConstructOutline />
       </button>
     </div>
   );

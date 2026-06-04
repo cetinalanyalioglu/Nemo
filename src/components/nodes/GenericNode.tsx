@@ -82,7 +82,7 @@ export const baseElementInfo: ElementInfoEntry = {
       unit: 'px',
     },
     solverIndex: {
-      label: 'Solver Index',
+      label: 'Index',
       type: 'number',
       defaultValue: undefined,
       category: 'Connectivity',

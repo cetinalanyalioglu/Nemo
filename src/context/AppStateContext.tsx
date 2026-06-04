@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
 
-export type SidebarPane = 'library' | 'document';
+export type SidebarPane = 'library' | 'document' | 'tools';
 
 type CollapsedGroups = Record<string, boolean>;
 

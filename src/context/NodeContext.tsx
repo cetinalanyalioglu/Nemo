@@ -58,6 +58,7 @@ export interface NodeContextValue {
   addCustomEdge: (params: Connection, type?: string) => void;
   deleteEdge: (edgeId: string) => void;
   updateEdges: (newEdges: Edge[], removedEdgeIds?: string[]) => void;
+  regenerateSolverIndices: () => void;
 }
 
 const NodeContext = createContext<NodeContextValue | undefined>(undefined);
@@ -744,6 +745,16 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [nodes, edges, nodeStates, edgeStates]);
 
   /**
+   * Regenerates solver indices and commits them to live state so the
+   * properties panel reflects the updated values immediately.
+   */
+  const regenerateSolverIndices = useCallback(() => {
+    const { updatedNodeStates, updatedEdgeStates } = generateSolverIndices();
+    setNodeStates(updatedNodeStates);
+    setEdgeStates(updatedEdgeStates);
+  }, [generateSolverIndices]);
+
+  /**
    * Generates a complete state object for saving
    * @returns {Object} The complete state object
    */
@@ -1082,6 +1093,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       addCustomEdge,
       deleteEdge,
       updateEdges,
+      regenerateSolverIndices,
     }),
     [
       nodeStates,
@@ -1115,6 +1127,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       addCustomEdge,
       deleteEdge,
       updateEdges,
+      regenerateSolverIndices,
     ]
   );
 
