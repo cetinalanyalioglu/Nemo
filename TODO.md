@@ -36,7 +36,7 @@
 
 ## Recent thoughts
 - [x] Updated format for saved data
-- [ ] Undo/Redo support
+- [x] Undo/Redo support
 - [ ] Ensure style is completely handled in CSS and placed outside functional code
 - [ ] Theme capability, e.g. dark/light
 - [ ] Edge lengths are too long in the automatically generated layout

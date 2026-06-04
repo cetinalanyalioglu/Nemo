@@ -13,6 +13,8 @@ import { useNodesState, useEdgesState, addEdge } from 'reactflow';
 import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
 import { useModel } from './ModelContext';
+import { useCanvasHistory } from '../hooks/useCanvasHistory';
+import type { CanvasSnapshot } from '../hooks/useCanvasHistory';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -49,7 +51,12 @@ export interface NodeContextValue {
   }) => Node | undefined;
   deleteNode: (nodeId: string) => void;
   reset: () => void;
-  updateNodeParameter: (nodeId: string, paramName: string, value: unknown) => boolean;
+  updateNodeParameter: (
+    nodeId: string,
+    paramName: string,
+    value: unknown,
+    options?: { recordHistory?: boolean }
+  ) => boolean;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => void;
   startEditing: (nodeId: string) => void;
   onChange: (nodeId: string, evt: ReactChangeEvent<HTMLInputElement>) => void;
@@ -68,6 +75,12 @@ export interface NodeContextValue {
   deleteEdge: (edgeId: string) => void;
   updateEdges: (newEdges: Edge[], removedEdgeIds?: string[]) => void;
   regenerateSolverIndices: () => void;
+  /** Records a snapshot of the current canvas before an external mutation. */
+  recordHistory: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const NodeContext = createContext<NodeContextValue | undefined>(undefined);
@@ -99,6 +112,86 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   const [edgeStates, setEdgeStates] = useState<Record<string, EdgeRuntimeState>>({});
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
+  // Undo/redo history of canvas snapshots.
+  const {
+    record: recordSnapshot,
+    undo: undoHistory,
+    redo: redoHistory,
+    clear: clearHistory,
+    canUndo,
+    canRedo,
+  } = useCanvasHistory();
+
+  /**
+   * Builds a serializable snapshot of the current canvas graph. Only the
+   * fields needed for a full restore are captured, which naturally excludes
+   * transient concerns like selection and viewport.
+   */
+  const captureSnapshot = useCallback(
+    (): CanvasSnapshot => ({
+      nodes: nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: { ...node.position },
+        data: { ...(node.data ?? {}) },
+      })),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
+        type: edge.type,
+      })),
+      nodeStates: JSON.parse(JSON.stringify(nodeStates)),
+      edgeStates: JSON.parse(JSON.stringify(edgeStates)),
+      nodeCounters: { ...nodeCounters },
+      totalNodeCounters: { ...totalNodeCounters },
+    }),
+    [nodes, edges, nodeStates, edgeStates, nodeCounters, totalNodeCounters]
+  );
+
+  /**
+   * Replaces the live canvas state with a previously captured snapshot. Clears
+   * editing and selection so no references dangle after a restore.
+   */
+  const applySnapshot = useCallback(
+    (snapshot: CanvasSnapshot) => {
+      setNodes(
+        snapshot.nodes.map((node) => ({
+          ...node,
+          position: { ...node.position },
+          data: { ...(node.data ?? {}) },
+        }))
+      );
+      setEdges(snapshot.edges.map((edge) => ({ ...edge })));
+      setNodeStates(JSON.parse(JSON.stringify(snapshot.nodeStates)));
+      setEdgeStates(JSON.parse(JSON.stringify(snapshot.edgeStates)));
+      setNodeCounters({ ...snapshot.nodeCounters });
+      setTotalNodeCounters({ ...snapshot.totalNodeCounters });
+      setEditingStates({});
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+    },
+    [setNodes, setEdges]
+  );
+
+  // Records the current canvas as an undo step. Call before a mutation so the
+  // pre-change state can be restored.
+  const recordHistory = useCallback(() => {
+    recordSnapshot(captureSnapshot());
+  }, [recordSnapshot, captureSnapshot]);
+
+  const undo = useCallback(() => {
+    const target = undoHistory(captureSnapshot());
+    if (target) applySnapshot(target);
+  }, [undoHistory, captureSnapshot, applySnapshot]);
+
+  const redo = useCallback(() => {
+    const target = redoHistory(captureSnapshot());
+    if (target) applySnapshot(target);
+  }, [redoHistory, captureSnapshot, applySnapshot]);
+
   // Initialize counters when the active model becomes available and reset the
   // canvas whenever the model changes. Switching models clears any existing
   // nodes/edges so the canvas always reflects the selected model.
@@ -112,6 +205,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     setEdgeStates({});
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
+    clearHistory();
 
     const initialCounters = Object.keys(elementInfo).reduce(
       (acc, type) => {
@@ -272,7 +366,13 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
    * @returns {boolean} - Whether the update was successful
    */
   const updateNodeParameter = useCallback(
-    (nodeId: string, paramName: string, value: unknown) => {
+    (
+      nodeId: string,
+      paramName: string,
+      value: unknown,
+      options: { recordHistory?: boolean } = {}
+    ) => {
+      const { recordHistory: shouldRecord = true } = options;
       // Get the node's current state and type
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) {
@@ -350,6 +450,9 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // If we get here, all validations passed, update the state
+      if (shouldRecord) {
+        recordHistory();
+      }
       setNodeStates((prev) => ({
         ...prev,
         [nodeId]: {
@@ -363,7 +466,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       return true;
     },
-    [nodes, nodeStates, edges, edgeStates, elementInfo]
+    [nodes, nodeStates, edges, edgeStates, elementInfo, recordHistory]
   );
 
   /**
@@ -470,6 +573,8 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      recordHistory();
+
       // Update counters first to ensure proper label generation
       setTotalNodeCounters((prev) => ({
         ...prev,
@@ -530,7 +635,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       return newNode;
     },
-    [getNewNodeId, getNewNodeLabel, setNodes, elementInfo]
+    [getNewNodeId, getNewNodeLabel, setNodes, elementInfo, recordHistory]
   );
 
   const deleteNode = useCallback(
@@ -550,6 +655,8 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const type = node.type!;
+
+      recordHistory();
 
       // Find and delete all edges connected to this node
       setEdges((eds) => {
@@ -602,7 +709,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       debugLog('Successfully deleted node: ', nodeId);
     },
-    [nodes, setNodes, selectedNodeId, setEdges, setEdgeStates]
+    [nodes, setNodes, selectedNodeId, setEdges, setEdgeStates, recordHistory]
   );
 
   /**
@@ -643,22 +750,34 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     // Clear selected edge
     setSelectedEdgeId(null);
 
+    // A new/blank document or a freshly loaded file starts a clean history.
+    clearHistory();
+
     debugLog('All nodes and states have been cleared');
-  }, [setNodes, setEdges, setEdgeStates]);
+  }, [setNodes, setEdges, setEdgeStates, clearHistory]);
 
   // Define updateEdgeParameter similar to updateNodeParameter
-  const updateEdgeParameter = useCallback((edgeId: string, paramName: string, value: unknown) => {
-    setEdgeStates((prev) => ({
-      ...prev,
-      [edgeId]: {
-        ...prev[edgeId],
-        parameters: {
-          ...prev[edgeId]?.parameters,
-          [paramName]: value,
+  const updateEdgeParameter = useCallback(
+    (edgeId: string, paramName: string, value: unknown) => {
+      // Skip no-op updates so they do not create empty undo steps.
+      if (edgeStates[edgeId]?.parameters?.[paramName] === value) {
+        return;
+      }
+
+      recordHistory();
+      setEdgeStates((prev) => ({
+        ...prev,
+        [edgeId]: {
+          ...prev[edgeId],
+          parameters: {
+            ...prev[edgeId]?.parameters,
+            [paramName]: value,
+          },
         },
-      },
-    }));
-  }, []);
+      }));
+    },
+    [edgeStates, recordHistory]
+  );
 
   /**
    * Generates optimized node and edge indices for the solver.
@@ -758,10 +877,11 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
    * properties panel reflects the updated values immediately.
    */
   const regenerateSolverIndices = useCallback(() => {
+    recordHistory();
     const { updatedNodeStates, updatedEdgeStates } = generateSolverIndices();
     setNodeStates(updatedNodeStates);
     setEdgeStates(updatedEdgeStates);
-  }, [generateSolverIndices]);
+  }, [generateSolverIndices, recordHistory]);
 
   /**
    * Builds the complete, restorable save payload.
@@ -1073,6 +1193,8 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         },
       };
 
+      recordHistory();
+
       // Add the edge to ReactFlow
       setEdges((eds) => {
         const newEdges = addEdge({ ...params, type } as Connection & { type: string }, eds);
@@ -1090,7 +1212,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         return newEdges;
       });
     },
-    [setEdges, edgeInfo]
+    [setEdges, edgeInfo, recordHistory]
   );
 
   /**
@@ -1100,6 +1222,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
    */
   const deleteEdge = useCallback(
     (edgeId: string) => {
+      recordHistory();
       setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
 
       // Clean up edge state
@@ -1109,7 +1232,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         return newStates;
       });
     },
-    [setEdges]
+    [setEdges, recordHistory]
   );
 
   /**
@@ -1121,6 +1244,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
    */
   const updateEdges = useCallback(
     (newEdges: Edge[], removedEdgeIds: string[] = []) => {
+      recordHistory();
       setEdges(newEdges);
 
       // Clean up states for removed edges
@@ -1134,7 +1258,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
         });
       }
     },
-    [setEdges]
+    [setEdges, recordHistory]
   );
 
   // Memoize context value to prevent unnecessary re-renders
@@ -1172,6 +1296,11 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       deleteEdge,
       updateEdges,
       regenerateSolverIndices,
+      recordHistory,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
     }),
     [
       nodeStates,
@@ -1206,6 +1335,11 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       deleteEdge,
       updateEdges,
       regenerateSolverIndices,
+      recordHistory,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
     ]
   );
 

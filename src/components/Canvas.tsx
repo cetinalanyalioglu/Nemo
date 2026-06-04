@@ -11,6 +11,7 @@ import '../styles/edges.css';
 import '../styles/sidebar.css';
 import '../styles/canvas.css';
 import ZoomIndicator from './ZoomIndicator';
+import CanvasHistoryControls from './canvas-history-controls';
 import { useNodeContext } from '../context/NodeContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppState } from '../context/AppStateContext';
@@ -38,6 +39,9 @@ const Canvas = () => {
     setSelectedEdgeId,
     isValidConnection,
     addCustomEdge,
+    recordHistory,
+    undo,
+    redo,
   } = useNodeContext();
 
   const {
@@ -122,6 +126,11 @@ const Canvas = () => {
     setSelectedEdgeId(null);
   };
 
+  // Record a snapshot before a drag so the move can be undone as a single step.
+  const onNodeDragStart = useCallback(() => {
+    recordHistory();
+  }, [recordHistory]);
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!reactFlowInstance) return;
@@ -131,6 +140,22 @@ const Canvas = () => {
         target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
       ) {
+        return;
+      }
+
+      const isMod = event.metaKey || event.ctrlKey;
+      if (isMod && (event.key === 'z' || event.key === 'Z')) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+      if (isMod && (event.key === 'y' || event.key === 'Y')) {
+        event.preventDefault();
+        redo();
         return;
       }
 
@@ -146,7 +171,7 @@ const Canvas = () => {
         });
       }
     },
-    [reactFlowInstance, deleteNode, deleteEdge]
+    [reactFlowInstance, deleteNode, deleteEdge, undo, redo]
   );
 
   useEffect(() => {
@@ -173,6 +198,7 @@ const Canvas = () => {
         nodeTypes={nodeTypes}
         onEdgeClick={handleEdgeClick}
         onNodeClick={handleNodeClick}
+        onNodeDragStart={onNodeDragStart}
         onPaneClick={handlePaneClick}
         onInit={onInit}
         onMove={onMove}
@@ -211,6 +237,7 @@ const Canvas = () => {
         </Controls>
         <MiniMap />
       </ReactFlow>
+      <CanvasHistoryControls />
       <ZoomIndicator zoom={zoom} />
     </div>
   );
