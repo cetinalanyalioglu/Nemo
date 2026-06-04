@@ -1,14 +1,12 @@
 :root {
   --debug: 0;
-  /* Define spacing variables for relative layout */
-  --port-gap: 4px; /* minimum gap between port containers and the central content */
-  --type-icon-gap: 5px; /* gap between the type icon and the text block */
+  --port-gap: 4px;
+  --type-icon-gap: 5px;
   --type-icon-size: 20px;
   --port-icon-size: 16px;
   --content-vertical-padding: 8px;
 }
 
-/* Main node container: no internal padding so the border exactly encloses its children */
 .custom-node {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -16,10 +14,10 @@
   min-width: fit-content;
   min-height: fit-content;
   padding: 0;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
   box-sizing: border-box;
   position: relative;
   transition:
@@ -27,17 +25,15 @@
     border-color 0.2s ease;
 }
 
-/* Hover and selected states */
 .custom-node:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .custom-node.selected,
 .custom-node.custom-node-selected {
-  border: 1px solid #d4a72c;
+  border: 1px solid var(--color-accent);
 }
 
-/* Left port container (input ports) */
 .custom-port-container.custom-port-left {
   outline: calc(var(--debug) * 1px) solid red;
   padding: var(--port-gap) 0;
@@ -48,12 +44,11 @@
   justify-self: end;
   grid-column: 1;
   height: 100%;
-  gap: var(--port-gap); /* Consistent gap between ports */
+  gap: var(--port-gap);
   transform: translateX(-50%);
   margin-right: calc(-0.5 * var(--port-icon-size));
 }
 
-/* Middle section wrapper for icon and content */
 .middle-section {
   outline: calc(var(--debug) * 1px) solid green;
   display: grid;
@@ -67,12 +62,11 @@
   gap: 0;
 }
 
-/* Type icon */
 .middle-section .node-type-icon {
   outline: calc(var(--debug) * 1px) solid red;
   padding-left: var(--type-icon-gap);
   font-size: var(--type-icon-size);
-  color: #6c757d;
+  color: var(--color-text-secondary);
   opacity: 0.75;
   display: flex;
   align-items: center;
@@ -81,7 +75,6 @@
   margin-right: 0;
 }
 
-/* Node content (label and type text) */
 .middle-section .custom-node-content {
   outline: calc(var(--debug) * 1px) solid purple;
   display: flex;
@@ -94,7 +87,6 @@
   padding-right: var(--type-icon-gap);
 }
 
-/* Right port container (output ports) */
 .custom-port-container.custom-port-right {
   outline: calc(var(--debug) * 1px) solid red;
   padding: var(--port-gap) 0;
@@ -110,7 +102,6 @@
   margin-left: calc(-0.5 * var(--port-icon-size));
 }
 
-/* Port wrapper: maintains minimum space for each port */
 .port-wrapper {
   outline: calc(var(--debug) * 1px) solid blue;
   display: flex;
@@ -119,35 +110,30 @@
   position: relative;
   box-sizing: content-box;
 }
-/* Port icons styling */
+
 .port-icon {
-  /* Border ensures that we can center the icon with the handle */
-  border: 1px solid white;
+  border: 1px solid var(--color-surface);
   position: relative;
   opacity: 1;
   font-size: var(--port-icon-size);
-  color: #d4a72c;
-  background: white;
+  color: var(--color-accent);
+  background: var(--color-surface);
   z-index: 3;
-  /* Position the icon to match handle center */
   top: 50%;
 }
 
-/* Hover effect on port icons */
 .port-wrapper:hover .port-icon {
-  color: #b38a24;
+  color: var(--color-accent-hover);
 }
 
-/* Port index (if you display port numbers) */
 .port-index {
   outline: calc(var(--debug) * 1px) solid orange;
   font-size: 9px;
-  color: #666;
-  background: white;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
   z-index: 10;
 }
 
-/* Resize handle: absolutely positioned so that it overlays the node border */
 .resize-handle {
   position: absolute;
   border-radius: 50%;
@@ -155,7 +141,7 @@
   bottom: -3px;
   width: 8px;
   height: 8px;
-  background-color: #d4a72c;
+  background-color: var(--color-accent);
   cursor: se-resize;
   transition:
     transform 0.2s ease,
@@ -165,46 +151,42 @@
 
 .resize-handle:hover {
   transform: scale(1.2);
-  background-color: #b38a24;
+  background-color: var(--color-accent-hover);
 }
 
 .resize-handle:active {
   transform: scale(0.95);
-  background-color: #8c6d1c;
+  background-color: var(--color-accent-active);
 }
 
-/* Hide resize handle when node is not selected */
 .custom-node:not(.custom-node-selected):not(.selected) .resize-handle {
   display: none;
 }
 
-/* Disable transitions during resize for consistency */
 .custom-node.resizing {
   transition: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
-/* Node label and type text styling */
 .custom-node-label {
   font-size: 12px;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .custom-node-type {
   font-size: 10px;
-  color: #6c757d;
+  color: var(--color-text-secondary);
   font-style: italic;
   font-weight: 300;
   margin: 0;
 }
 
-/* Input styling when editing the node label */
 .custom-node-input {
   font-size: 12px;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-text-primary);
   border: none;
   outline: none;
   text-align: center;
@@ -231,7 +213,6 @@
   left: 0;
 }
 
-/* Left side port icons: apply rotation and positioning */
 .custom-port-left .port-icon-source {
   transform: translateY(-50%) rotate(180deg);
 }
@@ -240,7 +221,6 @@
   transform: translateY(-50%) rotate(0deg);
 }
 
-/* Right side port icons: apply rotation and positioning */
 .custom-port-right .port-icon-source {
   transform: translateY(-50%) rotate(180deg);
 }

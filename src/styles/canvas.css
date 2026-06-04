@@ -2,6 +2,7 @@
   width: 100%;
   height: 100%;
   position: relative;
+  flex: 1;
 }
 
 .canvas-container {
@@ -11,28 +12,22 @@
     margin-right 0.3s ease;
 }
 
-/* Adjust canvas container when sidebar is closed */
 .sidebar:not(.open) + .canvas-container {
-  margin-left: 60px;
-  /* Width of the closed sidebar icons */
+  margin-left: var(--layout-sidebar-collapsed-offset);
 }
 
-/* Adjust canvas container when sidebar is open */
 .sidebar.open + .canvas-container {
-  margin-left: 250px;
-  /* Width of the open sidebar */
+  margin-left: var(--layout-sidebar-width);
 }
 
-/* Adjust canvas container when properties panel is open */
 .canvas-container:has(+ .properties-panel-container.open) {
-  margin-right: 250px;
-  /* Width of the properties panel */
+  margin-right: var(--layout-panel-width);
 }
 
 .react-flow {
   width: 100%;
   height: 100%;
-  background: white;
+  background: var(--color-surface);
 }
 
 .react-flow__node {
@@ -45,8 +40,8 @@
 
 .status-bar {
   height: 40px;
-  background-color: #f0f0f0;
-  border-top: 1px solid #ccc;
+  background-color: var(--color-surface-statusbar);
+  border-top: 1px solid var(--color-border-status);
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -63,9 +58,9 @@
 }
 
 .react-flow__controls-button {
-  background: white;
+  background: var(--color-surface);
   border-bottom: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
   margin-bottom: 8px;
   border-radius: 4px;
 }
@@ -79,12 +74,10 @@
 }
 
 .react-flow__controls-button.react-flow__controls-snapgrid.active {
-  background-color: #d4a72c;
-  color: #fff;
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
-/* Undo/redo controls, top-left of the canvas. Visually matches the small
-   ReactFlow control buttons at the bottom of the canvas. */
 .canvas-history-controls {
   z-index: 101;
   position: absolute;
@@ -102,11 +95,11 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  background: white;
+  background: var(--color-surface);
   border: none;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  color: #333;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-body);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -114,11 +107,11 @@
 }
 
 .canvas-history-button:hover:not(:disabled) {
-  background-color: #f4f4f4;
+  background-color: var(--color-surface-control-hover);
 }
 
 .canvas-history-button:disabled {
-  color: #c4c4c4;
+  color: var(--color-text-disabled);
   cursor: default;
 }
 
@@ -139,19 +132,16 @@
   z-index: 101;
 }
 
-/* Selection box styling */
 .react-flow__selection {
-  background: rgba(212, 167, 44, 0.08);
-  border: 1px solid #d4a72c;
+  background: var(--color-accent-selection-bg);
+  border: 1px solid var(--color-accent);
   border-radius: 4px;
 }
 
-/* Hide the selection bounds rectangle */
 .react-flow__nodesselection-rect {
   display: none;
 }
 
-/* Background styles */
 .background-lines {
   opacity: 0.75;
 }

@@ -471,12 +471,7 @@ const PropertiesPanel = React.memo(() => {
             >
               <div className="group-header-content">
                 <span>{formatCategoryName(category)}</span>
-                <IoChevronDown
-                  className="group-collapse-icon"
-                  style={{
-                    transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)',
-                  }}
-                />
+                <IoChevronDown className="group-collapse-icon" />
               </div>
             </div>
             {/* Group content with parameters */}
