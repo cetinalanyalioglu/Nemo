@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import yaml from 'js-yaml';
 import { buildRuntimeModel, validateModelDefinition } from '../models/model-builder';
 import type { RuntimeModel } from '../models/model-builder';
+import { withStableTypeMaps } from '../models/stable-type-maps';
 import type { ModelSummary } from '../types/flow';
 import { debugLog } from '../utils/debug';
 
@@ -88,7 +89,7 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
     fetchModelDefinition(summary.file)
       .then((runtimeModel) => {
         if (cancelled) return;
-        setModel(runtimeModel);
+        setModel(withStableTypeMaps(runtimeModel));
         setIsLoading(false);
         debugLog(`Loaded model "${runtimeModel.id}"`);
       })

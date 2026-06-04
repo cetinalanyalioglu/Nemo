@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, BackgroundVariant } from 'reactflow';
 import {
   SnapToGridControl,
@@ -48,8 +48,8 @@ const Canvas = () => {
   } = useAppState();
 
   const { model } = useModel();
-  const nodeTypes = model?.nodeTypes ?? EMPTY_NODE_TYPES;
-  const edgeTypes = model?.edgeTypes ?? EMPTY_EDGE_TYPES;
+  const nodeTypes = useMemo(() => model?.nodeTypes ?? EMPTY_NODE_TYPES, [model?.nodeTypes]);
+  const edgeTypes = useMemo(() => model?.edgeTypes ?? EMPTY_EDGE_TYPES, [model?.edgeTypes]);
 
   const onInit = useCallback(
     (instance: ReactFlowInstance | null) => {
