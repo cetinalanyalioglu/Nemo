@@ -10,7 +10,7 @@ import 'reactflow/dist/style.css';
 import '../styles/edges.css';
 import '../styles/sidebar.css';
 import '../styles/canvas.css';
-import ZoomIndicator from './ZoomIndicator';
+import { CanvasZoomIndicator } from './canvas-zoom-indicator';
 import CanvasHistoryControls from './canvas-history-controls';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
@@ -44,16 +44,12 @@ const Canvas = () => {
 
   const {
     grid: { snapToGrid, size: gridSize },
-    viewport: { zoom },
     layout: { showMinimap },
-    actions,
   } = useAppState();
 
   const { model } = useModel();
   const nodeTypes = model?.nodeTypes ?? EMPTY_NODE_TYPES;
   const edgeTypes = model?.edgeTypes ?? EMPTY_EDGE_TYPES;
-
-  const updateZoom = actions.viewport.updateZoom;
 
   const onInit = useCallback(
     (instance: ReactFlowInstance | null) => {
@@ -64,13 +60,6 @@ const Canvas = () => {
       }
     },
     [setReactFlowInstance]
-  );
-
-  const onMove = useCallback(
-    (_evt: MouseEvent | TouchEvent | null, viewPort: { zoom: number }) => {
-      updateZoom(viewPort.zoom);
-    },
-    [updateZoom]
   );
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -194,7 +183,6 @@ const Canvas = () => {
         onNodeDragStart={onNodeDragStart}
         onPaneClick={handlePaneClick}
         onInit={onInit}
-        onMove={onMove}
         minZoom={0.5}
         maxZoom={4}
         defaultViewport={{ x: 0, y: 0, zoom: 1.0 }}
@@ -229,9 +217,9 @@ const Canvas = () => {
           <FlowInteractiveToggle />
         </Controls>
         {showMinimap && <MiniMap />}
+        <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />
-      <ZoomIndicator zoom={zoom} />
     </div>
   );
 };

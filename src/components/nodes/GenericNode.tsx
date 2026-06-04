@@ -116,12 +116,11 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const contextOnKeyDown = useGraphStore((s) => s.onKeyDown);
   const contextFinishEditing = useGraphStore((s) => s.finishEditing);
   const recordHistory = useGraphStore((s) => s.recordHistory);
-  const { getNode } = useReactFlow();
+  const { getNode, getZoom } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
   const {
     grid: { snapToGrid, size: gridSize },
-    viewport: { zoom },
   } = useAppState();
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
@@ -447,6 +446,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
         const pLeft = safeParseFloat(paddingLeft ?? '0');
         const bWidth = safeParseFloat(String(borderWidth));
 
+        const zoom = getZoom();
         const unscaledWidth = rect.width / zoom;
         const unscaledHeight = rect.height / zoom;
 
@@ -464,7 +464,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
         console.error('Error calculating node dimensions:', error);
       }
     }
-  }, [nodeState, id, updateNodeParameter, zoom]);
+  }, [nodeState, id, updateNodeParameter, getZoom]);
 
   if (!config) {
     console.error(`No configuration found for node type: ${type}`);
