@@ -4,7 +4,7 @@ import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 import { getLayoutedElements } from '../utils/layoutUtils';
 
 const LockIcon = () => (
@@ -49,11 +49,14 @@ SnapToGridControl.displayName = 'SnapToGridControl';
 
 export const AutoLayoutControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
-  const { nodes, edges, onNodesChange, recordHistory } = useNodeContext();
+  const onNodesChange = useGraphStore((s) => s.onNodesChange);
+  const recordHistory = useGraphStore((s) => s.recordHistory);
 
   const onLayout = useCallback(() => {
     if (!reactFlowInstance) return;
 
+    // Read the current graph lazily so this control never re-renders on drags.
+    const { nodes, edges } = useGraphStore.getState();
     const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges);
 
     const changes = layoutedNodes.map((node) => ({
@@ -67,7 +70,7 @@ export const AutoLayoutControl = memo(() => {
 
     const { x, y, zoom } = reactFlowInstance.getViewport();
     reactFlowInstance.setViewport({ x, y, zoom });
-  }, [nodes, edges, reactFlowInstance, onNodesChange, recordHistory]);
+  }, [reactFlowInstance, onNodesChange, recordHistory]);
 
   return (
     <ControlButton

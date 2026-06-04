@@ -8,7 +8,7 @@ import {
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 import type { ElementInfoEntry } from '../types/flow';
 
 const formatCategoryName = (category: string) => {
@@ -21,7 +21,7 @@ const NodeLibrary = React.memo(() => {
     actions,
   } = useAppState();
   const { models, activeModelId, model, isLoading, error, setActiveModelId } = useModel();
-  const { nodes } = useNodeContext();
+  const nodeCount = useGraphStore((s) => s.nodes.length);
 
   const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -32,7 +32,7 @@ const NodeLibrary = React.memo(() => {
     const newId = event.target.value;
     if (newId === activeModelId) return;
     // Switching models clears the canvas; confirm first when work would be lost.
-    if (nodes.length > 0) {
+    if (nodeCount > 0) {
       const confirmed = window.confirm(
         'Switching the model will clear the current canvas. Continue?'
       );

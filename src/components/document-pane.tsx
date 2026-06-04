@@ -9,12 +9,15 @@ import {
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 
 const DOCUMENT_FILE_GROUP = '__document_file__';
 
 const DocumentPane = React.memo(() => {
-  const { saveToFile, loadFromFile, reset, nodes } = useNodeContext();
+  const saveToFile = useGraphStore((s) => s.saveToFile);
+  const loadFromFile = useGraphStore((s) => s.loadFromFile);
+  const reset = useGraphStore((s) => s.reset);
+  const nodeCount = useGraphStore((s) => s.nodes.length);
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -30,7 +33,7 @@ const DocumentPane = React.memo(() => {
   };
 
   const handleNew = () => {
-    if (nodes.length > 0) {
+    if (nodeCount > 0) {
       const confirmed = window.confirm('Start a new document? This will clear the current canvas.');
       if (!confirmed) return;
     }

@@ -1,9 +1,12 @@
 import React, { memo } from 'react';
 import { IoArrowUndoOutline, IoArrowRedoOutline } from 'react-icons/io5';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 
 const CanvasHistoryControls = memo(() => {
-  const { undo, redo, canUndo, canRedo } = useNodeContext();
+  const undo = useGraphStore((s) => s.undo);
+  const redo = useGraphStore((s) => s.redo);
+  const canUndo = useGraphStore((s) => s.past.length > 0);
+  const canRedo = useGraphStore((s) => s.future.length > 0);
 
   return (
     <div className="canvas-history-controls">

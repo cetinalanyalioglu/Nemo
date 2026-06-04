@@ -12,7 +12,7 @@ import '../styles/sidebar.css';
 import '../styles/canvas.css';
 import ZoomIndicator from './ZoomIndicator';
 import CanvasHistoryControls from './canvas-history-controls';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
@@ -27,22 +27,20 @@ const Canvas = () => {
 
   const { reactFlowInstance, setReactFlowInstance } = useReactFlow();
 
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    addNode,
-    deleteNode,
-    deleteEdge,
-    setSelectedNodeId,
-    setSelectedEdgeId,
-    isValidConnection,
-    addCustomEdge,
-    recordHistory,
-    undo,
-    redo,
-  } = useNodeContext();
+  const nodes = useGraphStore((s) => s.nodes);
+  const edges = useGraphStore((s) => s.edges);
+  const onNodesChange = useGraphStore((s) => s.onNodesChange);
+  const onEdgesChange = useGraphStore((s) => s.onEdgesChange);
+  const addNode = useGraphStore((s) => s.addNode);
+  const deleteNode = useGraphStore((s) => s.deleteNode);
+  const deleteEdge = useGraphStore((s) => s.deleteEdge);
+  const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
+  const setSelectedEdgeId = useGraphStore((s) => s.setSelectedEdgeId);
+  const isValidConnection = useGraphStore((s) => s.isValidConnection);
+  const addCustomEdge = useGraphStore((s) => s.addCustomEdge);
+  const recordHistory = useGraphStore((s) => s.recordHistory);
+  const undo = useGraphStore((s) => s.undo);
+  const redo = useGraphStore((s) => s.redo);
 
   const {
     grid: { snapToGrid, size: gridSize },
