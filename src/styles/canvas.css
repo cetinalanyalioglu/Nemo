@@ -83,6 +83,51 @@
   color: #fff;
 }
 
+/* Undo/redo controls, top-left of the canvas. Visually matches the small
+   ReactFlow control buttons at the bottom of the canvas. */
+.canvas-history-controls {
+  z-index: 101;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canvas-history-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: white;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #333;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.canvas-history-button:hover:not(:disabled) {
+  background-color: #f4f4f4;
+}
+
+.canvas-history-button:disabled {
+  color: #c4c4c4;
+  cursor: default;
+}
+
+.canvas-history-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .react-flow__minimap {
   z-index: 101;
   position: absolute;

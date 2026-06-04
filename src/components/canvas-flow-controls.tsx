@@ -49,7 +49,7 @@ SnapToGridControl.displayName = 'SnapToGridControl';
 
 export const AutoLayoutControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
-  const { nodes, edges, onNodesChange } = useNodeContext();
+  const { nodes, edges, onNodesChange, recordHistory } = useNodeContext();
 
   const onLayout = useCallback(() => {
     if (!reactFlowInstance) return;
@@ -62,11 +62,12 @@ export const AutoLayoutControl = memo(() => {
       position: node.position,
     }));
 
+    recordHistory();
     onNodesChange(changes);
 
     const { x, y, zoom } = reactFlowInstance.getViewport();
     reactFlowInstance.setViewport({ x, y, zoom });
-  }, [nodes, edges, reactFlowInstance, onNodesChange]);
+  }, [nodes, edges, reactFlowInstance, onNodesChange, recordHistory]);
 
   return (
     <ControlButton

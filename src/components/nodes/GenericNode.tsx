@@ -113,6 +113,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     onChange: contextOnChange,
     onKeyDown: contextOnKeyDown,
     finishEditing: contextFinishEditing,
+    recordHistory,
   } = useNodeContext();
   const { getNode } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -271,6 +272,10 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     const node = getNode(id);
     if (!node || !nodeRef.current) return;
 
+    // Records the pre-resize size once, on the first actual movement, so the
+    // whole gesture is a single undo step (and a plain click adds nothing).
+    let hasRecorded = false;
+
     const initialWidth = node.style?.width
       ? parseInt(String(node.style.width), 10)
       : nodeRef.current.offsetWidth;
@@ -288,6 +293,11 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     const onPointerMove = (eMove: PointerEvent) => {
       const r = resizeRef.current;
       if (r.startX === undefined || r.startY === undefined) return;
+
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
 
       const deltaX = eMove.clientX - r.startX;
       const deltaY = eMove.clientY - r.startY;
@@ -314,8 +324,8 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       }
 
       resizeRef.current.updateTimer = setTimeout(() => {
-        updateNodeParameter(id, 'width', roundedWidth);
-        updateNodeParameter(id, 'height', roundedHeight);
+        updateNodeParameter(id, 'width', roundedWidth, { recordHistory: false });
+        updateNodeParameter(id, 'height', roundedHeight, { recordHistory: false });
       }, 16);
     };
 
@@ -340,8 +350,8 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
           resizeRef.current.pendingWidth ?? resizeRef.current.startWidth ?? initialWidth;
         const finalHeight =
           resizeRef.current.pendingHeight ?? resizeRef.current.startHeight ?? initialHeight;
-        updateNodeParameter(id, 'width', finalWidth);
-        updateNodeParameter(id, 'height', finalHeight);
+        updateNodeParameter(id, 'width', finalWidth, { recordHistory: false });
+        updateNodeParameter(id, 'height', finalHeight, { recordHistory: false });
         resizeRef.current.pendingWidth = undefined;
         resizeRef.current.pendingHeight = undefined;
       }
@@ -360,9 +370,12 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       cancelAnimationFrame(resizeRef.current.rafId);
     }
 
+    // One undo step for the reset; the two writes below are applied silently.
+    recordHistory();
+
     resizeRef.current.rafId = requestAnimationFrame(() => {
-      updateNodeParameter(id, 'width', undefined);
-      updateNodeParameter(id, 'height', undefined);
+      updateNodeParameter(id, 'width', undefined, { recordHistory: false });
+      updateNodeParameter(id, 'height', undefined, { recordHistory: false });
     });
   };
 
@@ -441,8 +454,11 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
         const contentHeight = Math.max(0, unscaledHeight - pTop - pBottom - bWidth * 2);
 
         if (contentWidth > 0 && contentHeight > 0) {
-          updateNodeParameter(id, 'width', Math.round(contentWidth));
-          updateNodeParameter(id, 'height', Math.round(contentHeight));
+          // Initial auto-measured size is derived state, not a user action, so
+          // it must not create undo steps (otherwise undoing an add/move would
+          // first revert these silent size writes).
+          updateNodeParameter(id, 'width', Math.round(contentWidth), { recordHistory: false });
+          updateNodeParameter(id, 'height', Math.round(contentHeight), { recordHistory: false });
         }
       } catch (error) {
         console.error('Error calculating node dimensions:', error);
