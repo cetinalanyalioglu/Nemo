@@ -51,13 +51,16 @@ export const AutoLayoutControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const recordHistory = useGraphStore((s) => s.recordHistory);
+  const {
+    layout: { nodeSep, rankSep },
+  } = useAppState();
 
   const onLayout = useCallback(() => {
     if (!reactFlowInstance) return;
 
     // Read the current graph lazily so this control never re-renders on drags.
     const { nodes, edges } = useGraphStore.getState();
-    const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges);
+    const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges, 'LR', nodeSep, rankSep);
 
     const changes = layoutedNodes.map((node) => ({
       type: 'position' as const,
@@ -70,7 +73,7 @@ export const AutoLayoutControl = memo(() => {
 
     const { x, y, zoom } = reactFlowInstance.getViewport();
     reactFlowInstance.setViewport({ x, y, zoom });
-  }, [reactFlowInstance, onNodesChange, recordHistory]);
+  }, [reactFlowInstance, onNodesChange, recordHistory, nodeSep, rankSep]);
 
   return (
     <ControlButton

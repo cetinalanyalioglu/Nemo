@@ -441,8 +441,3 @@
   color: var(--color-error-strong);
 }
 
-.settings-theme-selector {
-  padding: 0;
-  border-bottom: none;
-  background: transparent;
-}

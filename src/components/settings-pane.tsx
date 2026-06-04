@@ -1,25 +1,153 @@
-import React from 'react';
-import { IoChevronBackCircleOutline, IoChevronDown, IoSettingsOutline } from 'react-icons/io5';
+import React, { useCallback } from 'react';
+import {
+  IoChevronBackCircleOutline,
+  IoChevronDown,
+  IoSettingsOutline,
+  IoAdd,
+  IoRemove,
+} from 'react-icons/io5';
 import '../styles/sidebar.css';
+import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { THEME_OPTIONS } from '../types/theme';
 import type { ThemeId } from '../types/theme';
+import type { EdgePathStyle } from '../context/AppStateContext';
 
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
+const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
+
+const EDGE_PATH_OPTIONS: { value: EdgePathStyle; label: string }[] = [
+  { value: 'bezier', label: 'Bezier' },
+  { value: 'simplebezier', label: 'Simple Bezier' },
+  { value: 'smoothstep', label: 'Smooth Step' },
+  { value: 'straight', label: 'Straight' },
+];
+
+const LAYOUT_SEP_MIN = 20;
+const LAYOUT_SEP_MAX = 400;
+const LAYOUT_SEP_STEP = 10;
+
+const clampSep = (value: number) => Math.min(LAYOUT_SEP_MAX, Math.max(LAYOUT_SEP_MIN, value));
+
+type SettingsNumberFieldProps = {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+};
+
+const SettingsNumberField = ({ id, label, value, onChange }: SettingsNumberFieldProps) => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const parsed = parseInt(event.target.value, 10);
+    if (!isNaN(parsed)) {
+      onChange(clampSep(parsed));
+    }
+  };
+
+  const increment = () => onChange(clampSep(value + LAYOUT_SEP_STEP));
+  const decrement = () => onChange(clampSep(value - LAYOUT_SEP_STEP));
+
+  return (
+    <div className="parameter-row">
+      <label className="parameter-label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="parameter-input-container">
+        <input
+          id={id}
+          type="number"
+          className="parameter-input"
+          value={value}
+          min={LAYOUT_SEP_MIN}
+          max={LAYOUT_SEP_MAX}
+          step={LAYOUT_SEP_STEP}
+          onChange={handleInputChange}
+        />
+        <div className="number-controls">
+          <button
+            type="button"
+            className="number-control-btn"
+            onClick={increment}
+            aria-label="Increase"
+          >
+            <IoAdd />
+          </button>
+          <button
+            type="button"
+            className="number-control-btn"
+            onClick={decrement}
+            aria-label="Decrease"
+          >
+            <IoRemove />
+          </button>
+        </div>
+        <span className="parameter-unit">px</span>
+      </div>
+    </div>
+  );
+};
+
+type SettingsSelectFieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+};
+
+const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSelectFieldProps) => (
+  <div className="parameter-row">
+    <label className="parameter-label" htmlFor={id}>
+      {label}
+    </label>
+    <div className="parameter-input-container">
+      <select
+        id={id}
+        className="parameter-select"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <IoChevronDown className="parameter-select-icon" aria-hidden />
+    </div>
+  </div>
+);
 
 const SettingsPane = React.memo(() => {
   const {
     appearance: { theme },
+    layout: { edgePathStyle, nodeSep, rankSep },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
 
-  const handleThemeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    actions.appearance.setTheme(event.target.value as ThemeId);
-  };
+  const handleThemeChange = useCallback(
+    (value: string) => actions.appearance.setTheme(value as ThemeId),
+    [actions.appearance]
+  );
+
+  const handleEdgePathStyleChange = useCallback(
+    (value: string) => actions.layout.setEdgePathStyle(value as EdgePathStyle),
+    [actions.layout]
+  );
+
+  const handleNodeSepChange = useCallback(
+    (value: number) => actions.layout.setNodeSep(value),
+    [actions.layout]
+  );
+
+  const handleRankSepChange = useCallback(
+    (value: number) => actions.layout.setRankSep(value),
+    [actions.layout]
+  );
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <div className={`sidebar settings-pane ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoSettingsOutline className="panel-icon" />
@@ -32,7 +160,7 @@ const SettingsPane = React.memo(() => {
       </div>
 
       <div
-        className={`elements-group ${collapsedGroups[SETTINGS_APPEARANCE_GROUP] ? 'collapsed' : ''}`}
+        className={`parameter-group ${collapsedGroups[SETTINGS_APPEARANCE_GROUP] ? 'collapsed' : ''}`}
       >
         <div
           className="group-header"
@@ -43,29 +171,49 @@ const SettingsPane = React.memo(() => {
             <IoChevronDown className="group-collapse-icon" />
           </div>
         </div>
+        <div className="group-content">
+          <SettingsSelectField
+            id="theme-select"
+            label="Theme"
+            value={theme}
+            options={THEME_OPTIONS}
+            onChange={handleThemeChange}
+          />
+        </div>
+      </div>
+
+      <div
+        className={`parameter-group ${collapsedGroups[SETTINGS_LAYOUT_GROUP] ? 'collapsed' : ''}`}
+      >
         <div
-          className={`group-content ${collapsedGroups[SETTINGS_APPEARANCE_GROUP] ? 'collapsed' : ''}`}
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_LAYOUT_GROUP)}
         >
-          <div className="model-selector settings-theme-selector">
-            <label className="model-selector-label" htmlFor="theme-select">
-              THEME
-            </label>
-            <div className="model-select-wrapper">
-              <select
-                id="theme-select"
-                className="model-select"
-                value={theme}
-                onChange={handleThemeChange}
-              >
-                {THEME_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <IoChevronDown className="model-select-icon" />
-            </div>
+          <div className="group-header-content">
+            <span>LAYOUT</span>
+            <IoChevronDown className="group-collapse-icon" />
           </div>
+        </div>
+        <div className="group-content">
+          <SettingsSelectField
+            id="edge-path-style-select"
+            label="Edge style"
+            value={edgePathStyle}
+            options={EDGE_PATH_OPTIONS}
+            onChange={handleEdgePathStyleChange}
+          />
+          <SettingsNumberField
+            id="node-sep-input"
+            label="Node spacing"
+            value={nodeSep}
+            onChange={handleNodeSepChange}
+          />
+          <SettingsNumberField
+            id="rank-sep-input"
+            label="Rank spacing"
+            value={rankSep}
+            onChange={handleRankSepChange}
+          />
         </div>
       </div>
     </div>

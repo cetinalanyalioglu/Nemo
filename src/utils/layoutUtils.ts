@@ -4,7 +4,9 @@ import type { Edge, Node } from 'reactflow';
 export const getLayoutedElements = (
   nodes: Node[],
   edges: Edge[],
-  direction: 'TB' | 'LR' | 'BT' | 'RL' = 'LR'
+  direction: 'TB' | 'LR' | 'BT' | 'RL' = 'LR',
+  nodeSep: number = 80,
+  rankSep: number = 100
 ): { nodes: Node[]; edges: Edge[] } => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -12,8 +14,8 @@ export const getLayoutedElements = (
   dagreGraph.setGraph({
     rankdir: direction,
     ranker: 'network-simplex',
-    nodesep: 80,
-    ranksep: 100,
+    nodesep: nodeSep,
+    ranksep: rankSep,
   });
 
   nodes.forEach((node) => {
