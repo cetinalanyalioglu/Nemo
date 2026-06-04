@@ -1,8 +1,11 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/index.css';
+import { readStoredTheme } from './types/theme';
 import App from './App';
 import { isDebugMode } from './utils/debug';
+
+document.documentElement.setAttribute('data-theme', readStoredTheme());
 
 if (isDebugMode()) {
   console.log('Debug mode is enabled.');

@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
+import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
+import type { ThemeId } from '../types/theme';
 
-export type SidebarPane = 'library' | 'document' | 'tools';
+export type SidebarPane = 'library' | 'document' | 'tools' | 'settings';
 
 type CollapsedGroups = Record<string, boolean>;
 
@@ -9,6 +11,7 @@ type AppStateSnapshot = {
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   grid: { snapToGrid: boolean; size: number };
+  appearance: { theme: ThemeId };
 };
 
 type AppActions = {
@@ -26,6 +29,9 @@ type AppActions = {
   grid: {
     toggleSnap: () => void;
     updateSize: (size: number) => void;
+  };
+  appearance: {
+    setTheme: (theme: ThemeId) => void;
   };
 };
 
@@ -52,6 +58,18 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     collapsedGroups: {},
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
+  const [appearanceState, setAppearance] = useState<{ theme: ThemeId }>(() => ({
+    theme: readStoredTheme(),
+  }));
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', appearanceState.theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, appearanceState.theme);
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, [appearanceState.theme]);
 
   const updateZoom = useCallback((newZoom: number) => {
     setViewport((prev) => ({ ...prev, zoom: newZoom }));
@@ -106,6 +124,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setGrid((prev) => ({ ...prev, size }));
   }, []);
 
+  const appearanceSetTheme = useCallback((theme: ThemeId) => {
+    setAppearance({ theme });
+  }, []);
+
   const appActions = useMemo(
     () => ({
       viewport: {
@@ -125,6 +147,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         toggleSnap: gridToggleSnap,
         updateSize: gridUpdateSize,
       },
+      appearance: {
+        setTheme: appearanceSetTheme,
+      },
     }),
     [
       updateZoom,
@@ -136,6 +161,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanelSetIsOpen,
       gridToggleSnap,
       gridUpdateSize,
+      appearanceSetTheme,
     ]
   );
 
@@ -145,9 +171,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       sidebar: sidebarState,
       propertiesPanel: propertiesPanelState,
       grid: gridState,
+      appearance: appearanceState,
       actions: appActions,
     }),
-    [viewportState, sidebarState, propertiesPanelState, gridState, appActions]
+    [viewportState, sidebarState, propertiesPanelState, gridState, appearanceState, appActions]
   );
 
   return <AppStateContext.Provider value={providerValue}>{children}</AppStateContext.Provider>;

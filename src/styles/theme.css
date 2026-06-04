@@ -1,4 +1,6 @@
-:root {
+:root,
+[data-theme='light'] {
+  color-scheme: light;
   --color-accent: #d4a72c;
   --color-accent-hover: #b38a24;
   --color-accent-active: #8c6d1c;
@@ -30,6 +32,7 @@
   --color-text-nav: #1a1a1a;
   --color-text-on-accent: #ffffff;
   --color-text-disabled: #c4c4c4;
+  --color-text-input: var(--color-text-primary);
 
   --color-edge: #4a4a4aa9;
   --color-success: #4caf50;
@@ -55,4 +58,50 @@
   --layout-sidebar-width: 250px;
   --layout-panel-width: 250px;
   --layout-sidebar-collapsed-offset: 60px;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-accent-subtle-bg: rgba(212, 167, 44, 0.14);
+  --color-accent-subtle-bg-alt: rgba(212, 167, 44, 0.1);
+  --shadow-accent-focus: 0 0 0 2px rgba(212, 167, 44, 0.25);
+  --shadow-accent-focus-strong: 0 0 0 2px rgba(212, 167, 44, 0.35);
+  --color-accent-selection-bg: rgba(212, 167, 44, 0.18);
+
+  --color-surface: #1c1c21;
+  --color-surface-subtle: #222228;
+  --color-surface-muted: #2a2a32;
+  --color-surface-hover: #32323c;
+  --color-surface-sidebar: #1e1e24;
+  --color-surface-input: #2a2a32;
+  --color-surface-statusbar: #222228;
+  --color-surface-control-hover: #2e2e36;
+  --color-border: #3f3f48;
+  --color-border-light: #38383f;
+  --color-border-subtle: #34343c;
+  --color-border-status: #3a3a44;
+
+  --color-text-primary: #ececf0;
+  --color-text-secondary: #a8a8b3;
+  --color-text-muted: #9494a0;
+  --color-text-body: #d4d4dc;
+  --color-text-control: #c8c8d2;
+  --color-text-icon-secondary: #7a7a86;
+  --color-text-nav: #ececf0;
+  --color-text-disabled: #5c5c66;
+
+  --color-edge: #9a9aa8b3;
+  --color-invalid-bg: #3a2224;
+
+  --color-canvas-grid-line: #35353f;
+  --color-canvas-grid-cross: #40404c;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 5px rgba(0, 0, 0, 0.35);
+  --shadow-sidebar: 2px 0 8px rgba(0, 0, 0, 0.4);
+  --shadow-panel: -2px 0 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.5);
+  --shadow-zoom: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-invalid: 0 0 0 2px rgba(255, 100, 100, 0.35);
 }
