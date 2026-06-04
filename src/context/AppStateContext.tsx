@@ -7,18 +7,22 @@ export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier
 
 type CollapsedGroups = Record<string, boolean>;
 
+export type GridState = { snapToGrid: boolean; size: number };
+
+export type LayoutState = {
+  edgePathStyle: EdgePathStyle;
+  nodeSep: number;
+  rankSep: number;
+  showMinimap: boolean;
+};
+
 type AppStateSnapshot = {
   viewport: { zoom: number };
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
-  grid: { snapToGrid: boolean; size: number };
+  grid: GridState;
   appearance: { theme: ThemeId };
-  layout: {
-    edgePathStyle: EdgePathStyle;
-    nodeSep: number;
-    rankSep: number;
-    showMinimap: boolean;
-  };
+  layout: LayoutState;
 };
 
 type AppActions = {
@@ -51,6 +55,8 @@ type AppActions = {
 export type AppStateContextValue = AppStateSnapshot & { actions: AppActions };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
+const LayoutContext = createContext<LayoutState | null>(null);
+const GridContext = createContext<GridState | null>(null);
 
 export const AppStateProvider = ({ children }: { children: React.ReactNode }) => {
   const [viewportState, setViewport] = useState({ zoom: 1 });
@@ -236,13 +242,35 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     ]
   );
 
-  return <AppStateContext.Provider value={providerValue}>{children}</AppStateContext.Provider>;
+  return (
+    <AppStateContext.Provider value={providerValue}>
+      <LayoutContext.Provider value={layoutState}>
+        <GridContext.Provider value={gridState}>{children}</GridContext.Provider>
+      </LayoutContext.Provider>
+    </AppStateContext.Provider>
+  );
 };
 
 export const useAppState = (): AppStateContextValue => {
   const context = useContext(AppStateContext);
   if (!context) {
     throw new Error('useAppState must be used within an AppStateProvider');
+  }
+  return context;
+};
+
+export const useLayoutState = (): LayoutState => {
+  const context = useContext(LayoutContext);
+  if (!context) {
+    throw new Error('useLayoutState must be used within an AppStateProvider');
+  }
+  return context;
+};
+
+export const useGridState = (): GridState => {
+  const context = useContext(GridContext);
+  if (!context) {
+    throw new Error('useGridState must be used within an AppStateProvider');
   }
   return context;
 };

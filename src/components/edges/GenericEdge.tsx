@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   BaseEdge,
   getBezierPath,
@@ -7,7 +7,7 @@ import {
   getSimpleBezierPath,
 } from 'reactflow';
 import type { EdgeProps } from 'reactflow';
-import { useAppState } from '../../context/AppStateContext';
+import { useLayoutState } from '../../context/AppStateContext';
 
 const BaseEdgeStyled = BaseEdge as React.ComponentType<
   React.ComponentProps<typeof BaseEdge> & { className?: string }
@@ -48,16 +48,16 @@ const GenericEdge = ({
   selected: _selected,
   style = {},
 }: EdgeProps) => {
-  const { layout } = useAppState();
+  const { edgePathStyle } = useLayoutState();
 
   const pathArgs = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
 
   let edgePath: string;
-  if (layout.edgePathStyle === 'straight') {
+  if (edgePathStyle === 'straight') {
     [edgePath] = getStraightPath(pathArgs);
-  } else if (layout.edgePathStyle === 'smoothstep') {
+  } else if (edgePathStyle === 'smoothstep') {
     [edgePath] = getSmoothStepPath(pathArgs);
-  } else if (layout.edgePathStyle === 'simplebezier') {
+  } else if (edgePathStyle === 'simplebezier') {
     [edgePath] = getSimpleBezierPath(pathArgs);
   } else {
     [edgePath] = getBezierPath(pathArgs);
@@ -70,4 +70,4 @@ const GenericEdge = ({
   );
 };
 
-export default GenericEdge;
+export default memo(GenericEdge);
