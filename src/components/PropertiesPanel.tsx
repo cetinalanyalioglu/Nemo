@@ -58,6 +58,9 @@ const PropertiesPanel = React.memo(() => {
   const selectedNodeType = useGraphStore((s) =>
     s.selectedNodeId ? (s.nodes.find((n) => n.id === s.selectedNodeId)?.type ?? null) : null
   );
+  const selectedEdgeType = useGraphStore((s) =>
+    s.selectedEdgeId ? (s.edges.find((e) => e.id === s.selectedEdgeId)?.type ?? null) : null
+  );
 
   const {
     propertiesPanel: { isOpen, collapsedGroups },
@@ -97,10 +100,10 @@ const PropertiesPanel = React.memo(() => {
   const elementType = useMemo(() => {
     if (!selectedNodeId && !selectedEdgeId) return null;
     if (isEdge) {
-      return 'flow'; // For now, all edges are flow edges
+      return selectedEdgeType;
     }
     return selectedNodeType;
-  }, [isEdge, selectedNodeType, selectedNodeId, selectedEdgeId]);
+  }, [isEdge, selectedNodeType, selectedEdgeType, selectedNodeId, selectedEdgeId]);
 
   // Get parameters info based on element type
   // Must be called before early returns to satisfy Rules of Hooks

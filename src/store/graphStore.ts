@@ -24,6 +24,13 @@ const SAVE_FILE_VERSION = '2.0.0';
 const EMPTY_ELEMENT_INFO: Record<string, ElementInfoEntry> = {};
 const EMPTY_EDGE_INFO: Record<string, EdgeInfoEntry> = {};
 
+/** Resolves the edge type used when connecting or loading edges without an explicit type. */
+const getDefaultEdgeType = (model: RuntimeModel | null): string => {
+  if (!model) return 'custom';
+  const types = Object.keys(model.edgeConfig);
+  return types[0] ?? 'custom';
+};
+
 /**
  * A serializable snapshot of the canvas graph used for undo/redo. Captures
  * everything required for a full restore while excluding transient concerns
@@ -541,11 +548,13 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     debugLog('All nodes and states have been cleared');
   },
 
-  addCustomEdge: (params, type = 'flow') => {
-    const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
-    const edgeTemplate = edgeInfo[type];
+  addCustomEdge: (params, type) => {
+    const model = get().model;
+    const edgeInfo = model?.edgeInfo ?? EMPTY_EDGE_INFO;
+    const resolvedType = type ?? getDefaultEdgeType(model);
+    const edgeTemplate = edgeInfo[resolvedType];
     if (!edgeTemplate) {
-      console.error(`Cannot add edge: Edge info not found for type "${type}"`);
+      console.error(`Cannot add edge: Edge info not found for type "${resolvedType}"`);
       return;
     }
 
@@ -558,7 +567,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     get().recordHistory();
 
     set((s) => {
-      const newEdges = addEdge({ ...params, type } as Connection & { type: string }, s.edges);
+      const newEdges = addEdge(
+        { ...params, type: resolvedType } as Connection & { type: string },
+        s.edges
+      );
       const newEdge = newEdges[newEdges.length - 1]!;
       debugLog('Adding edge: ', newEdge);
       return {
@@ -735,9 +747,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       if (edge.attributes) {
         newEdgeStates[edge.id] = { parameters: edge.attributes };
       } else {
-        const edgeTemplate = edgeInfo[edge.type || 'flow'];
+        const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
         if (!edgeTemplate) {
-          console.warn(`Edge template not found for type ${edge.type}, using flow type`);
+          console.warn(`Edge template not found for type ${edge.type}`);
         }
         const defaultParameters: Record<string, unknown> = {};
         if (edgeTemplate) {
