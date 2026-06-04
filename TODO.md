@@ -33,11 +33,7 @@
 - [ ] Add explicit save-format migration or version-range docs if we ship format changes beyond 2.x
 
 ## Performance
-
-Done on branch `perf/react-flow-state-optimization` (merged): pan/zoom via React Flow (not AppState), stable `nodeTypes`/`edgeTypes`, split layout/grid context, per-node incident-edge subscriptions, memoized `GenericEdge`.
-
 Defer until needed:
-
 - [ ] **Drag-end position sync** — let React Flow own positions while dragging; write to Zustand on drag end (best remaining win for large graphs)
 - [ ] **Undo snapshot cost** — replace full JSON clone/compare in `recordHistory` with cheaper snapshots (helps drag-start hitches on big canvases)
 - [ ] **`onlyRenderVisibleElements`** — try on React Flow when many nodes are off-screen
@@ -51,5 +47,6 @@ Defer until needed:
 - [x] Theme capability, e.g. dark/light
 - [x] Edge lengths are too long in the automatically generated layout
 - [x] Minimap should be optional
+- [ ] Global model parameters and their management from a pane
 - [ ] Console
 - [ ] Add setting: force unique node labels or not
