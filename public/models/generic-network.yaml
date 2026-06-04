@@ -1,0 +1,47 @@
+id: generic-network
+name: Generic Network
+description: Generic network model for testing and development.
+
+edges:
+  generic:
+    displayName: Generic Edge
+    category: Generic Connections
+    parameters: {}
+  
+"nodes":
+  generic:
+    displayName: Generic Node
+    category: Dynamic Port Elements
+    icon: BsLightningFill
+    dynamicPorts: true
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 1
+        min: 0
+      source:
+        countParameter: rightPorts
+        default: 1
+        min: 0
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Node
+      leftPorts:
+        label: Left Ports
+        type: number
+        defaultValue: 0
+        min: 0
+        step: 1
+        category: Ports
+        description: Number of left ports
+      rightPorts:
+        label: Right Ports
+        type: number
+        defaultValue: 1
+        min: 0
+        step: 1
+        category: Ports
+        description: Number of right ports
