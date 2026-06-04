@@ -1,7 +1,16 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { ChangeEvent as ReactChangeEvent } from 'react';
 import type { Connection, Edge, Node, XYPosition } from 'reactflow';
 import { useNodesState, useEdgesState, addEdge } from 'reactflow';
+import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
 import { useModel } from './ModelContext';
 import type {
@@ -15,7 +24,7 @@ import type {
 } from '../types/flow';
 
 // Define save file version at module level
-const SAVE_FILE_VERSION = '1.0.0';
+const SAVE_FILE_VERSION = '2.0.0';
 
 // Stable fallbacks used while the active model is still loading.
 const EMPTY_ELEMENT_INFO: Record<string, ElementInfoEntry> = {};
@@ -52,7 +61,7 @@ export interface NodeContextValue {
   setSelectedEdgeId: React.Dispatch<React.SetStateAction<string | null>>;
   isValidConnection: (connection: Connection) => boolean;
   saveToFile: () => void;
-  generateSaveData: () => Record<string, unknown>;
+  generateSaveData: () => SaveFilePayload;
   loadFromFile: (file: File) => void;
   edgeStates: Record<string, EdgeRuntimeState>;
   addCustomEdge: (params: Connection, type?: string) => void;
@@ -66,7 +75,7 @@ const NodeContext = createContext<NodeContextValue | undefined>(undefined);
 export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   // Active model provides the available node/edge definitions. Falls back to
   // empty maps while the first model is loading.
-  const { model } = useModel();
+  const { model, models, setActiveModelId } = useModel();
   const elementInfo = model?.elementInfo ?? EMPTY_ELEMENT_INFO;
   const edgeInfo = model?.edgeInfo ?? EMPTY_EDGE_INFO;
   const modelId = model?.id;
@@ -755,87 +764,82 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [generateSolverIndices]);
 
   /**
-   * Generates a complete state object for saving
-   * @returns {Object} The complete state object
+   * Builds the complete, restorable save payload.
+   *
+   * Model data (the simulation graph: node/edge identity, topology and runtime
+   * parameters) and UI data (presentation: node positions and ReactFlow data)
+   * are kept in separate sections so the two concerns can evolve independently
+   * while together describing everything needed for a full restore.
+   *
+   * @returns {SaveFilePayload} The complete save payload.
    */
-  const generateSaveData = useCallback(() => {
+  const generateSaveData = useCallback((): SaveFilePayload => {
     // Generate solver indices and get updated states
     const { updatedNodeStates, updatedEdgeStates } = generateSolverIndices();
 
-    const saveData = {
+    return {
       version: SAVE_FILE_VERSION,
       timestamp: new Date().toISOString(),
-      model: modelId,
-      nodes: nodes.map((node) => {
-        // Get the node's state from updated states
-        const nodeState = updatedNodeStates[node.id];
-
-        // Get all edges connected to this node
-        const nodeEdges = edges.filter(
-          (edge) => edge.source === node.id || edge.target === node.id
-        );
-
-        // Extract port information from actual connections
-        const ports = {
-          target: nodeEdges
-            .filter((edge) => edge.target === node.id)
-            .map((edge) => ({
-              id: edge.targetHandle,
-            })),
-          source: nodeEdges
-            .filter((edge) => edge.source === node.id)
-            .map((edge) => ({
-              id: edge.sourceHandle,
-            })),
-        };
-
-        return {
+      model: {
+        id: modelId,
+        globalAttributes: {},
+        nodes: nodes.map((node) => ({
           id: node.id,
-          type: node.type,
+          type: node.type!,
+          attributes: updatedNodeStates[node.id]?.parameters ?? {},
+        })),
+        edges: edges.map((edge) => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle ?? null,
+          targetHandle: edge.targetHandle ?? null,
+          type: edge.type,
+          attributes: updatedEdgeStates[edge.id]?.parameters ?? {},
+        })),
+      },
+      uiAttributes: {
+        nodes: nodes.map((node) => ({
+          id: node.id,
           position: node.position,
           data: node.data,
-          state: nodeState,
-          ports: ports,
-        };
-      }),
-      edges: edges.map((edge) => ({
-        ...edge,
-        state: updatedEdgeStates[edge.id],
-      })),
-      nodeCounters,
-      totalNodeCounters,
+        })),
+      },
+      uiState: {
+        counters: {
+          nodeCounters,
+          totalNodeCounters,
+        },
+      },
     };
-
-    return saveData;
   }, [nodes, edges, nodeCounters, totalNodeCounters, generateSolverIndices, modelId]);
 
   /**
-   * Saves the current state to a JSON file
+   * Serializes the current state to a YAML file and triggers a download.
    */
   const saveToFile = useCallback(() => {
     try {
       const saveData = generateSaveData();
 
-      // Convert the data to a JSON string
-      const jsonString = JSON.stringify(saveData, null, 2);
+      // Serialize to YAML, preserving key insertion order and avoiding
+      // anchors/aliases and line wrapping for a clean, diff-friendly file.
+      const yamlString = yaml.dump(saveData, {
+        noRefs: true,
+        sortKeys: false,
+        lineWidth: -1,
+      });
 
-      // Create a blob with the JSON data
-      const blob = new Blob([jsonString], { type: 'application/json' });
-
-      // Create a URL for the blob
+      const blob = new Blob([yamlString], { type: 'application/x-yaml' });
       const url = URL.createObjectURL(blob);
 
-      // Create a temporary link element
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'canvas.json';
+      link.download = 'canvas.yaml';
 
-      // Append the link to the document, click it, and remove it
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      // Clean up the URL
       URL.revokeObjectURL(url);
 
       debugLog('Successfully saved canvas state to file');
@@ -845,8 +849,129 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [generateSaveData]);
 
   /**
-   * Loads and restores the canvas state from a JSON file
-   * @param {File} file - The JSON file to load
+   * Applies a validated save payload to the canvas, replacing any current
+   * state. Assumes the matching model definition is already active so that
+   * node/edge types resolve correctly.
+   *
+   * @param {SaveFilePayload} saveData - A validated save payload.
+   */
+  const applySaveData = useCallback(
+    (saveData: SaveFilePayload) => {
+      // Reset current state
+      reset();
+
+      // Index UI data by node id so model and presentation data can be
+      // recombined into ReactFlow nodes.
+      const uiNodeById = new Map(
+        (saveData.uiAttributes?.nodes ?? []).map((uiNode) => [uiNode.id, uiNode])
+      );
+
+      // Restore node states (the runtime parameter bag) first.
+      const newNodeStates: Record<string, NodeRuntimeState> = {};
+      saveData.model.nodes.forEach((node) => {
+        newNodeStates[node.id] = { parameters: node.attributes ?? {} };
+      });
+      setNodeStates(newNodeStates);
+
+      // Recombine model + UI data into ReactFlow nodes.
+      setNodes(
+        saveData.model.nodes.map((node) => {
+          const ui = uiNodeById.get(node.id);
+          return {
+            id: node.id,
+            type: node.type,
+            position: ui?.position ?? { x: 0, y: 0 },
+            data: ui?.data ?? {},
+          };
+        })
+      );
+
+      const modelEdges = saveData.model.edges ?? [];
+
+      // Restore edge states, falling back to template defaults when a saved
+      // edge carries no attributes.
+      const newEdgeStates: Record<string, EdgeRuntimeState> = {};
+      modelEdges.forEach((edge) => {
+        if (edge.attributes) {
+          newEdgeStates[edge.id] = { parameters: edge.attributes };
+        } else {
+          const edgeTemplate = edgeInfo[edge.type || 'flow'];
+          if (!edgeTemplate) {
+            console.warn(`Edge template not found for type ${edge.type}, using flow type`);
+          }
+
+          const defaultParameters: Record<string, unknown> = {};
+          if (edgeTemplate) {
+            for (const key in edgeTemplate.parameters) {
+              defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
+            }
+          }
+
+          newEdgeStates[edge.id] = { parameters: defaultParameters };
+        }
+      });
+      setEdgeStates(newEdgeStates);
+
+      // Rebuild ReactFlow edges from the model topology.
+      setEdges(
+        modelEdges.map((edge) => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle ?? undefined,
+          targetHandle: edge.targetHandle ?? undefined,
+          type: edge.type,
+        }))
+      );
+
+      // Restore counters
+      setNodeCounters(saveData.uiState?.counters?.nodeCounters ?? {});
+      setTotalNodeCounters(saveData.uiState?.counters?.totalNodeCounters ?? {});
+
+      debugLog('Successfully loaded canvas state from file');
+      if (saveData.timestamp) {
+        debugLog('File was saved on: ' + new Date(saveData.timestamp).toLocaleString());
+      }
+    },
+    [
+      reset,
+      setNodes,
+      setEdges,
+      setNodeStates,
+      setNodeCounters,
+      setTotalNodeCounters,
+      setEdgeStates,
+      edgeInfo,
+    ]
+  );
+
+  // Holds a parsed payload whose target model is still loading. Once the model
+  // selector switches and the new model finishes loading, the deferred-apply
+  // effect below restores it.
+  const pendingLoadRef = useRef<SaveFilePayload | null>(null);
+
+  // Applies a deferred load once its target model has finished loading.
+  //
+  // Switching the active model triggers a canvas reset (see the model-change
+  // effect above). This effect is declared afterwards so that, within the same
+  // commit, the reset runs first and the restored data wins.
+  useEffect(() => {
+    const pending = pendingLoadRef.current;
+    if (!pending) return;
+    if (modelId !== pending.model.id) return;
+    pendingLoadRef.current = null;
+    applySaveData(pending);
+  }, [modelId, applySaveData]);
+
+  /**
+   * Loads and restores the canvas state from a YAML save file.
+   *
+   * If the file targets a model that is not in the available models, the load
+   * is refused and the current canvas is left untouched. When the target model
+   * differs from the active one, the model selector is switched and the data is
+   * applied once the new model finishes loading.
+   *
+   * @param {File} file - The YAML file to load
    */
   const loadFromFile = useCallback(
     (file: File) => {
@@ -858,83 +983,45 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
           if (typeof raw !== 'string') {
             throw new Error('Invalid file contents');
           }
-          const saveData = JSON.parse(raw) as SaveFilePayload;
+
+          const saveData = yaml.load(raw) as SaveFilePayload | null;
 
           // Check version compatibility
-          if (!saveData.version) {
+          if (!saveData || !saveData.version) {
             throw new Error('Invalid save file: Missing version information');
           }
 
           const [major] = saveData.version.split('.');
-          if (parseInt(major) > 1) {
+          if (parseInt(major) > 2) {
             throw new Error(
               'This save file was created with a newer version and is not compatible.'
             );
           }
 
-          // Reset current state
-          reset();
+          if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
+            throw new Error('Invalid save file: Missing model data');
+          }
 
-          // Restore node states first
-          const newNodeStates: Record<string, NodeRuntimeState> = {};
-          saveData.nodes.forEach((node) => {
-            if (node.state) {
-              newNodeStates[node.id] = node.state;
-            }
-          });
-          setNodeStates(newNodeStates);
+          // Refuse the load when the target model is unavailable, leaving the
+          // current canvas untouched.
+          const targetModelId = saveData.model.id;
+          if (targetModelId && !models.some((m) => m.id === targetModelId)) {
+            pendingLoadRef.current = null;
+            throw new Error(
+              `The model "${targetModelId}" required by this file is not available. ` +
+                'Load cancelled.'
+            );
+          }
 
-          // Restore nodes
-          setNodes(
-            saveData.nodes.map((node) => ({
-              id: node.id,
-              type: node.type,
-              position: node.position,
-              data: node.data,
-            }))
-          );
-
-          // Create edge states for each edge
-          const newEdgeStates: Record<string, EdgeRuntimeState> = {};
-          saveData.edges.forEach((edge) => {
-            if (edge.state) {
-              // Use saved state if it exists
-              newEdgeStates[edge.id] = edge.state;
-            } else {
-              // Fallback to creating new state from template
-              const edgeTemplate = edgeInfo[edge.type || 'flow'];
-              if (!edgeTemplate) {
-                console.warn(`Edge template not found for type ${edge.type}, using flow type`);
-              }
-
-              // Get default parameters from edgeInfo
-              const defaultParameters: Record<string, unknown> = {};
-              if (edgeTemplate) {
-                for (const key in edgeTemplate.parameters) {
-                  defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
-                }
-              }
-
-              // Create the edge state
-              newEdgeStates[edge.id] = {
-                parameters: defaultParameters,
-              };
-            }
-          });
-
-          // Set edge states
-          setEdgeStates(newEdgeStates);
-
-          // Restore edges
-          setEdges(saveData.edges);
-
-          // Restore counters
-          setNodeCounters(saveData.nodeCounters);
-          setTotalNodeCounters(saveData.totalNodeCounters);
-
-          debugLog('Successfully loaded canvas state from file');
-          if (saveData.timestamp) {
-            debugLog('File was saved on: ' + new Date(saveData.timestamp).toLocaleString());
+          if (!targetModelId || targetModelId === modelId) {
+            // Target model is already active: apply immediately.
+            pendingLoadRef.current = null;
+            applySaveData(saveData);
+          } else {
+            // Switch the model selector and defer the restore until the new
+            // model has loaded.
+            pendingLoadRef.current = saveData;
+            setActiveModelId(targetModelId);
           }
         } catch (error: unknown) {
           console.error('Error loading canvas state:', error);
@@ -950,16 +1037,7 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
 
       reader.readAsText(file);
     },
-    [
-      reset,
-      setNodes,
-      setEdges,
-      setNodeStates,
-      setNodeCounters,
-      setTotalNodeCounters,
-      setEdgeStates,
-      edgeInfo,
-    ]
+    [models, modelId, setActiveModelId, applySaveData]
   );
 
   /**
