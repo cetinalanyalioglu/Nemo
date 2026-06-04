@@ -4,6 +4,7 @@ import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
+import { selectIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
@@ -103,12 +104,11 @@ export const baseElementInfo: ElementInfoEntry = {
 };
 
 const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
-  // Per-node selectors: this component re-renders only when its own state or
-  // editing state changes (not when other nodes move), eliminating the
-  // all-nodes-per-drag-frame re-render of the previous context architecture.
+  // Per-node selectors: re-render when this node's state, editing state, or
+  // incident edges change — not on unrelated edge updates or node drags.
   const nodeState = useGraphStore((s) => s.nodeStates[id]);
   const editingState = useGraphStore((s) => s.editingStates[id]);
-  const edges = useGraphStore((s) => s.edges);
+  const incidentEdgesSignature = useGraphStore(selectIncidentEdgesSignature(id));
   const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
   const updateEdges = useGraphStore((s) => s.updateEdges);
   const contextStartEditing = useGraphStore((s) => s.startEditing);
@@ -160,9 +160,10 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   // When a dynamic-port count shrinks, prune any edges connected to ports that
   // no longer exist. Handle ids are positional, so no renumbering is required.
   useLayoutEffect(() => {
-    if (!config?.dynamicPorts || !config.dynamicPortConfig || !nodeState || !edges) return;
+    if (!config?.dynamicPorts || !config.dynamicPortConfig || !nodeState) return;
 
     try {
+      const edges = useGraphStore.getState().edges;
       const targetCount = calculatedPorts.target.length;
       const sourceCount = calculatedPorts.source.length;
       const removedEdgeIds: string[] = [];
@@ -213,7 +214,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     nodeState,
     calculatedPorts.target.length,
     calculatedPorts.source.length,
-    edges,
+    incidentEdgesSignature,
     updateEdges,
     updateNodeInternals,
   ]);
