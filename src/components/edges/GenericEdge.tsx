@@ -1,13 +1,8 @@
-import React, { memo } from 'react';
-import {
-  BaseEdge,
-  getBezierPath,
-  getStraightPath,
-  getSmoothStepPath,
-  getSimpleBezierPath,
-} from 'reactflow';
-import type { EdgeProps } from 'reactflow';
-import { useLayoutState } from '../../context/AppStateContext';
+import React, { memo, useMemo } from 'react';
+import { BaseEdge, type EdgeProps } from 'reactflow';
+import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
+import EdgeMidpointMarker from './EdgeMidpointMarker';
+import { computeEdgePathGeometry } from './edge-path-utils';
 
 const BaseEdgeStyled = BaseEdge as React.ComponentType<
   React.ComponentProps<typeof BaseEdge> & { className?: string }
@@ -44,28 +39,29 @@ const GenericEdge = ({
   targetY,
   sourcePosition,
   targetPosition,
-  // eslint-disable-next-line no-unused-vars
-  selected: _selected,
+  selected = false,
   style = {},
 }: EdgeProps) => {
   const { edgePathStyle } = useLayoutState();
+  const { showEdgeBadges } = useAppearanceState();
 
-  const pathArgs = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
-
-  let edgePath: string;
-  if (edgePathStyle === 'straight') {
-    [edgePath] = getStraightPath(pathArgs);
-  } else if (edgePathStyle === 'smoothstep') {
-    [edgePath] = getSmoothStepPath(pathArgs);
-  } else if (edgePathStyle === 'simplebezier') {
-    [edgePath] = getSimpleBezierPath(pathArgs);
-  } else {
-    [edgePath] = getBezierPath(pathArgs);
-  }
+  const {
+    path: edgePath,
+    labelX,
+    labelY,
+  } = useMemo(
+    () =>
+      computeEdgePathGeometry(
+        { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition },
+        edgePathStyle
+      ),
+    [edgePathStyle, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
+  );
 
   return (
     <>
       <BaseEdgeStyled id={id} path={edgePath} className="custom-edge" style={style} />
+      {showEdgeBadges && <EdgeMidpointMarker labelX={labelX} labelY={labelY} selected={selected} />}
     </>
   );
 };
