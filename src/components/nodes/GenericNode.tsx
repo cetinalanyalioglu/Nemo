@@ -4,7 +4,7 @@ import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
-import { useAppState } from '../../context/AppStateContext';
+import { useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
 import type {
@@ -119,9 +119,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const { getNode, getZoom } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
-  const {
-    grid: { snapToGrid, size: gridSize },
-  } = useAppState();
+  const { snapToGrid, size: gridSize } = useGridState();
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);

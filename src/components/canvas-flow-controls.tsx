@@ -2,7 +2,7 @@ import React, { memo, useCallback } from 'react';
 import { ControlButton, useStore, useStoreApi } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
-import { useAppState } from '../context/AppStateContext';
+import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
 import { getLayoutedElements } from '../utils/layoutUtils';
@@ -26,10 +26,8 @@ const UnlockIcon = () => (
 );
 
 export const SnapToGridControl = memo(() => {
-  const {
-    grid: { snapToGrid },
-    actions,
-  } = useAppState();
+  const { snapToGrid } = useGridState();
+  const { actions } = useAppState();
 
   return (
     <ControlButton
@@ -51,9 +49,7 @@ export const AutoLayoutControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const recordHistory = useGraphStore((s) => s.recordHistory);
-  const {
-    layout: { nodeSep, rankSep },
-  } = useAppState();
+  const { nodeSep, rankSep } = useLayoutState();
 
   const onLayout = useCallback(() => {
     if (!reactFlowInstance) return;

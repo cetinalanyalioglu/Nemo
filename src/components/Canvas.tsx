@@ -14,7 +14,7 @@ import { CanvasZoomIndicator } from './canvas-zoom-indicator';
 import CanvasHistoryControls from './canvas-history-controls';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
-import { useAppState } from '../context/AppStateContext';
+import { useGridState, useLayoutState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 
 // Stable fallbacks so ReactFlow never receives undefined type maps while a
@@ -42,10 +42,8 @@ const Canvas = () => {
   const undo = useGraphStore((s) => s.undo);
   const redo = useGraphStore((s) => s.redo);
 
-  const {
-    grid: { snapToGrid, size: gridSize },
-    layout: { showMinimap },
-  } = useAppState();
+  const { snapToGrid, size: gridSize } = useGridState();
+  const { showMinimap } = useLayoutState();
 
   const { model } = useModel();
   const nodeTypes = useMemo(() => model?.nodeTypes ?? EMPTY_NODE_TYPES, [model?.nodeTypes]);
