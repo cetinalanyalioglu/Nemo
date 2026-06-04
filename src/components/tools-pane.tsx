@@ -2,12 +2,12 @@ import React from 'react';
 import { IoChevronBackCircleOutline, IoConstructOutline, IoChevronDown } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
 const ToolsPane = React.memo(() => {
-  const { regenerateSolverIndices } = useNodeContext();
+  const regenerateSolverIndices = useGraphStore((s) => s.regenerateSolverIndices);
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,

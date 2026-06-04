@@ -1,5 +1,5 @@
 import React from 'react';
-import { NodeProvider } from './context/NodeContext';
+import GraphStoreBridge from './store/GraphStoreBridge';
 import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
 import ToolsPane from './components/tools-pane';
@@ -36,11 +36,10 @@ function App() {
   return (
     <ReactFlowProvider>
       <ModelProvider>
-        <NodeProvider>
-          <AppStateProvider>
-            <AppContent />
-          </AppStateProvider>
-        </NodeProvider>
+        <AppStateProvider>
+          <GraphStoreBridge />
+          <AppContent />
+        </AppStateProvider>
       </ModelProvider>
     </ReactFlowProvider>
   );

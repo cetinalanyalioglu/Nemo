@@ -5,7 +5,7 @@ import type {
   NodeRuntimeState,
   EdgeRuntimeState,
 } from '../types/flow';
-import { useNodeContext } from '../context/NodeContext';
+import { useGraphStore } from '../store/graphStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import '../styles/properties-panel.css';
@@ -42,15 +42,22 @@ const formatTitle = (title: string) => {
  * @returns {React.Component} Properties panel for editing element parameters
  */
 const PropertiesPanel = React.memo(() => {
-  const {
-    selectedNodeId,
-    selectedEdgeId,
-    nodeStates,
-    edgeStates,
-    nodes,
-    updateNodeParameter,
-    updateEdgeParameter,
-  } = useNodeContext();
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
+  const selectedEdgeId = useGraphStore((s) => s.selectedEdgeId);
+  const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
+  const updateEdgeParameter = useGraphStore((s) => s.updateEdgeParameter);
+  const elementState = useGraphStore((s) =>
+    s.selectedEdgeId
+      ? s.edgeStates[s.selectedEdgeId]
+      : s.selectedNodeId
+        ? s.nodeStates[s.selectedNodeId]
+        : undefined
+  );
+  // Returns a primitive type string, so this re-renders only when the selected
+  // node's type changes (not on every node move).
+  const selectedNodeType = useGraphStore((s) =>
+    s.selectedNodeId ? (s.nodes.find((n) => n.id === s.selectedNodeId)?.type ?? null) : null
+  );
 
   const {
     propertiesPanel: { isOpen, collapsedGroups },
@@ -85,18 +92,15 @@ const PropertiesPanel = React.memo(() => {
   // Get the appropriate state and info based on selection
   const isEdge = !!selectedEdgeId;
   const selectedId = isEdge ? selectedEdgeId! : selectedNodeId!;
-  const elementState = isEdge ? edgeStates[selectedEdgeId!] : nodeStates[selectedNodeId!];
 
-  // Find element type - simplified to use node.type directly from nodes array
   // Must be called before early returns to satisfy Rules of Hooks
   const elementType = useMemo(() => {
     if (!selectedNodeId && !selectedEdgeId) return null;
     if (isEdge) {
       return 'flow'; // For now, all edges are flow edges
     }
-    const node = nodes.find((n) => n.id === selectedNodeId);
-    return node?.type || null;
-  }, [isEdge, nodes, selectedNodeId, selectedEdgeId]);
+    return selectedNodeType;
+  }, [isEdge, selectedNodeType, selectedNodeId, selectedEdgeId]);
 
   // Get parameters info based on element type
   // Must be called before early returns to satisfy Rules of Hooks

@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect, memo } from 'react';
 import { Handle, useReactFlow, useUpdateNodeInternals, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
-import { useNodeContext } from '../../context/NodeContext';
+import { useGraphStore } from '../../store/graphStore';
 import { useAppState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
@@ -103,18 +103,19 @@ export const baseElementInfo: ElementInfoEntry = {
 };
 
 const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
-  const {
-    nodeStates,
-    updateNodeParameter,
-    edges,
-    updateEdges,
-    editingStates,
-    startEditing: contextStartEditing,
-    onChange: contextOnChange,
-    onKeyDown: contextOnKeyDown,
-    finishEditing: contextFinishEditing,
-    recordHistory,
-  } = useNodeContext();
+  // Per-node selectors: this component re-renders only when its own state or
+  // editing state changes (not when other nodes move), eliminating the
+  // all-nodes-per-drag-frame re-render of the previous context architecture.
+  const nodeState = useGraphStore((s) => s.nodeStates[id]);
+  const editingState = useGraphStore((s) => s.editingStates[id]);
+  const edges = useGraphStore((s) => s.edges);
+  const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
+  const updateEdges = useGraphStore((s) => s.updateEdges);
+  const contextStartEditing = useGraphStore((s) => s.startEditing);
+  const contextOnChange = useGraphStore((s) => s.onChange);
+  const contextOnKeyDown = useGraphStore((s) => s.onKeyDown);
+  const contextFinishEditing = useGraphStore((s) => s.finishEditing);
+  const recordHistory = useGraphStore((s) => s.recordHistory);
   const { getNode } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
@@ -127,8 +128,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const [isResizing, setIsResizing] = useState(false);
 
   const config = type && model ? model.nodeConfig[type] : undefined;
-  const nodeState = nodeStates[id];
-  const editingState = editingStates[id] || { isEditing: false, tempLabel: '' };
+  const editingStateValue = editingState || { isEditing: false, tempLabel: '' };
 
   /**
    * Computes the ports rendered for this node. For dynamic-port nodes the
@@ -484,9 +484,9 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       <div className="middle-section">
         {TypeIcon && <TypeIcon className="node-type-icon" />}
         <div className="custom-node-content">
-          {editingState.isEditing ? (
+          {editingStateValue.isEditing ? (
             <input
-              value={editingState.tempLabel}
+              value={editingStateValue.tempLabel}
               onChange={(e) => contextOnChange(id, e)}
               onBlur={() => contextFinishEditing(id)}
               onKeyDown={(e) => contextOnKeyDown(id, e)}
@@ -516,4 +516,4 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   );
 };
 
-export default GenericNode;
+export default memo(GenericNode);

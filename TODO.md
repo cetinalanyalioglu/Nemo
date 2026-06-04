@@ -1,6 +1,6 @@
 ## General
 
-- [ ] Better state and context management
+- [x] Better state and context management
 - [ ] Testing
 
 ## Feature
