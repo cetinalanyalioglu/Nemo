@@ -122,13 +122,41 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
     canRedo,
   } = useCanvasHistory();
 
+  // Mirror of the live canvas state, kept in a ref so snapshot capture can read
+  // the latest values without putting state in the capture callback's
+  // dependencies. This keeps captureSnapshot/recordHistory (and the mutation
+  // callbacks that depend on them) referentially stable, which is essential:
+  // an unstable recordHistory would make GenericNode's dynamic-port effect
+  // re-run on every node change and spin updateNodeInternals into a loop.
+  const liveStateRef = useRef({
+    nodes,
+    edges,
+    nodeStates,
+    edgeStates,
+    nodeCounters,
+    totalNodeCounters,
+  });
+  useEffect(() => {
+    liveStateRef.current = {
+      nodes,
+      edges,
+      nodeStates,
+      edgeStates,
+      nodeCounters,
+      totalNodeCounters,
+    };
+  }, [nodes, edges, nodeStates, edgeStates, nodeCounters, totalNodeCounters]);
+
   /**
    * Builds a serializable snapshot of the current canvas graph. Only the
    * fields needed for a full restore are captured, which naturally excludes
-   * transient concerns like selection and viewport.
+   * transient concerns like selection and viewport. Reads from a ref so the
+   * callback stays referentially stable.
    */
-  const captureSnapshot = useCallback(
-    (): CanvasSnapshot => ({
+  const captureSnapshot = useCallback((): CanvasSnapshot => {
+    const { nodes, edges, nodeStates, edgeStates, nodeCounters, totalNodeCounters } =
+      liveStateRef.current;
+    return {
       nodes: nodes.map((node) => ({
         id: node.id,
         type: node.type,
@@ -147,9 +175,8 @@ export const NodeProvider = ({ children }: { children: React.ReactNode }) => {
       edgeStates: JSON.parse(JSON.stringify(edgeStates)),
       nodeCounters: { ...nodeCounters },
       totalNodeCounters: { ...totalNodeCounters },
-    }),
-    [nodes, edges, nodeStates, edgeStates, nodeCounters, totalNodeCounters]
-  );
+    };
+  }, []);
 
   /**
    * Replaces the live canvas state with a previously captured snapshot. Clears
