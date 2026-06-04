@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
+import type { ConsoleTab } from '../types/console';
+import { CONSOLE_DEFAULT_HEIGHT } from '../types/console';
 
 export type SidebarPane = 'library' | 'document' | 'tools' | 'settings';
 export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier';
@@ -25,6 +27,7 @@ type AppStateSnapshot = {
   viewport: { zoom: number };
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
+  consolePane: { isOpen: boolean; activeTab: ConsoleTab; height: number };
   grid: GridState;
   appearance: AppearanceState;
   layout: LayoutState;
@@ -41,6 +44,12 @@ type AppActions = {
     toggle: () => void;
     toggleGroup: (category: string) => void;
     setIsOpen: (isOpen: boolean) => void;
+  };
+  consolePane: {
+    toggle: () => void;
+    setIsOpen: (isOpen: boolean) => void;
+    selectTab: (tab: ConsoleTab) => void;
+    setHeight: (height: number) => void;
   };
   grid: {
     toggleSnap: () => void;
@@ -82,6 +91,15 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   }>({
     isOpen: false,
     collapsedGroups: {},
+  });
+  const [consolePaneState, setConsolePane] = useState<{
+    isOpen: boolean;
+    activeTab: ConsoleTab;
+    height: number;
+  }>({
+    isOpen: false,
+    activeTab: 'logs',
+    height: CONSOLE_DEFAULT_HEIGHT,
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
   const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
@@ -154,6 +172,22 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setPropertiesPanel((prev) => ({ ...prev, isOpen }));
   }, []);
 
+  const consolePaneToggle = useCallback(() => {
+    setConsolePane((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+  }, []);
+
+  const consolePaneSetIsOpen = useCallback((isOpen: boolean) => {
+    setConsolePane((prev) => ({ ...prev, isOpen }));
+  }, []);
+
+  const consolePaneSelectTab = useCallback((tab: ConsoleTab) => {
+    setConsolePane((prev) => ({ ...prev, activeTab: tab, isOpen: true }));
+  }, []);
+
+  const consolePaneSetHeight = useCallback((height: number) => {
+    setConsolePane((prev) => ({ ...prev, height }));
+  }, []);
+
   const gridToggleSnap = useCallback(() => {
     setGrid((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
   }, []);
@@ -201,6 +235,12 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         toggleGroup: propertiesPanelToggleGroup,
         setIsOpen: propertiesPanelSetIsOpen,
       },
+      consolePane: {
+        toggle: consolePaneToggle,
+        setIsOpen: consolePaneSetIsOpen,
+        selectTab: consolePaneSelectTab,
+        setHeight: consolePaneSetHeight,
+      },
       grid: {
         toggleSnap: gridToggleSnap,
         updateSize: gridUpdateSize,
@@ -224,6 +264,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanelToggle,
       propertiesPanelToggleGroup,
       propertiesPanelSetIsOpen,
+      consolePaneToggle,
+      consolePaneSetIsOpen,
+      consolePaneSelectTab,
+      consolePaneSetHeight,
       gridToggleSnap,
       gridUpdateSize,
       appearanceSetTheme,
@@ -240,6 +284,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       viewport: viewportState,
       sidebar: sidebarState,
       propertiesPanel: propertiesPanelState,
+      consolePane: consolePaneState,
       grid: gridState,
       appearance: appearanceState,
       layout: layoutState,
@@ -249,6 +294,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       viewportState,
       sidebarState,
       propertiesPanelState,
+      consolePaneState,
       gridState,
       appearanceState,
       layoutState,

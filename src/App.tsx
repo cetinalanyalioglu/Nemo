@@ -5,6 +5,7 @@ import DocumentPane from './components/document-pane';
 import ToolsPane from './components/tools-pane';
 import SettingsPane from './components/settings-pane';
 import Canvas from './components/Canvas';
+import ConsolePane from './components/console-pane';
 import PropertiesPanel from './components/PropertiesPanel';
 import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
@@ -27,7 +28,12 @@ function AppContent() {
       <NavigationControls />
       {renderPane()}
       <div className="canvas-container">
-        <Canvas />
+        <div className="canvas-workspace">
+          <div className="canvas-area">
+            <Canvas />
+          </div>
+          <ConsolePane />
+        </div>
       </div>
       <PropertiesPanel />
     </div>

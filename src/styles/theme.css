@@ -58,6 +58,9 @@
   --layout-sidebar-width: 250px;
   --layout-panel-width: 250px;
   --layout-sidebar-collapsed-offset: 60px;
+  --layout-console-height: 200px;
+  --layout-console-header-height: 40px;
+  --shadow-console: 0 -2px 5px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme='dark'] {

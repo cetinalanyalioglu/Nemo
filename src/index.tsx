@@ -11,10 +11,14 @@ if (isDebugMode()) {
   console.log('Debug mode is enabled.');
 }
 
+const isResizeObserverNoise = (message: unknown): boolean => {
+  const text = typeof message === 'string' ? message : String(message ?? '');
+  return text.includes('ResizeObserver loop');
+};
+
 const originalError = console.error;
 console.error = (...args: unknown[]) => {
-  const msg = args[0]?.toString() ?? '';
-  if (msg.includes('ResizeObserver loop') || msg.includes('ResizeObserver loop completed')) {
+  if (isResizeObserverNoise(args[0])) {
     return;
   }
   originalError.apply(console, args as never);
@@ -22,10 +26,7 @@ console.error = (...args: unknown[]) => {
 
 const originalHandler = window.onerror;
 window.onerror = (message, source, lineno, colno, error) => {
-  if (
-    typeof message === 'string' &&
-    (message.includes('ResizeObserver loop') || message.includes('ResizeObserver loop completed'))
-  ) {
+  if (isResizeObserverNoise(message)) {
     return true;
   }
   if (originalHandler) {
@@ -33,6 +34,16 @@ window.onerror = (message, source, lineno, colno, error) => {
   }
   return false;
 };
+
+window.addEventListener(
+  'error',
+  (event) => {
+    if (isResizeObserverNoise(event.message)) {
+      event.stopImmediatePropagation();
+    }
+  },
+  true
+);
 
 const container = document.getElementById('root');
 if (!container) {
