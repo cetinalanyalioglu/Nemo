@@ -15,8 +15,6 @@
 - [ ] Edges should be able to display information using a label
 - [ ] Management of edge and node based data
 - [ ] Rendering edge and node based data
-- [ ] Settings panel triggered from navigation controls
-    - [ ] Automatic layout customization
 
 ## Extensibility
 
@@ -40,6 +38,6 @@
 - [ ] Ensure style is completely handled in CSS and placed outside functional code
 - [x] Theme capability, e.g. dark/light
 - [x] Edge lengths are too long in the automatically generated layout
-- [ ] Minimap should be optional
+- [x] Minimap should be optional
 - [ ] Console
 - [ ] Add setting: force unique node labels or not

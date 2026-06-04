@@ -5,6 +5,8 @@ import {
   IoSettingsOutline,
   IoAdd,
   IoRemove,
+  IoCheckbox,
+  IoSquareOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
@@ -95,6 +97,29 @@ type SettingsSelectFieldProps = {
   onChange: (value: string) => void;
 };
 
+type SettingsBooleanFieldProps = {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+};
+
+const SettingsBooleanField = ({ label, checked, onToggle }: SettingsBooleanFieldProps) => (
+  <div className="parameter-row">
+    <div className="boolean-parameter-row">
+      <label className="parameter-label">{label}</label>
+      <button
+        type="button"
+        className={`checkbox-wrapper ${checked ? 'checked' : ''}`}
+        onClick={onToggle}
+        aria-pressed={checked}
+        aria-label={label}
+      >
+        {checked ? <IoCheckbox /> : <IoSquareOutline />}
+      </button>
+    </div>
+  </div>
+);
+
 const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSelectFieldProps) => (
   <div className="parameter-row">
     <label className="parameter-label" htmlFor={id}>
@@ -121,7 +146,7 @@ const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSe
 const SettingsPane = React.memo(() => {
   const {
     appearance: { theme },
-    layout: { edgePathStyle, nodeSep, rankSep },
+    layout: { edgePathStyle, nodeSep, rankSep, showMinimap },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -213,6 +238,11 @@ const SettingsPane = React.memo(() => {
             label="Rank spacing"
             value={rankSep}
             onChange={handleRankSepChange}
+          />
+          <SettingsBooleanField
+            label="Minimap"
+            checked={showMinimap}
+            onToggle={actions.layout.toggleMinimap}
           />
         </div>
       </div>

@@ -283,7 +283,9 @@
   align-items: center;
   cursor: pointer;
   padding: 2px;
+  border: none;
   border-radius: 4px;
+  background: transparent;
   transition: all 0.2s ease;
 }
 
