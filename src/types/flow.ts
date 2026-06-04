@@ -149,21 +149,61 @@ export interface ModelSummary {
   description?: string;
 }
 
-/** Edge as stored in canvas.json (includes optional runtime `state`). */
-export type SerializedEdge = Edge & { state?: EdgeRuntimeState };
+/**
+ * A node as stored in the `model` section of the save file. Holds only data
+ * required to reconstruct the simulation model (identity, type and the runtime
+ * parameter bag), deliberately excluding presentation concerns.
+ */
+export interface SaveFileModelNode {
+  id: string;
+  type: string;
+  attributes: ParameterValues;
+}
 
+/**
+ * An edge as stored in the `model` section of the save file. Connection
+ * topology plus the runtime parameter bag; no presentation concerns.
+ */
+export interface SaveFileModelEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  type?: string;
+  attributes: ParameterValues;
+}
+
+/** A node's presentation data, stored separately from its model data. */
+export interface SaveFileUiNode {
+  id: string;
+  position: XYPosition;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Full save file payload. Model data (the simulation graph) and UI data
+ * (presentation) are kept in separate sections, while together they contain
+ * everything required for a complete restore.
+ */
 export interface SaveFilePayload {
   version: string;
   timestamp?: string;
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: XYPosition;
-    data: Record<string, unknown>;
-    state?: NodeRuntimeState;
-    ports?: { target: { id: string | null }[]; source: { id: string | null }[] };
-  }>;
-  edges: SerializedEdge[];
-  nodeCounters: Record<string, number>;
-  totalNodeCounters: Record<string, number>;
+  model: {
+    /** Id of the model definition (node/edge library) this document targets. */
+    id?: string;
+    /** Model-wide attributes. Reserved for future use. */
+    globalAttributes: Record<string, unknown>;
+    nodes: SaveFileModelNode[];
+    edges: SaveFileModelEdge[];
+  };
+  uiAttributes: {
+    nodes: SaveFileUiNode[];
+  };
+  uiState: {
+    counters: {
+      nodeCounters: Record<string, number>;
+      totalNodeCounters: Record<string, number>;
+    };
+  };
 }

@@ -70,7 +70,7 @@ const DocumentPane = React.memo(() => {
             type="file"
             ref={fileInputRef}
             onChange={handleFileSelect}
-            accept=".json"
+            accept=".yaml,.yml"
             style={{ display: 'none' }}
           />
           <div className="document-pane-file-actions">
