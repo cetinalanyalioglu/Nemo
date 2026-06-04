@@ -180,13 +180,7 @@ const Canvas = () => {
   }, [handleKeyDown]);
 
   return (
-    <div
-      className="canvas-wrapper"
-      style={{ flex: 1 }}
-      ref={reactFlowWrapper}
-      onDrop={onDrop}
-      onDragOver={onDragOver}
-    >
+    <div className="canvas-wrapper" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -217,7 +211,7 @@ const Canvas = () => {
             id="background-lines"
             className="background-lines"
             lineWidth={0.5}
-            color="#e1e1e1"
+            color="var(--color-canvas-grid-line)"
           />
           <Background
             variant={BackgroundVariant.Cross}
@@ -225,7 +219,7 @@ const Canvas = () => {
             size={3}
             id="background-cross"
             className="background-cross"
-            color="#d9d9d9"
+            color="var(--color-canvas-grid-cross)"
           />
         </>
         <Controls showInteractive={false}>

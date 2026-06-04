@@ -111,12 +111,7 @@ const NodeLibrary = React.memo(() => {
           <div className="group-header" onClick={() => actions.sidebar.toggleGroup(category)}>
             <div className="group-header-content">
               <span>{formatCategoryName(category)}</span>
-              <IoChevronDown
-                className="group-collapse-icon"
-                style={{
-                  transform: collapsedGroups[category] ? 'rotate(-90deg)' : 'rotate(0deg)',
-                }}
-              />
+              <IoChevronDown className="group-collapse-icon" />
             </div>
           </div>
           <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>

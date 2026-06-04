@@ -13,8 +13,8 @@
   height: 40px;
   border-radius: 8px;
   border: none;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -22,18 +22,18 @@
   font-size: 20px;
   position: relative;
   overflow: hidden;
-  color: #1a1a1a;
+  color: var(--color-text-nav);
   transition: all 0.2s ease;
 }
 
 .nav-button:hover {
-  background-color: #d4a72c;
-  color: white;
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
 .nav-button.active {
-  background-color: #d4a72c;
-  color: white;
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
 .control-button {
@@ -41,8 +41,8 @@
   height: 40px;
   border-radius: 8px;
   border: none;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,16 +52,16 @@
 }
 
 .control-button:hover {
-  background-color: #d4a72c;
-  color: white;
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
 .control-button svg {
   width: 18px;
   height: 18px;
-  color: #1a1a1a;
+  color: var(--color-text-nav);
 }
 
 .control-button:hover svg {
-  color: white;
+  color: var(--color-text-on-accent);
 }

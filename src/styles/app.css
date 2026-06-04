@@ -1,19 +1,15 @@
-/* Main application layout styles */
-
 .app {
   display: flex;
   height: 100vh;
   position: relative;
 }
 
-/* Main content wrapper */
 .main-content {
   display: flex;
   flex: 1;
   position: relative;
 }
 
-/* Canvas container styles */
 .canvas-container {
   flex: 1;
   position: relative;
@@ -24,32 +20,28 @@
   transition: all 0.3s ease;
 }
 
-/* Shift canvas when sidebar is open */
 .sidebar.open ~ .canvas-container {
-  margin-left: 250px;
+  margin-left: var(--layout-sidebar-width);
 }
 
-/* Shift canvas when properties panel is open */
 .canvas-container.properties-open {
-  margin-right: 250px;
+  margin-right: var(--layout-panel-width);
 }
 
-/* Update ReactFlow container width when properties panel is open */
 .canvas-container.properties-open .react-flow {
   width: 100% !important;
 }
 
-/* Properties panel container styles */
 .properties-panel-container {
   position: fixed;
   top: 0;
   right: 0;
-  width: 250px;
+  width: var(--layout-panel-width);
   height: 100vh;
-  background: white;
+  background: var(--color-surface);
   transition: transform 0.3s ease;
   z-index: 1000;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-panel);
   transform: translateX(100%);
 }
 
@@ -61,6 +53,6 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 250px;
+  width: var(--layout-panel-width);
   height: 100%;
 }

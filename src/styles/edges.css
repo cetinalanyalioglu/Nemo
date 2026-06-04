@@ -1,28 +1,24 @@
-/* Edge styling variables */
 :root {
   --edge-width: 1px;
-  --edge-color: #4a4a4aa9;
-  --highlight-color: #d4a72c;
   --highlight-width: 1px;
 }
 
-/* Base edge path styles */
 .react-flow__edge-path {
   stroke-width: var(--edge-width);
-  stroke: var(--edge-color);
+  stroke: var(--color-edge);
   transition: all 0.2s ease;
   stroke-dasharray: none;
   animation: none;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: var(--highlight-color);
-  filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
+  stroke: var(--color-accent);
+  filter: drop-shadow(0 0 var(--highlight-width) var(--color-accent));
 }
 
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--highlight-color);
-  filter: drop-shadow(0 0 var(--highlight-width) var(--highlight-color));
+  stroke: var(--color-accent);
+  filter: drop-shadow(0 0 var(--highlight-width) var(--color-accent));
 }
 
 .react-flow__edge-interaction {
@@ -32,23 +28,21 @@
 }
 
 .react-flow__connection-path {
-  stroke: var(--edge-color);
+  stroke: var(--color-edge);
   stroke-dasharray: 5;
   animation: dashdraw 1s linear infinite;
 }
 
-/* Edge connection validation styles */
 .react-flow__connection.valid path {
-  stroke: #4caf50; /* Valid connection indicator */
-  filter: drop-shadow(0 0 var(--highlight-width) #4caf50);
+  stroke: var(--color-success);
+  filter: drop-shadow(0 0 var(--highlight-width) var(--color-success));
 }
 
 .react-flow__connection.invalid path {
-  stroke: #f44336; /* Invalid connection indicator */
-  filter: drop-shadow(0 0 var(--highlight-width) #f44336);
+  stroke: var(--color-error);
+  filter: drop-shadow(0 0 var(--highlight-width) var(--color-error));
 }
 
-/* Animation for the connecting edge */
 @keyframes dashdraw {
   from {
     stroke-dashoffset: 10;

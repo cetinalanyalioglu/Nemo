@@ -1,49 +1,47 @@
-/* Properties panel layout and transitions */
 .properties-panel-container {
   width: 0;
   transition: width 0.3s ease;
   overflow: hidden;
-  border-left: 1px solid #e0e0e0;
+  border-left: 1px solid var(--color-border-light);
 }
 
 .properties-panel-container.open {
-  width: 250px;
+  width: var(--layout-panel-width);
 }
 
 .properties-panel {
-  width: 250px; /* Fixed width */
+  width: var(--layout-panel-width);
   height: 100%;
-  background: white;
+  background: var(--color-surface);
   overflow-y: auto;
   font-size: 14px;
 }
 
 .panel-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fafafa;
+  background: var(--color-surface-subtle);
 }
 
 .panel-title {
   font-size: 13px;
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-muted);
   letter-spacing: 0.5px;
 }
 
 .panel-icon {
   font-size: 18px;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
-/* Parameter group styling */
 .parameter-group {
   margin: 0;
   padding: 16px;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .parameter-group:last-child {
@@ -52,18 +50,18 @@
 
 .group-header {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-muted);
   font-weight: 500;
   margin: -16px -16px 16px -16px;
   padding: 8px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #eaeaea;
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   user-select: none;
 }
 
 .group-header:hover {
-  background: #f0f0f0;
+  background: var(--color-surface-hover);
 }
 
 .group-header-content {
@@ -83,7 +81,7 @@
 
 .group-content {
   transition: all 0.2s ease;
-  max-height: 1000px; /* sufficiently large value */
+  max-height: 1000px;
   opacity: 1;
   overflow: hidden;
 }
@@ -114,10 +112,9 @@
 
 .parameter-label {
   font-size: 12px;
-  color: #333;
+  color: var(--color-text-body);
 }
 
-/* Input controls */
 .parameter-input-container {
   display: flex;
   align-items: center;
@@ -129,34 +126,33 @@
   flex: 1;
   padding: 6px 8px;
   padding-right: 65px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border-light);
   border-radius: 4px;
   font-size: 12px;
   outline: none;
   transition: all 0.2s ease;
-  background: #fafafa;
+  background: var(--color-surface-input);
 }
 
-/* Number input specific styles */
 .parameter-input[type='number'] {
-  -moz-appearance: textfield; /* Remove spinner for Firefox */
+  -moz-appearance: textfield;
 }
 
 .parameter-input[type='number']::-webkit-outer-spin-button,
 .parameter-input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none; /* Remove spinner for Chrome */
+  -webkit-appearance: none;
   margin: 0;
 }
 
 .parameter-input:hover {
-  border-color: #d4a72c;
-  background: white;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .parameter-input:focus {
-  border-color: #d4a72c;
-  box-shadow: 0 0 0 2px rgba(212, 167, 44, 0.2);
-  background: white;
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-accent-focus-strong);
+  background: var(--color-surface);
 }
 
 .number-controls {
@@ -168,11 +164,9 @@
   gap: 2px;
   opacity: 0;
   transition: opacity 0.2s;
-  /* Position to the right of the input when no unit is present */
   right: 8px;
 }
 
-/* When there is a unit, position the controls before it */
 .parameter-input-container:has(.parameter-unit) .number-controls {
   right: 42px;
 }
@@ -186,8 +180,8 @@
   width: 14px;
   height: 11px;
   border: none;
-  background: #d4a72c;
-  color: white;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
   font-size: 10px;
   cursor: pointer;
   display: flex;
@@ -198,13 +192,13 @@
 }
 
 .number-control-btn:hover {
-  background: #b38a24;
+  background: var(--color-accent-hover);
 }
 
 .parameter-unit {
   position: absolute;
   right: 8px;
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 11px;
   background: transparent;
   padding: 2px 4px;
@@ -222,7 +216,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--color-text-muted);
   padding: 20px;
   text-align: center;
 }
@@ -254,16 +248,16 @@
 }
 
 .checkbox-wrapper:hover {
-  background: #f5f5f5;
+  background: var(--color-surface-muted);
 }
 
 .checkbox-wrapper svg {
   font-size: 18px;
-  color: #d4a72c;
+  color: var(--color-accent);
 }
 
 .checkbox-wrapper.checked svg {
-  color: #d4a72c;
+  color: var(--color-accent);
 }
 
 .checkbox-label {
@@ -274,20 +268,17 @@
   padding-right: 0;
 }
 
-/* Add to existing styles */
-
 .parameter-input.invalid {
-  border-color: #ff4444;
-  background-color: #fff0f0;
+  border-color: var(--color-invalid);
+  background-color: var(--color-invalid-bg);
 }
 
 .parameter-input.invalid:hover,
 .parameter-input.invalid:focus {
-  border-color: #ff4444;
-  box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.2);
+  border-color: var(--color-invalid);
+  box-shadow: var(--shadow-invalid);
 }
 
-/* Tooltip styles */
 .parameter-input.invalid:hover::after {
   content: attr(title);
   position: absolute;
@@ -295,8 +286,8 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 8px;
-  background: #ff4444;
-  color: white;
+  background: var(--color-invalid);
+  color: var(--color-text-on-accent);
   border-radius: 4px;
   font-size: 12px;
   white-space: nowrap;
@@ -304,8 +295,8 @@
 }
 
 .parameter-input.readonly {
-  background-color: #f5f5f5;
-  color: #666;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-muted);
   cursor: not-allowed;
 }
 

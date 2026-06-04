@@ -60,12 +60,7 @@ const DocumentPane = React.memo(() => {
         >
           <div className="group-header-content">
             <span>FILE</span>
-            <IoChevronDown
-              className="group-collapse-icon"
-              style={{
-                transform: collapsedGroups[DOCUMENT_FILE_GROUP] ? 'rotate(-90deg)' : 'rotate(0deg)',
-              }}
-            />
+            <IoChevronDown className="group-collapse-icon" />
           </div>
         </div>
         <div className={`group-content ${collapsedGroups[DOCUMENT_FILE_GROUP] ? 'collapsed' : ''}`}>
@@ -74,7 +69,7 @@ const DocumentPane = React.memo(() => {
             ref={fileInputRef}
             onChange={handleFileSelect}
             accept=".yaml,.yml"
-            style={{ display: 'none' }}
+            className="file-input-hidden"
           />
           <div className="document-pane-file-actions">
             <button type="button" className="document-pane-file-button" onClick={handleNew}>

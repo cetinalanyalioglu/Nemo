@@ -35,14 +35,7 @@ const ToolsPane = React.memo(() => {
         >
           <div className="group-header-content">
             <span>CONNECTIVITY</span>
-            <IoChevronDown
-              className="group-collapse-icon"
-              style={{
-                transform: collapsedGroups[TOOLS_CONNECTIVITY_GROUP]
-                  ? 'rotate(-90deg)'
-                  : 'rotate(0deg)',
-              }}
-            />
+            <IoChevronDown className="group-collapse-icon" />
           </div>
         </div>
         <div
