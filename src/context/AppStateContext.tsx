@@ -9,6 +9,11 @@ type CollapsedGroups = Record<string, boolean>;
 
 export type GridState = { snapToGrid: boolean; size: number };
 
+export type AppearanceState = {
+  theme: ThemeId;
+  showEdgeBadges: boolean;
+};
+
 export type LayoutState = {
   edgePathStyle: EdgePathStyle;
   nodeSep: number;
@@ -21,7 +26,7 @@ type AppStateSnapshot = {
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   grid: GridState;
-  appearance: { theme: ThemeId };
+  appearance: AppearanceState;
   layout: LayoutState;
 };
 
@@ -43,6 +48,7 @@ type AppActions = {
   };
   appearance: {
     setTheme: (theme: ThemeId) => void;
+    toggleEdgeBadges: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -55,6 +61,7 @@ type AppActions = {
 export type AppStateContextValue = AppStateSnapshot & { actions: AppActions };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
+const AppearanceContext = createContext<AppearanceState | null>(null);
 const LayoutContext = createContext<LayoutState | null>(null);
 const GridContext = createContext<GridState | null>(null);
 
@@ -77,8 +84,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     collapsedGroups: {},
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
-  const [appearanceState, setAppearance] = useState<{ theme: ThemeId }>(() => ({
+  const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
     theme: readStoredTheme(),
+    showEdgeBadges: true,
   }));
   const [layoutState, setLayout] = useState<{
     edgePathStyle: EdgePathStyle;
@@ -155,7 +163,11 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   }, []);
 
   const appearanceSetTheme = useCallback((theme: ThemeId) => {
-    setAppearance({ theme });
+    setAppearance((prev) => ({ ...prev, theme }));
+  }, []);
+
+  const appearanceToggleEdgeBadges = useCallback(() => {
+    setAppearance((prev) => ({ ...prev, showEdgeBadges: !prev.showEdgeBadges }));
   }, []);
 
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
@@ -195,6 +207,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       },
       appearance: {
         setTheme: appearanceSetTheme,
+        toggleEdgeBadges: appearanceToggleEdgeBadges,
       },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
@@ -214,6 +227,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       gridToggleSnap,
       gridUpdateSize,
       appearanceSetTheme,
+      appearanceToggleEdgeBadges,
       layoutSetEdgePathStyle,
       layoutSetNodeSep,
       layoutSetRankSep,
@@ -244,9 +258,11 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
 
   return (
     <AppStateContext.Provider value={providerValue}>
-      <LayoutContext.Provider value={layoutState}>
-        <GridContext.Provider value={gridState}>{children}</GridContext.Provider>
-      </LayoutContext.Provider>
+      <AppearanceContext.Provider value={appearanceState}>
+        <LayoutContext.Provider value={layoutState}>
+          <GridContext.Provider value={gridState}>{children}</GridContext.Provider>
+        </LayoutContext.Provider>
+      </AppearanceContext.Provider>
     </AppStateContext.Provider>
   );
 };
@@ -255,6 +271,14 @@ export const useAppState = (): AppStateContextValue => {
   const context = useContext(AppStateContext);
   if (!context) {
     throw new Error('useAppState must be used within an AppStateProvider');
+  }
+  return context;
+};
+
+export const useAppearanceState = (): AppearanceState => {
+  const context = useContext(AppearanceContext);
+  if (!context) {
+    throw new Error('useAppearanceState must be used within an AppStateProvider');
   }
   return context;
 };

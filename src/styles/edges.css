@@ -1,6 +1,33 @@
 :root {
   --edge-width: 1px;
   --highlight-width: 1px;
+  --edge-marker-radius: 6px;
+  --edge-marker-stroke-width: 1.5px;
+}
+
+.edge-midpoint-marker__halo {
+  fill: var(--color-surface);
+  stroke: none;
+  pointer-events: none;
+}
+
+.edge-midpoint-marker__ring {
+  fill: var(--color-surface);
+  stroke: var(--color-edge);
+  stroke-width: var(--edge-marker-stroke-width);
+  pointer-events: none;
+  transition:
+    stroke 0.2s ease,
+    fill 0.2s ease;
+}
+
+.react-flow__edge:hover .edge-midpoint-marker__ring {
+  stroke: var(--color-accent);
+}
+
+.edge-midpoint-marker--selected .edge-midpoint-marker__ring {
+  stroke: var(--color-accent);
+  stroke-width: 2px;
 }
 
 .react-flow__edge-path {
