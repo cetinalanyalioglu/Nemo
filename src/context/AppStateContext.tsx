@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
-import type { ConsoleTab } from '../types/console';
 import { CONSOLE_DEFAULT_HEIGHT } from '../types/console';
 
 export type SidebarPane = 'library' | 'document' | 'tools' | 'settings';
@@ -27,7 +26,7 @@ type AppStateSnapshot = {
   viewport: { zoom: number };
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
-  consolePane: { isOpen: boolean; activeTab: ConsoleTab; height: number };
+  consolePane: { isOpen: boolean; height: number };
   grid: GridState;
   appearance: AppearanceState;
   layout: LayoutState;
@@ -48,7 +47,6 @@ type AppActions = {
   consolePane: {
     toggle: () => void;
     setIsOpen: (isOpen: boolean) => void;
-    selectTab: (tab: ConsoleTab) => void;
     setHeight: (height: number) => void;
   };
   grid: {
@@ -94,11 +92,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   });
   const [consolePaneState, setConsolePane] = useState<{
     isOpen: boolean;
-    activeTab: ConsoleTab;
     height: number;
   }>({
     isOpen: false,
-    activeTab: 'logs',
     height: CONSOLE_DEFAULT_HEIGHT,
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
@@ -180,10 +176,6 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setConsolePane((prev) => ({ ...prev, isOpen }));
   }, []);
 
-  const consolePaneSelectTab = useCallback((tab: ConsoleTab) => {
-    setConsolePane((prev) => ({ ...prev, activeTab: tab, isOpen: true }));
-  }, []);
-
   const consolePaneSetHeight = useCallback((height: number) => {
     setConsolePane((prev) => ({ ...prev, height }));
   }, []);
@@ -238,7 +230,6 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       consolePane: {
         toggle: consolePaneToggle,
         setIsOpen: consolePaneSetIsOpen,
-        selectTab: consolePaneSelectTab,
         setHeight: consolePaneSetHeight,
       },
       grid: {
@@ -266,7 +257,6 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanelSetIsOpen,
       consolePaneToggle,
       consolePaneSetIsOpen,
-      consolePaneSelectTab,
       consolePaneSetHeight,
       gridToggleSnap,
       gridUpdateSize,

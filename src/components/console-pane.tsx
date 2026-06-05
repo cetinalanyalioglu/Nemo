@@ -2,19 +2,12 @@ import React, { useMemo } from 'react';
 import { IoChevronUpOutline, IoTerminalOutline } from 'react-icons/io5';
 import { useAppState } from '../context/AppStateContext';
 import { useConsoleResize } from '../hooks/use-console-resize';
-import type { ConsoleTab } from '../types/console';
 import ConsoleLogsTab from './console-logs-tab';
-import ConsolePythonTab from './console-python-tab';
 import '../styles/console-pane.css';
-
-const TABS: { id: ConsoleTab; label: string; disabled?: boolean }[] = [
-  { id: 'logs', label: 'Logs' },
-  { id: 'python', label: 'Python' },
-];
 
 const ConsolePane = React.memo(() => {
   const {
-    consolePane: { isOpen, activeTab, height },
+    consolePane: { isOpen, height },
     actions,
   } = useAppState();
 
@@ -23,11 +16,6 @@ const ConsolePane = React.memo(() => {
     actions.consolePane.setHeight,
     isOpen
   );
-
-  const handleTabClick = (tab: ConsoleTab) => {
-    if (activeTab === tab && isOpen) return;
-    actions.consolePane.selectTab(tab);
-  };
 
   const paneStyle = useMemo((): React.CSSProperties | undefined => {
     if (!isOpen) return undefined;
@@ -50,21 +38,6 @@ const ConsolePane = React.memo(() => {
           <IoTerminalOutline className="console-pane-icon" aria-hidden />
           <span className="console-pane-title">CONSOLE</span>
         </div>
-        <div className="console-pane-tabs" role="tablist" aria-label="Console views">
-          {TABS.map(({ id, label, disabled }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === id}
-              className={`console-pane-tab ${activeTab === id ? 'active' : ''}`}
-              onClick={() => handleTabClick(id)}
-              disabled={disabled}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         <IoChevronUpOutline
           className="console-pane-toggle"
           onClick={() => actions.consolePane.toggle()}
@@ -79,8 +52,8 @@ const ConsolePane = React.memo(() => {
           }}
         />
       </div>
-      <div className="console-pane-body" role="tabpanel">
-        {activeTab === 'logs' ? <ConsoleLogsTab /> : <ConsolePythonTab />}
+      <div className="console-pane-body">
+        <ConsoleLogsTab />
       </div>
     </div>
   );
