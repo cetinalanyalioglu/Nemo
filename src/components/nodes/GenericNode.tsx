@@ -5,7 +5,7 @@ import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
 import { selectIncidentEdgesSignature } from '../../store/graph-selectors';
-import { useGridState } from '../../context/AppStateContext';
+import { useAppearanceState, useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
 import type {
@@ -120,6 +120,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
   const { snapToGrid, size: gridSize } = useGridState();
+  const { showSolverIndices } = useAppearanceState();
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
@@ -475,9 +476,15 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   }
 
   const TypeIcon = config.icon;
+  const solverIndex = nodeState.parameters.solverIndex;
+  const solverIndexLabel =
+    showSolverIndices && typeof solverIndex === 'number' ? solverIndex : undefined;
 
   return (
     <div className={nodeClasses} ref={nodeRef} style={style}>
+      {solverIndexLabel !== undefined && (
+        <span className="solver-index-label port-index">{solverIndexLabel}</span>
+      )}
       <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>
 
       <div className="middle-section">

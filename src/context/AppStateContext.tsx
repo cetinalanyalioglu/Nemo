@@ -12,6 +12,7 @@ export type GridState = { snapToGrid: boolean; size: number };
 export type AppearanceState = {
   theme: ThemeId;
   showEdgeBadges: boolean;
+  showSolverIndices: boolean;
 };
 
 export type LayoutState = {
@@ -49,6 +50,7 @@ type AppActions = {
   appearance: {
     setTheme: (theme: ThemeId) => void;
     toggleEdgeBadges: () => void;
+    toggleShowSolverIndices: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -87,6 +89,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
     theme: readStoredTheme(),
     showEdgeBadges: true,
+    showSolverIndices: false,
   }));
   const [layoutState, setLayout] = useState<{
     edgePathStyle: EdgePathStyle;
@@ -170,6 +173,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance((prev) => ({ ...prev, showEdgeBadges: !prev.showEdgeBadges }));
   }, []);
 
+  const appearanceToggleShowSolverIndices = useCallback(() => {
+    setAppearance((prev) => ({ ...prev, showSolverIndices: !prev.showSolverIndices }));
+  }, []);
+
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
     setLayout((prev) => ({ ...prev, edgePathStyle: style }));
   }, []);
@@ -208,6 +215,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearance: {
         setTheme: appearanceSetTheme,
         toggleEdgeBadges: appearanceToggleEdgeBadges,
+        toggleShowSolverIndices: appearanceToggleShowSolverIndices,
       },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
@@ -228,6 +236,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       gridUpdateSize,
       appearanceSetTheme,
       appearanceToggleEdgeBadges,
+      appearanceToggleShowSolverIndices,
       layoutSetEdgePathStyle,
       layoutSetNodeSep,
       layoutSetRankSep,
