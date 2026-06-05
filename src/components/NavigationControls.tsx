@@ -3,6 +3,7 @@ import { useAppState } from '../context/AppStateContext';
 import {
   IoDocumentTextOutline,
   IoLibrary,
+  IoCubeOutline,
   IoConstructOutline,
   IoSettingsOutline,
 } from 'react-icons/io5';
@@ -32,6 +33,15 @@ const NavigationControls = React.memo(() => {
         title="Node library"
       >
         <IoLibrary />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('model')}
+        className={`nav-button ${isOpen && activePane === 'model' ? 'active' : ''}`}
+        title="Model parameters"
+      >
+        <IoCubeOutline />
       </button>
 
       <button

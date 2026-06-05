@@ -47,8 +47,7 @@ Defer until needed:
 - [x] Theme capability, e.g. dark/light
 - [x] Edge lengths are too long in the automatically generated layout
 - [x] Minimap should be optional
-- [ ] Global model parameters and their management from a pane
-- [ ] Console
+- [x] Global model parameters and their management from a pane
+- [x] Console
 - [ ] Add setting: force unique node labels or not
-- [ ] Edge and node label areas below them, displaying certain information
-- [ ] Model pane: move model selector to the model pane, introduce global model level parameters
+- [x] Model pane: move model selector to the model pane, introduce global model level parameters

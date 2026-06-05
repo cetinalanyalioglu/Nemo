@@ -19,6 +19,8 @@ export interface RuntimeModel {
   id: string;
   name: string;
   description?: string;
+  /** Model-wide parameter metadata from the model YAML file. */
+  modelParameters: Record<string, Record<string, unknown>>;
   nodeConfig: Record<string, NodeConfigEntry>;
   edgeConfig: Record<string, EdgeConfigEntry>;
   elementInfo: Record<string, ElementInfoEntry>;
@@ -148,6 +150,7 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
     id: candidate.id,
     name: candidate.name,
     description: candidate.description,
+    parameters: candidate.parameters ?? {},
     nodes: candidate.nodes,
     edges: candidate.edges ?? {},
   };
@@ -227,6 +230,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
     id: def.id,
     name: def.name,
     description: def.description,
+    modelParameters: def.parameters ?? {},
     nodeConfig,
     edgeConfig,
     elementInfo,

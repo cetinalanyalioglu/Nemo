@@ -2,6 +2,37 @@ id: generic-network
 name: Generic Network
 description: Generic network model for testing and development.
 
+parameters:
+  exampleFloat:
+    label: Example Float
+    type: float
+    defaultValue: 1.5
+    category: Numeric
+    min: 0
+    step: 0.1
+    unit: m
+    description: Floating-point model parameter
+  exampleNumber:
+    label: Example Number
+    type: number
+    defaultValue: 10
+    category: Numeric
+    min: 0
+    step: 1
+    description: Integer model parameter
+  exampleString:
+    label: Example String
+    type: string
+    defaultValue: default text
+    category: Text
+    description: Text model parameter
+  exampleBoolean:
+    label: Example Boolean
+    type: boolean
+    defaultValue: false
+    category: Options
+    description: Boolean model parameter
+
 edges:
   generic:
     displayName: Generic Edge

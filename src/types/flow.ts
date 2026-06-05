@@ -158,6 +158,8 @@ export interface ModelDefinition {
   id: string;
   name: string;
   description?: string;
+  /** Model-wide parameters defined in the model YAML file. */
+  parameters?: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
   nodes: Record<string, ModelNodeDefinition>;
   edges: Record<string, ModelEdgeDefinition>;
 }
