@@ -19,7 +19,7 @@ import type {
 /** Maximum number of undo steps retained in history. */
 export const MAX_HISTORY_DEPTH = 100;
 
-/** When true, solver indices are recomputed and applied to state before writing a save file. */
+/** When true, indices are recomputed and applied to state before writing a save file. */
 export const RENUMBER_ON_SAVE = true;
 
 const SAVE_FILE_VERSION = '2.0.0';
@@ -99,7 +99,7 @@ export interface GraphStore extends GraphData {
   addCustomEdge: (params: Connection, type?: string) => void;
   deleteEdge: (edgeId: string) => void;
   updateEdges: (newEdges: Edge[], removedEdgeIds?: string[]) => void;
-  regenerateSolverIndices: () => void;
+  regenerateIndices: () => void;
 
   // Label editing.
   startEditing: (nodeId: string) => void;
@@ -180,10 +180,10 @@ const restorePatch = (snapshot: CanvasSnapshot): Partial<GraphData> => ({
 const serializeSnapshot = (snapshot: CanvasSnapshot): string => JSON.stringify(snapshot);
 
 /**
- * Computes solver indices for nodes and edges using a BFS traversal so that
- * connected elements receive nearby indices (minimizing solver bandwidth).
+ * Computes indices for nodes and edges using a BFS traversal so that
+ * connected elements receive nearby indices (minimizing bandwidth).
  */
-const computeSolverIndices = (
+const computeIndices = (
   s: Pick<GraphData, 'nodes' | 'edges' | 'nodeStates' | 'edgeStates'>
 ): {
   updatedNodeStates: Record<string, NodeRuntimeState>;
@@ -220,7 +220,7 @@ const computeSolverIndices = (
       if (!(currentId in nodeIndexMap)) {
         nodeIndexMap[currentId] = currentNodeIndex++;
         if (updatedNodeStates[currentId]) {
-          updatedNodeStates[currentId].parameters.solverIndex = nodeIndexMap[currentId];
+          updatedNodeStates[currentId].parameters.index = nodeIndexMap[currentId];
         }
       }
 
@@ -228,7 +228,7 @@ const computeSolverIndices = (
         if (!(edge.id in edgeIndexMap)) {
           edgeIndexMap[edge.id] = currentEdgeIndex++;
           if (updatedEdgeStates[edge.id]) {
-            updatedEdgeStates[edge.id].parameters.solverIndex = edgeIndexMap[edge.id];
+            updatedEdgeStates[edge.id].parameters.index = edgeIndexMap[edge.id];
           }
         }
       }
@@ -253,11 +253,11 @@ const computeSolverIndices = (
 };
 
 export const useGraphStore = create<GraphStore>((set, get) => {
-  const applySolverIndices = (recordHistory = false) => {
+  const applyIndices = (recordHistory = false) => {
     if (recordHistory) {
       get().recordHistory();
     }
-    const { updatedNodeStates, updatedEdgeStates } = computeSolverIndices(get());
+    const { updatedNodeStates, updatedEdgeStates } = computeIndices(get());
     set({ nodeStates: updatedNodeStates, edgeStates: updatedEdgeStates });
   };
 
@@ -632,7 +632,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       });
     },
 
-    regenerateSolverIndices: () => applySolverIndices(true),
+    regenerateIndices: () => applyIndices(true),
 
     startEditing: (nodeId) => {
       set((s) => ({
@@ -721,7 +721,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     saveToFile: () => {
       try {
         if (RENUMBER_ON_SAVE) {
-          applySolverIndices();
+          applyIndices();
         }
         const saveData = get().generateSaveData();
         const yamlString = yaml.dump(saveData, { noRefs: true, sortKeys: false, lineWidth: -1 });

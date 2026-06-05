@@ -15,12 +15,12 @@ const BaseEdgeStyled = BaseEdge as React.ComponentType<
  */
 export const baseEdgeInfo = {
   parameters: {
-    solverIndex: {
+    index: {
       label: 'Index',
       type: 'number',
       defaultValue: undefined,
       category: 'Connectivity',
-      description: 'Index used by the network solver',
+      description: 'Sequential index assigned to this element',
       editable: false,
       visible: true,
     },
@@ -44,10 +44,10 @@ const GenericEdge = ({
   style = {},
 }: EdgeProps) => {
   const { edgePathStyle } = useLayoutState();
-  const { showEdgeBadges, showSolverIndices } = useAppearanceState();
+  const { showEdgeBadges, showIndices } = useAppearanceState();
   const edgeState = useGraphStore((s) => s.edgeStates[id]);
-  const solverIndex = edgeState?.parameters?.solverIndex;
-  const indexLabel = showSolverIndices && typeof solverIndex === 'number' ? solverIndex : undefined;
+  const elementIndex = edgeState?.parameters?.index;
+  const indexLabel = showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
 
   const {
     path: edgePath,

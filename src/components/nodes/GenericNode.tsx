@@ -82,12 +82,12 @@ export const baseElementInfo: ElementInfoEntry = {
       step: 1,
       unit: 'px',
     },
-    solverIndex: {
+    index: {
       label: 'Index',
       type: 'number',
       defaultValue: undefined,
       category: 'Connectivity',
-      description: 'Index used by the network solver',
+      description: 'Sequential index assigned to this element',
       editable: false,
       visible: true,
     },
@@ -120,7 +120,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
   const { snapToGrid, size: gridSize } = useGridState();
-  const { showSolverIndices } = useAppearanceState();
+  const { showIndices } = useAppearanceState();
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
@@ -476,14 +476,14 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   }
 
   const TypeIcon = config.icon;
-  const solverIndex = nodeState.parameters.solverIndex;
-  const solverIndexLabel =
-    showSolverIndices && typeof solverIndex === 'number' ? solverIndex : undefined;
+  const elementIndex = nodeState.parameters.index;
+  const elementIndexLabel =
+    showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
 
   return (
     <div className={nodeClasses} ref={nodeRef} style={style}>
-      {solverIndexLabel !== undefined && (
-        <span className="solver-index-label port-index">{solverIndexLabel}</span>
+      {elementIndexLabel !== undefined && (
+        <span className="element-index-label port-index">{elementIndexLabel}</span>
       )}
       <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>
 
