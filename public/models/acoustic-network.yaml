@@ -20,8 +20,15 @@
 #                        default         Fallback count when the parameter is unset.
 #                        min             Minimum allowed count.
 #   ports              Static ports used when a side is not dynamic.
+#   allowedConnections    Optional whitelist of node type ids this element may
+#                         connect to as the source. Omit or use [] to skip
+#                         whitelist mode. Takes precedence over disallowedConnections.
+#   disallowedConnections Optional blacklist used when allowedConnections is
+#                         omitted or empty: connect to any type except those listed.
+#                         Useful when most node types are allowed. Unknown entries in
+#                         either list cause the model file to fail loading.
 #   parameters         Custom parameters merged on top of the generic base
-#                      parameters (label, width, height, solverIndex).
+#                      parameters (label, width, height, index).
 #
 # edges.<Type>
 #   displayName / category / parameters as above (no ports).
@@ -76,6 +83,9 @@ nodes:
         unit: K
         category: Parameters
         min: 0
+    disallowedConnections:
+      - MassFlowInlet
+      - PressureOutlet
 
   PressureOutlet:
     displayName: Pressure Outlet

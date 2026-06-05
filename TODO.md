@@ -50,3 +50,5 @@ Defer until needed:
 - [ ] Global model parameters and their management from a pane
 - [ ] Console
 - [ ] Add setting: force unique node labels or not
+- [ ] Edge and node label areas below them, displaying certain information
+- [ ] Model pane: move model selector to the model pane, introduce global model level parameters

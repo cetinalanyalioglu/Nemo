@@ -32,7 +32,7 @@ edges:
       leftPorts:
         label: Left Ports
         type: number
-        defaultValue: 0
+        defaultValue: 1
         min: 0
         step: 1
         category: Ports

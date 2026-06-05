@@ -1,20 +1,30 @@
 import React from 'react';
-import { IoChevronBackCircleOutline, IoConstructOutline, IoChevronDown } from 'react-icons/io5';
+import {
+  IoChevronBackCircleOutline,
+  IoConstructOutline,
+  IoChevronDown,
+  IoCheckbox,
+  IoSquareOutline,
+} from 'react-icons/io5';
 import '../styles/sidebar.css';
+import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
+import { selectIndicesReady } from '../store/graph-selectors';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
 const ToolsPane = React.memo(() => {
-  const regenerateSolverIndices = useGraphStore((s) => s.regenerateSolverIndices);
+  const regenerateIndices = useGraphStore((s) => s.regenerateIndices);
+  const indicesReady = useGraphStore(selectIndicesReady);
   const {
+    appearance: { showIndices },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <div className={`sidebar tools-pane ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoConstructOutline className="panel-icon" />
@@ -41,12 +51,32 @@ const ToolsPane = React.memo(() => {
         <div
           className={`group-content ${collapsedGroups[TOOLS_CONNECTIVITY_GROUP] ? 'collapsed' : ''}`}
         >
+          <div className="parameter-row">
+            <div className="boolean-parameter-row">
+              <label className="parameter-label">Show indices</label>
+              <button
+                type="button"
+                className={`checkbox-wrapper ${showIndices ? 'checked' : ''} ${!indicesReady ? 'disabled' : ''}`}
+                onClick={indicesReady ? actions.appearance.toggleShowIndices : undefined}
+                disabled={!indicesReady}
+                aria-pressed={showIndices}
+                aria-label="Show indices on canvas"
+                title={
+                  indicesReady
+                    ? 'Display indices on nodes and edges'
+                    : 'Run Renumber first to assign indices'
+                }
+              >
+                {showIndices ? <IoCheckbox /> : <IoSquareOutline />}
+              </button>
+            </div>
+          </div>
           <div className="document-pane-file-actions">
             <button
               type="button"
               className="document-pane-file-button"
-              onClick={regenerateSolverIndices}
-              title="Assign sequential indices to nodes and edges to minimize solver bandwidth"
+              onClick={regenerateIndices}
+              title="Assign sequential indices to nodes and edges to minimize bandwidth"
             >
               <IoConstructOutline className="document-pane-file-button-icon" />
               <span>Renumber</span>
