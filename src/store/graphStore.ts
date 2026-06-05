@@ -13,6 +13,7 @@ import type {
   ModelSummary,
   NodeRuntimeState,
   ParameterChangeHandler,
+  ParameterValues,
   SaveFilePayload,
 } from '../types/flow';
 
@@ -54,6 +55,7 @@ interface GraphData {
   nodeStates: Record<string, NodeRuntimeState>;
   editingStates: Record<string, EditingState>;
   edgeStates: Record<string, EdgeRuntimeState>;
+  modelParameters: ParameterValues;
   nodeCounters: Record<string, number>;
   totalNodeCounters: Record<string, number>;
   selectedNodeId: string | null;
@@ -95,6 +97,7 @@ export interface GraphStore extends GraphData {
     options?: { recordHistory?: boolean }
   ) => boolean;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => void;
+  updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
   addCustomEdge: (params: Connection, type?: string) => void;
   deleteEdge: (edgeId: string) => void;
@@ -178,6 +181,24 @@ const restorePatch = (snapshot: CanvasSnapshot): Partial<GraphData> => ({
 });
 
 const serializeSnapshot = (snapshot: CanvasSnapshot): string => JSON.stringify(snapshot);
+
+const buildDefaultModelParameters = (model: RuntimeModel | null): ParameterValues => {
+  const params = model?.modelParameters ?? {};
+  const defaults: ParameterValues = {};
+  for (const key in params) {
+    defaults[key] = params[key].defaultValue;
+  }
+  return defaults;
+};
+
+const mergeModelParameters = (
+  model: RuntimeModel | null,
+  saved: Record<string, unknown> | undefined
+): ParameterValues => {
+  const defaults = buildDefaultModelParameters(model);
+  if (!saved) return defaults;
+  return { ...defaults, ...saved };
+};
 
 /**
  * Computes indices for nodes and edges using a BFS traversal so that
@@ -274,6 +295,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     nodeStates: {},
     editingStates: {},
     edgeStates: {},
+    modelParameters: {},
     nodeCounters: {},
     totalNodeCounters: {},
     selectedNodeId: null,
@@ -444,6 +466,15 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }));
     },
 
+    updateModelParameter: (paramName, value) => {
+      set((s) => ({
+        modelParameters: {
+          ...s.modelParameters,
+          [paramName]: value,
+        },
+      }));
+    },
+
     addNode: ({ type, position = { x: 0, y: 0 }, data = {}, parameters = {} }) => {
       debugLog('Adding node with type: ', type);
 
@@ -562,6 +593,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         edges: [],
         nodeStates: {},
         edgeStates: {},
+        modelParameters: buildDefaultModelParameters(get().model),
         editingStates: {},
         nodeCounters: Object.keys(s.nodeCounters).reduce(
           (acc, key) => {
@@ -686,7 +718,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         timestamp: new Date().toISOString(),
         model: {
           id: state.model?.id,
-          globalAttributes: {},
+          globalAttributes: { ...state.modelParameters },
           nodes: state.nodes.map((node) => ({
             id: node.id,
             type: node.type!,
@@ -798,6 +830,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }));
 
       set({
+        modelParameters: mergeModelParameters(get().model, saveData.model.globalAttributes),
         nodeStates: newNodeStates,
         nodes: newNodes,
         edgeStates: newEdgeStates,
@@ -929,6 +962,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         nodeStates: {},
         editingStates: {},
         edgeStates: {},
+        modelParameters: buildDefaultModelParameters(get().model),
         selectedNodeId: null,
         selectedEdgeId: null,
         nodeCounters: initialCounters,

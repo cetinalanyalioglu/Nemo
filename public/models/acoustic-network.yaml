@@ -30,6 +30,10 @@
 #   parameters         Custom parameters merged on top of the generic base
 #                      parameters (label, width, height, index).
 #
+# parameters (model-level)
+#   Global parameters for the entire model, edited in the Model pane and
+#   persisted in save files under model.globalAttributes.
+#
 # edges.<Type>
 #   displayName / category / parameters as above (no ports).
 #

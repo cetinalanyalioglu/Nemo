@@ -441,3 +441,14 @@
   color: var(--color-error-strong);
 }
 
+.model-pane-content {
+  flex: 1;
+}
+
+.model-pane-empty {
+  margin: 0;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+

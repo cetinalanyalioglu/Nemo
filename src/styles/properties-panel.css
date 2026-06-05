@@ -19,7 +19,8 @@
   font-size: 14px;
 }
 
-.settings-pane {
+.settings-pane,
+.model-pane {
   font-size: 14px;
 }
 
@@ -44,17 +45,17 @@
   color: var(--color-text-muted);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-group {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-group {
   margin: 0;
   padding: 16px;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-group:last-child {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-group:last-child {
   border-bottom: none;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .group-header {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .group-header {
   font-size: 12px;
   color: var(--color-text-muted);
   font-weight: 500;
@@ -66,34 +67,34 @@
   user-select: none;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .group-header:hover {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .group-header:hover {
   background: var(--color-surface-hover);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .group-header-content {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .group-header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .group-collapse-icon {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .group-collapse-icon {
   font-size: 16px;
   color: var(--color-text-muted);
   transition: transform 0.2s ease;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-group.collapsed .group-collapse-icon {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-group.collapsed .group-collapse-icon {
   transform: rotate(-90deg);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .group-content {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .group-content {
   transition: all 0.2s ease;
   max-height: 1000px;
   opacity: 1;
   overflow: hidden;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-group.collapsed .group-content {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-group.collapsed .group-content {
   max-height: 0;
   opacity: 0;
   margin-top: 0;
@@ -102,35 +103,35 @@
   padding-bottom: 0;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-group.collapsed {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-group.collapsed {
   padding-bottom: 0;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-row {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 12px;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-row:last-child {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-row:last-child {
   margin-bottom: 0;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-label {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-label {
   font-size: 12px;
   color: var(--color-text-body);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input-container {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input-container {
   display: flex;
   align-items: center;
   gap: 8px;
   position: relative;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input,
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-select {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input,
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-select {
   flex: 1;
   width: 100%;
   padding: 6px 8px;
@@ -143,45 +144,45 @@
   background: var(--color-surface-input);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input {
   padding-right: 65px;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-select {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-select {
   padding-right: 28px;
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input::placeholder {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input::placeholder {
   color: var(--color-text-icon-secondary);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input[type='number'] {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input[type='number'] {
   -moz-appearance: textfield;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input[type='number']::-webkit-outer-spin-button,
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input[type='number']::-webkit-inner-spin-button {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input[type='number']::-webkit-outer-spin-button,
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input:hover,
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-select:hover {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input:hover,
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-select:hover {
   border-color: var(--color-accent);
   background: var(--color-surface);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input:focus,
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-select:focus {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input:focus,
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-select:focus {
   border-color: var(--color-accent);
   box-shadow: var(--shadow-accent-focus-strong);
   background: var(--color-surface);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-select-icon {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-select-icon {
   position: absolute;
   right: 8px;
   font-size: 14px;
@@ -189,7 +190,7 @@
   pointer-events: none;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .number-controls {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .number-controls {
   position: absolute;
   height: 100%;
   display: flex;
@@ -201,17 +202,17 @@
   right: 8px;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane)
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane)
   .parameter-input-container:has(.parameter-unit)
   .number-controls {
   right: 42px;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input-container:hover .number-controls {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input-container:hover .number-controls {
   opacity: 1;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .number-control-btn {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .number-control-btn {
   padding: 0;
   width: 14px;
   height: 11px;
@@ -227,15 +228,15 @@
   transition: background-color 0.2s;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .number-control-btn:hover {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .number-control-btn:hover {
   background: var(--color-accent-hover);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .number-control-btn svg {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .number-control-btn svg {
   color: inherit;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-unit {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-unit {
   position: absolute;
   right: 8px;
   color: var(--color-text-muted);
@@ -271,14 +272,14 @@
   opacity: 0.7;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .boolean-parameter-row {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .boolean-parameter-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper {
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -289,39 +290,39 @@
   transition: all 0.2s ease;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper:hover {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper:hover {
   background: var(--color-surface-muted);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper svg {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper svg {
   font-size: 18px;
   color: var(--color-text-muted);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper.checked svg {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper.checked svg {
   color: var(--color-accent);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-label {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-label {
   display: none;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input-container:has(.checkbox-wrapper) {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input-container:has(.checkbox-wrapper) {
   padding-right: 0;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input.invalid {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input.invalid {
   border-color: var(--color-invalid);
   background-color: var(--color-invalid-bg);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input.invalid:hover,
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input.invalid:focus {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input.invalid:hover,
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input.invalid:focus {
   border-color: var(--color-invalid);
   box-shadow: var(--shadow-invalid);
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input.invalid:hover::after {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input.invalid:hover::after {
   content: attr(title);
   position: absolute;
   bottom: 100%;
@@ -336,17 +337,17 @@
   z-index: 1000;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .parameter-input.readonly {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .parameter-input.readonly {
   background-color: var(--color-surface-muted);
   color: var(--color-text-muted);
   cursor: not-allowed;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper.disabled {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper.disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-:is(.properties-panel, .settings-pane, .tools-pane) .checkbox-wrapper.disabled:hover {
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane) .checkbox-wrapper.disabled:hover {
   background: transparent;
 }
