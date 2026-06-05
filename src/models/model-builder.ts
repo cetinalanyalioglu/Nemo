@@ -64,6 +64,72 @@ const createEdgeInfo = (type: string, config: EdgeConfigEntry): EdgeInfoEntry =>
 });
 
 /**
+ * Normalizes and validates a connection rule list on a node definition. Returns
+ * `undefined` when the list is omitted or empty.
+ */
+export const parseConnectionTypeList = (
+  modelId: string,
+  nodeType: string,
+  fieldName: 'allowedConnections' | 'disallowedConnections',
+  entries: unknown,
+  knownNodeTypes: Set<string>
+): string[] | undefined => {
+  if (entries === undefined || entries === null) {
+    return undefined;
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error(`Model "${modelId}": node "${nodeType}" ${fieldName} must be a list.`);
+  }
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const normalized: string[] = [];
+  for (const entry of entries) {
+    if (typeof entry !== 'string' || entry.length === 0) {
+      throw new Error(
+        `Model "${modelId}": node "${nodeType}" ${fieldName} entries must be non-empty strings.`
+      );
+    }
+    if (!knownNodeTypes.has(entry)) {
+      const available = Array.from(knownNodeTypes).sort().join(', ');
+      throw new Error(
+        `Model "${modelId}": node "${nodeType}" ${fieldName} references unknown node type "${entry}". ` +
+          `Available types: ${available}.`
+      );
+    }
+    normalized.push(entry);
+  }
+
+  return normalized;
+};
+
+/**
+ * Returns whether a source node type may connect to a target node type based on
+ * the source's whitelist/blacklist rules. Only the source node's rules apply.
+ */
+export const isSourceConnectionToTargetAllowed = (
+  sourceConfig: NodeConfigEntry | undefined,
+  targetType: string
+): boolean => {
+  if (!sourceConfig) {
+    return true;
+  }
+
+  const allowed = sourceConfig.allowedConnections;
+  if (allowed && allowed.length > 0) {
+    return allowed.includes(targetType);
+  }
+
+  const disallowed = sourceConfig.disallowedConnections;
+  if (disallowed && disallowed.length > 0) {
+    return !disallowed.includes(targetType);
+  }
+
+  return true;
+};
+
+/**
  * Validates the shape of a parsed model definition, throwing a descriptive
  * error if required fields are missing.
  */
@@ -92,10 +158,26 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
  * a parsed and validated model definition.
  */
 export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
+  const knownNodeTypes = new Set(Object.keys(def.nodes));
   const nodeConfig: Record<string, NodeConfigEntry> = {};
   const nodeTypes: NodeTypes = {};
 
   Object.entries(def.nodes).forEach(([type, node]) => {
+    const allowedConnections = parseConnectionTypeList(
+      def.id,
+      type,
+      'allowedConnections',
+      node.allowedConnections,
+      knownNodeTypes
+    );
+    const disallowedConnections = parseConnectionTypeList(
+      def.id,
+      type,
+      'disallowedConnections',
+      node.disallowedConnections,
+      knownNodeTypes
+    );
+
     nodeConfig[type] = {
       customParameters: node.parameters ?? {},
       ports: {
@@ -107,6 +189,8 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
       category: node.category ?? 'Elements',
       dynamicPorts: node.dynamicPorts ?? false,
       dynamicPortConfig: node.dynamicPortConfig,
+      allowedConnections,
+      disallowedConnections,
     };
     nodeTypes[type] = GenericNode;
   });
