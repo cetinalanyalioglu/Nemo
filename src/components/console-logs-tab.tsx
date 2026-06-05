@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { IoTrashOutline } from 'react-icons/io5';
 import { useConsoleStore } from '../store/consoleStore';
-import { appendConsoleMessage } from '../utils/console-log';
 import type { ConsoleLogEntry } from '../types/console';
 
 const formatTime = (timestamp: number): string => {
@@ -27,15 +26,6 @@ const ConsoleLogsTab = React.memo(() => {
   const entries = useConsoleStore((s) => s.entries);
   const clear = useConsoleStore((s) => s.clear);
   const listRef = useRef<HTMLDivElement>(null);
-  const didSeedRef = useRef(false);
-
-  useEffect(() => {
-    if (didSeedRef.current) return;
-    didSeedRef.current = true;
-    if (entries.length === 0) {
-      appendConsoleMessage('Console ready. Application messages will appear here.', 'info');
-    }
-  }, [entries.length]);
 
   useEffect(() => {
     const list = listRef.current;
