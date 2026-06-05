@@ -12,7 +12,7 @@ export type GridState = { snapToGrid: boolean; size: number };
 export type AppearanceState = {
   theme: ThemeId;
   showEdgeBadges: boolean;
-  showSolverIndices: boolean;
+  showIndices: boolean;
 };
 
 export type LayoutState = {
@@ -50,7 +50,7 @@ type AppActions = {
   appearance: {
     setTheme: (theme: ThemeId) => void;
     toggleEdgeBadges: () => void;
-    toggleShowSolverIndices: () => void;
+    toggleShowIndices: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -89,7 +89,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
     theme: readStoredTheme(),
     showEdgeBadges: true,
-    showSolverIndices: false,
+    showIndices: false,
   }));
   const [layoutState, setLayout] = useState<{
     edgePathStyle: EdgePathStyle;
@@ -173,8 +173,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance((prev) => ({ ...prev, showEdgeBadges: !prev.showEdgeBadges }));
   }, []);
 
-  const appearanceToggleShowSolverIndices = useCallback(() => {
-    setAppearance((prev) => ({ ...prev, showSolverIndices: !prev.showSolverIndices }));
+  const appearanceToggleShowIndices = useCallback(() => {
+    setAppearance((prev) => ({ ...prev, showIndices: !prev.showIndices }));
   }, []);
 
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
@@ -215,7 +215,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearance: {
         setTheme: appearanceSetTheme,
         toggleEdgeBadges: appearanceToggleEdgeBadges,
-        toggleShowSolverIndices: appearanceToggleShowSolverIndices,
+        toggleShowIndices: appearanceToggleShowIndices,
       },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
@@ -236,7 +236,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       gridUpdateSize,
       appearanceSetTheme,
       appearanceToggleEdgeBadges,
-      appearanceToggleShowSolverIndices,
+      appearanceToggleShowIndices,
       layoutSetEdgePathStyle,
       layoutSetNodeSep,
       layoutSetRankSep,

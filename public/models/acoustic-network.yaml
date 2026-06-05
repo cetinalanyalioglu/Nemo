@@ -28,7 +28,7 @@
 #                         Useful when most node types are allowed. Unknown entries in
 #                         either list cause the model file to fail loading.
 #   parameters         Custom parameters merged on top of the generic base
-#                      parameters (label, width, height, solverIndex).
+#                      parameters (label, width, height, index).
 #
 # edges.<Type>
 #   displayName / category / parameters as above (no ports).

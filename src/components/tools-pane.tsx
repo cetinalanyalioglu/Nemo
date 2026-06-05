@@ -10,15 +10,15 @@ import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
-import { selectSolverIndicesReady } from '../store/graph-selectors';
+import { selectIndicesReady } from '../store/graph-selectors';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
 const ToolsPane = React.memo(() => {
-  const regenerateSolverIndices = useGraphStore((s) => s.regenerateSolverIndices);
-  const solverIndicesReady = useGraphStore(selectSolverIndicesReady);
+  const regenerateIndices = useGraphStore((s) => s.regenerateIndices);
+  const indicesReady = useGraphStore(selectIndicesReady);
   const {
-    appearance: { showSolverIndices },
+    appearance: { showIndices },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -56,20 +56,18 @@ const ToolsPane = React.memo(() => {
               <label className="parameter-label">Show indices</label>
               <button
                 type="button"
-                className={`checkbox-wrapper ${showSolverIndices ? 'checked' : ''} ${!solverIndicesReady ? 'disabled' : ''}`}
-                onClick={
-                  solverIndicesReady ? actions.appearance.toggleShowSolverIndices : undefined
-                }
-                disabled={!solverIndicesReady}
-                aria-pressed={showSolverIndices}
-                aria-label="Show solver indices on canvas"
+                className={`checkbox-wrapper ${showIndices ? 'checked' : ''} ${!indicesReady ? 'disabled' : ''}`}
+                onClick={indicesReady ? actions.appearance.toggleShowIndices : undefined}
+                disabled={!indicesReady}
+                aria-pressed={showIndices}
+                aria-label="Show indices on canvas"
                 title={
-                  solverIndicesReady
-                    ? 'Display solver indices on nodes and edges'
-                    : 'Run Renumber first to assign solver indices'
+                  indicesReady
+                    ? 'Display indices on nodes and edges'
+                    : 'Run Renumber first to assign indices'
                 }
               >
-                {showSolverIndices ? <IoCheckbox /> : <IoSquareOutline />}
+                {showIndices ? <IoCheckbox /> : <IoSquareOutline />}
               </button>
             </div>
           </div>
@@ -77,8 +75,8 @@ const ToolsPane = React.memo(() => {
             <button
               type="button"
               className="document-pane-file-button"
-              onClick={regenerateSolverIndices}
-              title="Assign sequential indices to nodes and edges to minimize solver bandwidth"
+              onClick={regenerateIndices}
+              title="Assign sequential indices to nodes and edges to minimize bandwidth"
             >
               <IoConstructOutline className="document-pane-file-button-icon" />
               <span>Renumber</span>

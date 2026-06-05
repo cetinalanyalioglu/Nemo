@@ -126,7 +126,7 @@
   color: var(--color-accent-hover);
 }
 
-.solver-index-label {
+.element-index-label {
   position: absolute;
   top: 0;
   left: 50%;
