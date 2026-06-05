@@ -126,6 +126,15 @@
   color: var(--color-accent-hover);
 }
 
+.element-index-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, calc(-100% - 2px));
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .port-index {
   outline: calc(var(--debug) * 1px) solid orange;
   font-size: 9px;
