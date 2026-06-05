@@ -4,7 +4,7 @@ import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from 
 import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
-import type { RuntimeModel } from '../models/model-builder';
+import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -300,6 +300,23 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       debugLog('Invalid connection: Port is already connected');
       return false;
     }
+
+    const { nodes, model } = get();
+    const sourceNode = nodes.find((node) => node.id === connection.source);
+    const targetNode = nodes.find((node) => node.id === connection.target);
+    if (!sourceNode?.type || !targetNode?.type) {
+      debugLog('Invalid connection: Source or target node type is missing');
+      return false;
+    }
+
+    const sourceConfig = model?.nodeConfig[sourceNode.type];
+    if (!isSourceConnectionToTargetAllowed(sourceConfig, targetNode.type)) {
+      debugLog(
+        `Invalid connection: "${sourceNode.type}" is not allowed to connect to "${targetNode.type}"`
+      );
+      return false;
+    }
+
     return true;
   },
 

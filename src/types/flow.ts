@@ -105,6 +105,16 @@ export interface NodeConfigEntry {
   category: string;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
+  /**
+   * Whitelist of node types the source may connect to. When omitted or empty,
+   * see `disallowedConnections` or fall back to no restriction.
+   */
+  allowedConnections?: string[];
+  /**
+   * Blacklist of node types the source may not connect to. Applies only when
+   * `allowedConnections` is omitted or empty.
+   */
+  disallowedConnections?: string[];
 }
 
 /** Runtime configuration for a single edge type within a model. */
@@ -122,6 +132,17 @@ export interface ModelNodeDefinition {
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;
+  /**
+   * Whitelist of node type ids this element may connect to as the source.
+   * Omit or leave empty to skip whitelist mode. Unknown entries fail model load.
+   */
+  allowedConnections?: string[];
+  /**
+   * Blacklist of node type ids this element may not connect to as the source.
+   * Used when `allowedConnections` is omitted or empty. Unknown entries fail
+   * model load.
+   */
+  disallowedConnections?: string[];
   parameters?: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
 }
 
