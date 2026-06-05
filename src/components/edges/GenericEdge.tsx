@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { BaseEdge, type EdgeProps } from 'reactflow';
 import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
+import { useGraphStore } from '../../store/graphStore';
 import EdgeMidpointMarker from './EdgeMidpointMarker';
 import { computeEdgePathGeometry } from './edge-path-utils';
 
@@ -43,7 +44,10 @@ const GenericEdge = ({
   style = {},
 }: EdgeProps) => {
   const { edgePathStyle } = useLayoutState();
-  const { showEdgeBadges } = useAppearanceState();
+  const { showEdgeBadges, showSolverIndices } = useAppearanceState();
+  const edgeState = useGraphStore((s) => s.edgeStates[id]);
+  const solverIndex = edgeState?.parameters?.solverIndex;
+  const indexLabel = showSolverIndices && typeof solverIndex === 'number' ? solverIndex : undefined;
 
   const {
     path: edgePath,
@@ -61,7 +65,14 @@ const GenericEdge = ({
   return (
     <>
       <BaseEdgeStyled id={id} path={edgePath} className="custom-edge" style={style} />
-      {showEdgeBadges && <EdgeMidpointMarker labelX={labelX} labelY={labelY} selected={selected} />}
+      {(showEdgeBadges || indexLabel !== undefined) && (
+        <EdgeMidpointMarker
+          labelX={labelX}
+          labelY={labelY}
+          selected={selected}
+          indexLabel={indexLabel}
+        />
+      )}
     </>
   );
 };

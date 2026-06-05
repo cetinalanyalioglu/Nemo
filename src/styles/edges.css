@@ -30,6 +30,14 @@
   stroke-width: 2px;
 }
 
+.edge-midpoint-marker__index {
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  fill: var(--color-text-muted);
+  pointer-events: none;
+  user-select: none;
+}
+
 .react-flow__edge-path {
   stroke-width: var(--edge-width);
   stroke: var(--color-edge);
