@@ -4,7 +4,7 @@ import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
-import { selectIncidentEdgesSignature } from '../../store/graph-selectors';
+import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
@@ -108,8 +108,13 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   // incident edges change — not on unrelated edge updates or node drags.
   const nodeState = useGraphStore((s) => s.nodeStates[id]);
   const editingState = useGraphStore((s) => s.editingStates[id]);
-  const incidentEdgesSignature = useGraphStore(selectIncidentEdgesSignature(id));
+  // Subscribe to the edges array reference (O(1)) and derive the incident-edge
+  // signature with useMemo so the scan only runs when edges actually change,
+  // not on every store update (e.g. each node-drag tick).
+  const edges = useGraphStore((s) => s.edges);
+  const incidentEdgesSignature = useMemo(() => buildIncidentEdgesSignature(edges, id), [edges, id]);
   const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
+  const setNodeDimensions = useGraphStore((s) => s.setNodeDimensions);
   const updateEdges = useGraphStore((s) => s.updateEdges);
   const contextStartEditing = useGraphStore((s) => s.startEditing);
   const contextOnChange = useGraphStore((s) => s.onChange);
@@ -323,8 +328,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       }
 
       resizeRef.current.updateTimer = setTimeout(() => {
-        updateNodeParameter(id, 'width', roundedWidth, { recordHistory: false });
-        updateNodeParameter(id, 'height', roundedHeight, { recordHistory: false });
+        setNodeDimensions(id, roundedWidth, roundedHeight);
       }, 16);
     };
 
@@ -349,8 +353,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
           resizeRef.current.pendingWidth ?? resizeRef.current.startWidth ?? initialWidth;
         const finalHeight =
           resizeRef.current.pendingHeight ?? resizeRef.current.startHeight ?? initialHeight;
-        updateNodeParameter(id, 'width', finalWidth, { recordHistory: false });
-        updateNodeParameter(id, 'height', finalHeight, { recordHistory: false });
+        setNodeDimensions(id, finalWidth, finalHeight);
         resizeRef.current.pendingWidth = undefined;
         resizeRef.current.pendingHeight = undefined;
       }
@@ -456,15 +459,16 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
         if (contentWidth > 0 && contentHeight > 0) {
           // Initial auto-measured size is derived state, not a user action, so
           // it must not create undo steps (otherwise undoing an add/move would
-          // first revert these silent size writes).
-          updateNodeParameter(id, 'width', Math.round(contentWidth), { recordHistory: false });
-          updateNodeParameter(id, 'height', Math.round(contentHeight), { recordHistory: false });
+          // first revert these silent size writes). Written as a single store
+          // update so a freshly-mounted graph doesn't pay two render passes per
+          // node.
+          setNodeDimensions(id, Math.round(contentWidth), Math.round(contentHeight));
         }
       } catch (error) {
         console.error('Error calculating node dimensions:', error);
       }
     }
-  }, [nodeState, id, updateNodeParameter, getZoom]);
+  }, [nodeState, id, setNodeDimensions, getZoom]);
 
   if (!config) {
     console.error(`No configuration found for node type: ${type}`);
