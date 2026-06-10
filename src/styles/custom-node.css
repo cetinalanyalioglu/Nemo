@@ -228,7 +228,10 @@
   text-align: center;
   background: transparent;
   padding: 0;
-  width: fit-content;
+  /* Width is driven by the input's `size` attribute (set to the text length)
+     so the field tracks its content instead of using the wide default. */
+  width: auto;
+  box-sizing: content-box;
 }
 
 .react-flow__handle {
