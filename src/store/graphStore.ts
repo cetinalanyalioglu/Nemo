@@ -96,6 +96,7 @@ export interface GraphStore extends GraphData {
     value: unknown,
     options?: { recordHistory?: boolean }
   ) => boolean;
+  setNodeDimensions: (nodeId: string, width: number, height: number) => void;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => void;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
@@ -274,6 +275,12 @@ const computeIndices = (
 };
 
 export const useGraphStore = create<GraphStore>((set, get) => {
+  // Caches the serialized form of the most recently pushed history snapshot so
+  // recordHistory doesn't re-stringify the entire graph for the dedup check on
+  // every interaction. Validated by object identity against the current tail of
+  // `past`, so undo/redo (which swap the tail) safely fall back to recomputing.
+  let lastPushed: { snapshot: CanvasSnapshot; serialized: string } | null = null;
+
   const applyIndices = (recordHistory = false) => {
     if (recordHistory) {
       get().recordHistory();
@@ -445,6 +452,31 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }));
 
       return true;
+    },
+
+    // Writes width and height in a single store update. Used by node
+    // auto-measurement (on mount) and resize commits, where issuing two separate
+    // updateNodeParameter calls would double the render passes — costly when a
+    // whole graph mounts at once. Never records history (size is derived/transient
+    // here; resize gestures snapshot once at gesture start).
+    setNodeDimensions: (nodeId, width, height) => {
+      set((s) => {
+        const current = s.nodeStates[nodeId];
+        if (!current) return {};
+        const params = current.parameters;
+        if (params?.width === width && params?.height === height) {
+          return {};
+        }
+        return {
+          nodeStates: {
+            ...s.nodeStates,
+            [nodeId]: {
+              ...current,
+              parameters: { ...params, width, height },
+            },
+          },
+        };
+      });
     },
 
     updateEdgeParameter: (edgeId, paramName, value) => {
@@ -905,16 +937,28 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
     recordHistory: () => {
       const snapshot = captureFrom(get());
-      set((s) => {
-        const last = s.past[s.past.length - 1];
-        if (last && serializeSnapshot(last) === serializeSnapshot(snapshot)) {
-          return s.future.length === 0 ? {} : { future: [] };
+      const serialized = serializeSnapshot(snapshot);
+      const { past, future } = get();
+
+      const last = past[past.length - 1];
+      if (last) {
+        const lastSerialized =
+          lastPushed && lastPushed.snapshot === last
+            ? lastPushed.serialized
+            : serializeSnapshot(last);
+        if (lastSerialized === serialized) {
+          if (future.length > 0) set({ future: [] });
+          return;
         }
-        const past = [...s.past, snapshot];
-        const trimmed =
-          past.length > MAX_HISTORY_DEPTH ? past.slice(past.length - MAX_HISTORY_DEPTH) : past;
-        return { past: trimmed, future: [] };
-      });
+      }
+
+      const nextPast = [...past, snapshot];
+      const trimmed =
+        nextPast.length > MAX_HISTORY_DEPTH
+          ? nextPast.slice(nextPast.length - MAX_HISTORY_DEPTH)
+          : nextPast;
+      lastPushed = { snapshot, serialized };
+      set({ past: trimmed, future: [] });
     },
 
     undo: () => {

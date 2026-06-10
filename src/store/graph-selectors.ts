@@ -1,3 +1,4 @@
+import type { Edge } from 'reactflow';
 import type { GraphStore } from './graphStore';
 
 /** True when every node and edge has an assigned index. */
@@ -24,19 +25,21 @@ export const selectIndicesReady = (s: GraphStore): boolean => {
 };
 
 /**
- * Stable signature of edges incident to a node. Used as a Zustand selector so
- * nodes do not re-render when unrelated edges change.
+ * Stable signature of edges incident to a node. Computed from the edges array
+ * via `useMemo` (keyed on the array identity) rather than as a Zustand selector:
+ * a selector re-runs on every store update — including each node-drag tick — and
+ * iterating all edges per node would be O(nodes × edges) on the hottest path.
+ * Deriving it from the `edges` reference instead means the scan only happens when
+ * edges actually change.
  */
-export const selectIncidentEdgesSignature =
-  (nodeId: string) =>
-  (s: GraphStore): string => {
-    const parts: string[] = [];
-    for (const edge of s.edges) {
-      if (edge.source === nodeId || edge.target === nodeId) {
-        parts.push(
-          `${edge.id}|${edge.source}|${edge.target}|${edge.sourceHandle ?? ''}|${edge.targetHandle ?? ''}`
-        );
-      }
+export const buildIncidentEdgesSignature = (edges: Edge[], nodeId: string): string => {
+  const parts: string[] = [];
+  for (const edge of edges) {
+    if (edge.source === nodeId || edge.target === nodeId) {
+      parts.push(
+        `${edge.id}|${edge.source}|${edge.target}|${edge.sourceHandle ?? ''}|${edge.targetHandle ?? ''}`
+      );
     }
-    return parts.join('\n');
-  };
+  }
+  return parts.join('\n');
+};
