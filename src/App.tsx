@@ -1,5 +1,7 @@
 import React from 'react';
 import GraphStoreBridge from './store/GraphStoreBridge';
+import { installDiagnosticsBridge } from './utils/diagnostics';
+import { isDebugMode } from './utils/debug';
 import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
 import ModelPane from './components/model-pane';
@@ -43,6 +45,12 @@ function AppContent() {
 }
 
 function App() {
+  React.useEffect(() => {
+    if (isDebugMode()) {
+      installDiagnosticsBridge();
+    }
+  }, []);
+
   return (
     <ReactFlowProvider>
       <ModelProvider>
