@@ -29,6 +29,10 @@ Defer until needed:
 - [x] Minimap should be optional
 - [x] Global model parameters and their management from a pane
 - [x] Console
-- [ ] Add setting: force unique node labels or not
-- [ ] Edge and node label areas below them, displaying certain information
+- [ ] Add setting to allow forcing unique node labels. This is to be a model-level setting defined under model definition.
+- [x] Edge and node label areas below them, displaying certain information
 - [x] Model pane: move model selector to the model pane, introduce global model level parameters
+
+## Observations
+- [ ] When user tries to edit the label of a node interactively on canvas, the node size abruptly changes
+- [ ] "Node spacing" and "Rank spacing" titles do not describe functionality (horizontal and vertical spacing)
