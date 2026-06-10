@@ -22,6 +22,11 @@ import { useModel } from '../context/ModelContext';
 const EMPTY_NODE_TYPES: NodeTypes = {};
 const EMPTY_EDGE_TYPES: EdgeTypes = {};
 
+// Hoisted so these object/array props keep a stable identity across renders and
+// don't trigger avoidable work inside ReactFlow.
+const DEFAULT_EDGE_OPTIONS = { type: 'custom' };
+const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1.0 };
+
 const Canvas = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
@@ -44,6 +49,8 @@ const Canvas = () => {
 
   const { snapToGrid, size: gridSize } = useGridState();
   const { showMinimap } = useLayoutState();
+
+  const snapGrid = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize]);
 
   const { model } = useModel();
   const nodeTypes = useMemo(() => model?.nodeTypes ?? EMPTY_NODE_TYPES, [model?.nodeTypes]);
@@ -99,18 +106,24 @@ const Canvas = () => {
     [isValidConnection, addCustomEdge]
   );
 
-  const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
-  };
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+    },
+    [setSelectedNodeId]
+  );
 
-  const handleEdgeClick = (_event: React.MouseEvent, edge: Edge) => {
-    setSelectedEdgeId(edge.id);
-  };
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      setSelectedEdgeId(edge.id);
+    },
+    [setSelectedEdgeId]
+  );
 
-  const handlePaneClick = () => {
+  const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
-  };
+  }, [setSelectedNodeId, setSelectedEdgeId]);
 
   // Record a snapshot before a drag so the move can be undone as a single step.
   const onNodeDragStart = useCallback(() => {
@@ -183,13 +196,13 @@ const Canvas = () => {
         onInit={onInit}
         minZoom={0.5}
         maxZoom={4}
-        defaultViewport={{ x: 0, y: 0, zoom: 1.0 }}
+        defaultViewport={DEFAULT_VIEWPORT}
         isValidConnection={isValidConnection}
         deleteKeyCode={null}
         snapToGrid={snapToGrid}
-        snapGrid={[gridSize, gridSize]}
+        snapGrid={snapGrid}
         edgeTypes={edgeTypes}
-        defaultEdgeOptions={{ type: 'custom' }}
+        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
       >
         <>
           <Background
