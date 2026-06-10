@@ -1,0 +1,67 @@
+import { memo } from 'react';
+import { Panel } from 'reactflow';
+import '../styles/data-legend.css';
+import { useDataStore, selectActiveDataset } from '../store/dataStore';
+import { colormapGradient } from '../utils/colormap';
+import type { DataDisplayConfig, DataTarget, Dataset } from '../types/data';
+
+/** Formats a range bound compactly for the legend ticks. */
+const formatTick = (value: number): string => {
+  if (!Number.isFinite(value)) return '—';
+  if (Number.isInteger(value)) return String(value);
+  return value.toPrecision(3);
+};
+
+type LegendItemProps = {
+  target: DataTarget;
+  dataset: Dataset;
+  display: DataDisplayConfig;
+};
+
+const LegendItem = ({ target, dataset, display }: LegendItemProps) => {
+  const mid = (display.min + display.max) / 2;
+  return (
+    <div className="data-legend-item">
+      <div className="data-legend-title">
+        <span className={`data-legend-tag data-legend-tag-${target}`}>{target}</span>
+        <span className="data-legend-name" title={dataset.name}>
+          {dataset.name}
+          {dataset.unit ? ` (${dataset.unit})` : ''}
+        </span>
+      </div>
+      <div className="data-legend-bar" style={{ background: colormapGradient(display.colormap) }} />
+      <div className="data-legend-ticks">
+        <span>{formatTick(display.min)}</span>
+        <span>{formatTick(mid)}</span>
+        <span>{formatTick(display.max)}</span>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Canvas overlay showing a compact legend for each active data display (node
+ * and/or edge): colormap gradient with min/mid/max ticks. Rendered inside
+ * ReactFlow via a top-right Panel so it stays clear of the bottom-right minimap.
+ */
+const DataLegend = memo(() => {
+  const showContour = useDataStore((s) => s.showContour);
+  const nodeDisplay = useDataStore((s) => s.nodeDisplay);
+  const edgeDisplay = useDataStore((s) => s.edgeDisplay);
+  const nodeDataset = useDataStore((s) => selectActiveDataset(s, 'node'));
+  const edgeDataset = useDataStore((s) => selectActiveDataset(s, 'edge'));
+
+  // The legend explains the colormap contour; hide it when contour is off.
+  if (!showContour || (!nodeDataset && !edgeDataset)) return null;
+
+  return (
+    <Panel position="top-right" className="data-legend">
+      {nodeDataset && <LegendItem target="node" dataset={nodeDataset} display={nodeDisplay} />}
+      {edgeDataset && <LegendItem target="edge" dataset={edgeDataset} display={edgeDisplay} />}
+    </Panel>
+  );
+});
+
+DataLegend.displayName = 'DataLegend';
+
+export default DataLegend;

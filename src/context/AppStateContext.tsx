@@ -3,7 +3,7 @@ import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import { CONSOLE_DEFAULT_HEIGHT } from '../types/console';
 
-export type SidebarPane = 'library' | 'document' | 'model' | 'tools' | 'settings';
+export type SidebarPane = 'library' | 'document' | 'model' | 'tools' | 'settings' | 'data';
 export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier';
 
 type CollapsedGroups = Record<string, boolean>;
