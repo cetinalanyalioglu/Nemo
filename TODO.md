@@ -4,8 +4,8 @@
 
 ## Feature
 
-- [ ] Management of edge and node based data
-- [ ] Rendering edge and node based data
+- [x] Management of edge and node based data
+- [x] Rendering edge and node based data
 
 ## Save / load
 

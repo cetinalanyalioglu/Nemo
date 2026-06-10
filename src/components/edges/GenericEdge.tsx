@@ -2,6 +2,7 @@ import React, { memo, useMemo } from 'react';
 import { BaseEdge, type EdgeProps } from 'reactflow';
 import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
 import { useGraphStore } from '../../store/graphStore';
+import { useDataStore, useElementDataView, formatDataValue } from '../../store/dataStore';
 import EdgeMidpointMarker from './EdgeMidpointMarker';
 import { computeEdgePathGeometry } from './edge-path-utils';
 
@@ -49,6 +50,19 @@ const GenericEdge = ({
   const elementIndex = edgeState?.parameters?.index;
   const indexLabel = showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
 
+  // Data visualization: color the midpoint badge by the active edge dataset and
+  // optionally print the value below it.
+  const dataIndex = typeof elementIndex === 'number' ? elementIndex : undefined;
+  const dataView = useElementDataView('edge', dataIndex);
+  const showContour = useDataStore((s) => s.showContour);
+  const showValueLabels = useDataStore((s) => s.showValueLabels);
+  const valueLabelPrecision = useDataStore((s) => s.valueLabelPrecision);
+  const fillColor = showContour ? dataView.color : null;
+  const valueLabel =
+    showValueLabels && dataView.value !== undefined
+      ? formatDataValue(dataView.value, valueLabelPrecision, dataView.unit)
+      : undefined;
+
   const {
     path: edgePath,
     labelX,
@@ -65,12 +79,14 @@ const GenericEdge = ({
   return (
     <>
       <BaseEdgeStyled id={id} path={edgePath} className="custom-edge" style={style} />
-      {(showEdgeBadges || indexLabel !== undefined) && (
+      {(showEdgeBadges || indexLabel !== undefined || fillColor || valueLabel !== undefined) && (
         <EdgeMidpointMarker
           labelX={labelX}
           labelY={labelY}
           selected={selected}
           indexLabel={indexLabel}
+          fillColor={fillColor}
+          valueLabel={valueLabel}
         />
       )}
     </>

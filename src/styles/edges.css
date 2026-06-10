@@ -38,6 +38,18 @@
   user-select: none;
 }
 
+.edge-midpoint-marker__value {
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  fill: var(--color-text-secondary);
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  user-select: none;
+}
+
 .react-flow__edge-path {
   stroke-width: var(--edge-width);
   stroke: var(--color-edge);

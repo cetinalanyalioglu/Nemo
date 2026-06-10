@@ -1,0 +1,225 @@
+.data-pane-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.data-pane-hint-block {
+  margin-top: 12px;
+}
+
+/* Range min/max sit side by side. */
+.data-pane-range-row {
+  display: flex;
+  gap: 8px;
+}
+
+.data-pane-range-row .parameter-row {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Range inputs have no unit/spinner overlay, so reclaim the right padding. */
+.data-pane .parameter-input.data-pane-range-input {
+  padding-right: 8px;
+}
+
+.data-pane .parameter-input.data-pane-range-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.data-pane-colormap-swatch {
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border-light);
+}
+
+/* Index-readiness callout: shown when data is loaded but indices are unassigned. */
+.data-pane-index-notice {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-pane-index-notice-text {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.data-pane-index-notice-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 14px;
+  color: var(--color-error-strong);
+}
+
+.data-pane-graph-counts {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Per-dataset length-vs-count match indicator. */
+.data-pane-match {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.data-pane-match svg {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.data-pane-match.ok {
+  color: var(--color-success);
+}
+
+.data-pane-match.warn {
+  color: var(--color-error-strong);
+}
+
+/* Dataset list toolbar: count + clear-all */
+.data-pane-dataset-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.data-pane-dataset-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.data-pane-clear-button {
+  padding: 2px 8px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.data-pane-clear-button:hover {
+  border-color: var(--color-error-strong, var(--color-accent));
+  color: var(--color-error-strong, var(--color-accent));
+}
+
+/* Dataset overview list — bounded height so many datasets stay scrollable
+   instead of pushing the rest of the pane off-screen. */
+.data-pane-dataset-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.data-pane-dataset-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.data-pane-dataset-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.data-pane-dataset {
+  position: relative;
+  padding: 8px 28px 8px 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+}
+
+.data-pane-dataset-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.data-pane-dataset-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-pane-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--color-text-on-accent);
+}
+
+.data-pane-tag-node {
+  background: var(--color-accent);
+}
+
+.data-pane-tag-edge {
+  background: var(--color-text-muted);
+}
+
+.data-pane-dataset-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.data-pane-dataset-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.data-pane-dataset-remove:hover {
+  color: var(--color-error-strong, var(--color-accent));
+  background: var(--color-surface-muted);
+}
+
+.data-pane-dataset-remove svg {
+  font-size: 14px;
+}

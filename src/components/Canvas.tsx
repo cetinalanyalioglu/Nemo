@@ -12,6 +12,7 @@ import '../styles/sidebar.css';
 import '../styles/canvas.css';
 import { CanvasZoomIndicator } from './canvas-zoom-indicator';
 import CanvasHistoryControls from './canvas-history-controls';
+import DataLegend from './DataLegend';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGridState, useLayoutState } from '../context/AppStateContext';
@@ -228,6 +229,7 @@ const Canvas = () => {
           <FlowInteractiveToggle />
         </Controls>
         {showMinimap && <MiniMap />}
+        <DataLegend />
         <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />

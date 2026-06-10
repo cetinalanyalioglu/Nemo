@@ -4,6 +4,7 @@ import {
   IoDocumentTextOutline,
   IoLibrary,
   IoCubeOutline,
+  IoStatsChartOutline,
   IoConstructOutline,
   IoSettingsOutline,
 } from 'react-icons/io5';
@@ -42,6 +43,15 @@ const NavigationControls = React.memo(() => {
         title="Model parameters"
       >
         <IoCubeOutline />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('data')}
+        className={`nav-button ${isOpen && activePane === 'data' ? 'active' : ''}`}
+        title="Data"
+      >
+        <IoStatsChartOutline />
       </button>
 
       <button

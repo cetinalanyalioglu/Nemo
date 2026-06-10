@@ -4,6 +4,7 @@ import type { NodeProps } from 'reactflow';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
+import { useDataStore, useElementDataView, formatDataValue } from '../../store/dataStore';
 import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
@@ -126,6 +127,16 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const { model } = useModel();
   const { snapToGrid, size: gridSize } = useGridState();
   const { showIndices } = useAppearanceState();
+
+  // Data visualization: color this node by the active node dataset (keyed on
+  // the generated index) and optionally print its value below the node.
+  const rawIndex = nodeState?.parameters?.index;
+  const dataIndex = typeof rawIndex === 'number' ? rawIndex : undefined;
+  const dataView = useElementDataView('node', dataIndex);
+  const showContour = useDataStore((s) => s.showContour);
+  const showValueLabels = useDataStore((s) => s.showValueLabels);
+  const valueLabelPrecision = useDataStore((s) => s.valueLabelPrecision);
+
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
@@ -486,8 +497,20 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
 
   return (
     <div className={nodeClasses} ref={nodeRef} style={style}>
+      {showContour && dataView.color && (
+        <div
+          className="custom-node-data-strip"
+          style={{ background: dataView.color }}
+          aria-hidden
+        />
+      )}
       {elementIndexLabel !== undefined && (
         <span className="element-index-label port-index">{elementIndexLabel}</span>
+      )}
+      {showValueLabels && dataView.value !== undefined && (
+        <span className="custom-node-data-value">
+          {formatDataValue(dataView.value, valueLabelPrecision, dataView.unit)}
+        </span>
       )}
       <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>
 
