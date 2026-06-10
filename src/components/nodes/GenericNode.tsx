@@ -526,6 +526,10 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
               autoFocus
               className="custom-node-input"
               spellCheck={false}
+              // Size the field to its text so swapping the label for the input
+              // doesn't abruptly resize the node (the default ~20-char width
+              // would overflow a short label).
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
             />
           ) : (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
