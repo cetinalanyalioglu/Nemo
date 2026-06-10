@@ -133,6 +133,22 @@ export interface GraphStore extends GraphData {
 
 const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
+/**
+ * Returns whether a node label is already used by another node. Used to enforce
+ * the model-level `forceUniqueNodeLabels` setting.
+ */
+const isNodeLabelTaken = (
+  nodeStates: Record<string, NodeRuntimeState>,
+  label: string,
+  exceptNodeId?: string
+): boolean => {
+  for (const id in nodeStates) {
+    if (id === exceptNodeId) continue;
+    if (nodeStates[id]?.parameters?.label === label) return true;
+  }
+  return false;
+};
+
 const generateRandomSuffix = (length = 3): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -538,7 +554,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       if (defaultLabel === undefined || defaultLabel === null) {
         throw new Error(`Default label not found for node type: ${type}`);
       }
-      const newLabel = `${String(defaultLabel)}${counter + 1}`;
+      let newLabel = `${String(defaultLabel)}${counter + 1}`;
+      // When the model enforces unique labels, bump the suffix past any
+      // collisions (e.g. a user manually renamed a node to the next label).
+      if (state.model?.forceUniqueNodeLabels) {
+        let suffix = counter + 1;
+        while (isNodeLabelTaken(state.nodeStates, newLabel)) {
+          suffix += 1;
+          newLabel = `${String(defaultLabel)}${suffix}`;
+        }
+      }
 
       const defaultParameters: Record<string, unknown> = {};
       for (const key in nodeTemplate.parameters) {
@@ -721,9 +746,19 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     },
 
     finishEditing: (nodeId) => {
-      const newLabel = get().editingStates[nodeId]?.tempLabel?.trim();
+      const state = get();
+      const newLabel = state.editingStates[nodeId]?.tempLabel?.trim();
       if (newLabel) {
-        get().updateNodeParameter(nodeId, 'label', newLabel);
+        if (
+          state.model?.forceUniqueNodeLabels &&
+          isNodeLabelTaken(state.nodeStates, newLabel, nodeId)
+        ) {
+          // Duplicate label: reject and keep the editor open so the user can
+          // pick a different one rather than silently discarding the edit.
+          alert(`A node labeled "${newLabel}" already exists. Node labels must be unique.`);
+          return;
+        }
+        state.updateNodeParameter(nodeId, 'label', newLabel);
       }
       set((s) => ({
         editingStates: { ...s.editingStates, [nodeId]: { isEditing: false, tempLabel: '' } },
@@ -816,9 +851,22 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         (saveData.uiAttributes?.nodes ?? []).map((uiNode) => [uiNode.id, uiNode])
       );
 
+      const forceUniqueLabels = get().model?.forceUniqueNodeLabels ?? false;
+      const usedLabels = new Set<string>();
       const newNodeStates: Record<string, NodeRuntimeState> = {};
       saveData.model.nodes.forEach((node) => {
-        newNodeStates[node.id] = { parameters: node.attributes ?? {} };
+        const parameters = { ...(node.attributes ?? {}) };
+        // When the model enforces unique labels, disambiguate any duplicates in
+        // the loaded file so the canvas never opens in an invalid state.
+        if (forceUniqueLabels && typeof parameters.label === 'string') {
+          let label = parameters.label;
+          for (let n = 2; usedLabels.has(label); n++) {
+            label = `${parameters.label}-${n}`;
+          }
+          parameters.label = label;
+          usedLabels.add(label);
+        }
+        newNodeStates[node.id] = { parameters };
       });
 
       const newNodes: Node[] = saveData.model.nodes.map((node) => {

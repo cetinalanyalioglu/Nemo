@@ -158,6 +158,12 @@ export interface ModelDefinition {
   id: string;
   name: string;
   description?: string;
+  /**
+   * When true, node labels must be unique across the canvas: label edits that
+   * collide are rejected and generated labels are disambiguated on add.
+   * Defaults to false when omitted.
+   */
+  forceUniqueNodeLabels?: boolean;
   /** Model-wide parameters defined in the model YAML file. */
   parameters?: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
   nodes: Record<string, ModelNodeDefinition>;
