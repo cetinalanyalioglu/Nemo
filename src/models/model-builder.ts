@@ -19,6 +19,8 @@ export interface RuntimeModel {
   id: string;
   name: string;
   description?: string;
+  /** When true, node labels are enforced unique across the canvas. */
+  forceUniqueNodeLabels: boolean;
   /** Model-wide parameter metadata from the model YAML file. */
   modelParameters: Record<string, Record<string, unknown>>;
   nodeConfig: Record<string, NodeConfigEntry>;
@@ -150,6 +152,7 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
     id: candidate.id,
     name: candidate.name,
     description: candidate.description,
+    forceUniqueNodeLabels: candidate.forceUniqueNodeLabels ?? false,
     parameters: candidate.parameters ?? {},
     nodes: candidate.nodes,
     edges: candidate.edges ?? {},
@@ -230,6 +233,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
     id: def.id,
     name: def.name,
     description: def.description,
+    forceUniqueNodeLabels: def.forceUniqueNodeLabels ?? false,
     modelParameters: def.parameters ?? {},
     nodeConfig,
     edgeConfig,

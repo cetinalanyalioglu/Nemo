@@ -1,6 +1,7 @@
 id: generic-network
 name: Generic Network
 description: Generic network model for testing and development.
+forceUniqueNodeLabels: true
 
 parameters:
   exampleFloat:

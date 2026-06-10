@@ -8,6 +8,9 @@
 # id          Unique identifier of the model (referenced by the UI).
 # name        Human readable name shown in the model selector.
 # description Optional short description of the model.
+# forceUniqueNodeLabels  When true, node labels must be unique on the canvas:
+#                        colliding label edits are rejected and generated labels
+#                        are disambiguated. Defaults to false when omitted.
 #
 # nodes.<Type>
 #   displayName        Label shown in the library and properties panel.
@@ -44,6 +47,7 @@
 id: acoustic-network
 name: Acoustic Network
 description: Default element library for acoustic network models.
+forceUniqueNodeLabels: true
 
 edges:
   flow:
