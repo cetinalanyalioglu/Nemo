@@ -234,13 +234,13 @@ const SettingsPane = React.memo(() => {
           />
           <SettingsNumberField
             id="node-sep-input"
-            label="Node spacing"
+            label="Vertical spacing"
             value={nodeSep}
             onChange={handleNodeSepChange}
           />
           <SettingsNumberField
             id="rank-sep-input"
-            label="Rank spacing"
+            label="Horizontal spacing"
             value={rankSep}
             onChange={handleRankSepChange}
           />
