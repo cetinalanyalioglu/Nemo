@@ -1,0 +1,365 @@
+# CBN Flow Network model definition
+#
+# Element library for the cbnflow compressible flow-network solver
+# (~/Projects/CBN/prototype).  Networks built with this model and saved from
+# the UI can be solved directly:
+#
+#     python run_ui_case.py <saved-case>.yaml -o <results>.json
+#
+# (run from ~/Projects/CBN/prototype).  The produced results file can be
+# loaded back into the UI's data pane to color nodes/edges with the solution
+# (mass flow, pressure, Mach number, ... per edge; conservation residuals per
+# node).
+#
+# Conventions matching the solver:
+#   - All solution variables live on EDGES; each edge needs its flow area.
+#   - Edge direction (source -> target) is only a sign convention: a negative
+#     mass flow in the results means the gas runs against the drawn arrow.
+#   - Every element contributes exactly one equation per port; see THEORY.md
+#     in the solver repository for the formulations.
+#   - JunctionStaticP is valid only where all ports run at low Mach number;
+#     use LosslessSplitter for plenums/manifolds feeding fast branches
+#     (THEORY.md section 7.5).
+#
+# Model-level parameters (Model pane) hold the gas properties and the
+# reference scales used by the solver for nondimensionalization.
+
+id: cbn-flow-network
+name: CBN Flow Network
+description: Compressible flow network element library for the cbnflow solver.
+forceUniqueNodeLabels: true
+
+parameters:
+  gasConstant:
+    label: Specific gas constant R
+    type: float
+    defaultValue: 287.0
+    unit: J/(kg K)
+    category: Gas
+    min: 1
+    description: Specific gas constant of the working gas
+  heatCapacityRatio:
+    label: Heat capacity ratio
+    type: float
+    defaultValue: 1.4
+    category: Gas
+    min: 1.001
+    max: 1.999
+    step: 0.01
+    description: cp/cv of the working gas (calorically perfect)
+  referencePressure:
+    label: Reference pressure
+    type: float
+    defaultValue: 101325.0
+    unit: Pa
+    category: References
+    min: 1
+    description: Pressure scale used for nondimensionalization and initialization
+  referenceTemperature:
+    label: Reference temperature
+    type: float
+    defaultValue: 300.0
+    unit: K
+    category: References
+    min: 1
+    description: Temperature scale used for nondimensionalization and initialization
+  referenceMassFlow:
+    label: Reference mass flow
+    type: float
+    defaultValue: 0.0
+    unit: kg/s
+    category: References
+    min: 0
+    description: >-
+      Mass-flow scale for nondimensionalization. Leave 0 to derive it
+      automatically (largest specified mass flow, else a Mach-0.3 estimate
+      on the median edge area).
+
+edges:
+  flow:
+    displayName: Flow Edge
+    category: Flow Connections
+    parameters:
+      area:
+        label: Area
+        type: float
+        defaultValue: 1.0
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+        description: Cross-sectional flow area at this port surface
+        editable: true
+        visible: true
+
+nodes:
+  MassFlowInlet:
+    displayName: Mass Flow Inlet
+    category: Boundary elements
+    icon: BsArrowDownCircle
+    dynamicPorts: false
+    ports:
+      target: []
+      source: ['0']
+    parameters:
+      label:
+        defaultValue: MassFlowInlet
+      massFlowRate:
+        label: Mass flow rate
+        type: float
+        defaultValue: 1.0
+        unit: kg/s
+        category: Parameters
+        step: 0.1
+        description: Mass flow delivered into the network (negative = suction)
+      totalTemperature:
+        label: Total temperature
+        type: float
+        defaultValue: 300.0
+        unit: K
+        category: Parameters
+        min: 1
+        description: Total temperature of the supplied stream
+    disallowedConnections:
+      - MassFlowInlet
+      - TotalPressureInlet
+
+  TotalPressureInlet:
+    displayName: Total Pressure Inlet
+    category: Boundary elements
+    icon: BsArrowDownCircle
+    dynamicPorts: false
+    ports:
+      target: []
+      source: ['0']
+    parameters:
+      label:
+        defaultValue: TotalPressureInlet
+      totalPressure:
+        label: Total pressure
+        type: float
+        defaultValue: 120000.0
+        unit: Pa
+        category: Parameters
+        min: 1
+        description: Reservoir total pressure (acts on static pressure under backflow)
+      totalTemperature:
+        label: Total temperature
+        type: float
+        defaultValue: 300.0
+        unit: K
+        category: Parameters
+        min: 1
+        description: Reservoir total temperature
+    disallowedConnections:
+      - MassFlowInlet
+      - TotalPressureInlet
+
+  SupersonicInlet:
+    displayName: Supersonic Inlet
+    category: Boundary elements
+    icon: BsTriangle
+    dynamicPorts: false
+    ports:
+      target: []
+      source: ['0']
+    parameters:
+      label:
+        defaultValue: SupersonicInlet
+      machNumber:
+        label: Mach number
+        type: float
+        defaultValue: 1.8
+        category: Parameters
+        min: 1.01
+        step: 0.05
+        description: Supersonic inflow Mach number (flight condition)
+      totalPressure:
+        label: Total pressure
+        type: float
+        defaultValue: 172374.0
+        unit: Pa
+        category: Parameters
+        min: 1
+        description: Free-stream total pressure
+      totalTemperature:
+        label: Total temperature
+        type: float
+        defaultValue: 362.6
+        unit: K
+        category: Parameters
+        min: 1
+        description: Free-stream total temperature
+    disallowedConnections:
+      - MassFlowInlet
+      - TotalPressureInlet
+      - SupersonicInlet
+
+  PressureOutlet:
+    displayName: Pressure Outlet
+    category: Boundary elements
+    icon: BsArrowUpCircle
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: PressureOutlet
+      pressure:
+        label: Static pressure
+        type: float
+        defaultValue: 101325.0
+        unit: Pa
+        category: Parameters
+        min: 1
+        description: Discharge static pressure (acts as backflow total pressure if the flow reverses)
+      backflowTotalTemperature:
+        label: Backflow total temperature
+        type: float
+        defaultValue: 300.0
+        unit: K
+        category: Parameters
+        min: 1
+        description: Total temperature advected into the network if the flow reverses here
+
+  SupersonicOutlet:
+    displayName: Supersonic Outlet
+    category: Boundary elements
+    icon: BsTriangle
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: SupersonicOutlet
+      pressure:
+        label: Design exit pressure
+        type: float
+        defaultValue: 18786.0
+        unit: Pa
+        category: Parameters
+        min: 1
+        description: >-
+          Static pressure of the design-point supersonic exit. Declared
+          supersonic-outflow configuration: use only where the exit edge runs
+          supersonic at its design-consistent pressure; use PressureOutlet
+          for subsonic/choked exits.
+
+  IsentropicAreaChange:
+    displayName: Isentropic Area Change
+    category: Two port elements
+    icon: BsArrowLeftRight
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: IsentropicAreaChange
+    # Lossless nozzle/diffuser: conserves mass and total pressure; the area
+    # change is given by the areas of the two attached edges.
+
+  SuddenAreaChange:
+    displayName: Sudden Area Change
+    category: Two port elements
+    icon: BsArrowsExpand
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: SuddenAreaChange
+    # Borda-Carnot momentum balance when the flow runs small -> large
+    # (expansion with mixing loss); loss-free in the contraction direction.
+    # Small/large sides are identified from the attached edge areas.
+
+  LossElement:
+    displayName: Loss Element
+    category: Two port elements
+    icon: BsDiamond
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: LossElement
+      lossCoefficient:
+        label: Loss coefficient K
+        type: float
+        defaultValue: 1.0
+        category: Parameters
+        min: 0
+        step: 0.1
+        description: >-
+          Total-pressure loss = K x dynamic head, referenced to the
+          target-side (port 0) edge area; always opposes the flow.
+
+  JunctionStaticP:
+    displayName: Junction (static p)
+    category: Multi port elements
+    icon: BsLightningFill
+    dynamicPorts: true
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 2
+        min: 1
+      source:
+        countParameter: rightPorts
+        default: 1
+        min: 1
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Junction
+      leftPorts:
+        label: Left ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of left (target) ports
+      rightPorts:
+        label: Right ports
+        type: number
+        defaultValue: 1
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of right (source) ports
+    # Common static pressure on all ports; inflow enthalpies mix
+    # mass-weighted. Only valid where all port Mach numbers are low --
+    # use LosslessSplitter for plenums feeding fast branches.
+
+  LosslessSplitter:
+    displayName: Lossless Splitter
+    category: Multi port elements
+    icon: BsDiagram2
+    dynamicPorts: true
+    dynamicPortConfig:
+      source:
+        countParameter: rightPorts
+        default: 2
+        min: 1
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: Splitter
+      rightPorts:
+        label: Output ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of output ports
+    # Common total pressure on all ports (isentropic distribution plenum):
+    # mass + energy + constant entropy into every branch.

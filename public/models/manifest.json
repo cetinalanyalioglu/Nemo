@@ -9,6 +9,11 @@
       "id": "acoustic-network",
       "name": "Acoustic Network",
       "file": "acoustic-network.yaml"
+    },
+    {
+      "id": "cbn-flow-network",
+      "name": "CBN Flow Network",
+      "file": "cbn-flow-network.yaml"
     }
   ]
 }

@@ -94,6 +94,37 @@ nodes:
     disallowedConnections:
       - MassFlowInlet
       - PressureOutlet
+      - TotalPressureInlet
+
+  TotalPressureInlet:
+    displayName: Total Pressure Inlet
+    category: Single port elements
+    icon: BsArrowDownCircle
+    dynamicPorts: false
+    ports:
+      target: []
+      source: ['0']
+    parameters:
+      label:
+        defaultValue: TotalPressureInlet
+      totalPressure:
+        label: Total pressure
+        type: float
+        defaultValue: 101325.
+        unit: Pa
+        category: Parameters
+        min: 0
+      totalTemperature:
+        label: Total Temperature
+        type: float
+        defaultValue: 298.15
+        unit: K
+        category: Parameters
+        min: 0
+    disallowedConnections:
+      - MassFlowInlet
+      - PressureOutlet
+      - TotalPressureInlet
 
   PressureOutlet:
     displayName: Pressure Outlet
