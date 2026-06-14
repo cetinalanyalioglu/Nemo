@@ -79,7 +79,7 @@ const GenericEdge = ({
   return (
     <>
       <BaseEdgeStyled id={id} path={edgePath} className="custom-edge" style={style} />
-      {(showEdgeBadges || indexLabel !== undefined || fillColor || valueLabel !== undefined) && (
+      {showEdgeBadges && (
         <EdgeMidpointMarker
           labelX={labelX}
           labelY={labelY}

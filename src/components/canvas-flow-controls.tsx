@@ -54,8 +54,10 @@ export const AutoLayoutControl = memo(() => {
   const onLayout = useCallback(() => {
     if (!reactFlowInstance) return;
 
-    // Read the current graph lazily so this control never re-renders on drags.
-    const { nodes, edges } = useGraphStore.getState();
+    // Read from the ReactFlow instance so nodes carry their measured dimensions,
+    // letting dagre lay them out by real size instead of a hardcoded default.
+    const nodes = reactFlowInstance.getNodes();
+    const edges = reactFlowInstance.getEdges();
     const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges, 'LR', nodeSep, rankSep);
 
     const changes = layoutedNodes.map((node) => ({

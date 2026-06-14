@@ -118,7 +118,13 @@ export const useDataStore = create<DataStore>((set, get) => ({
         if (newDatasets.length === 0) {
           throw new Error('Data file contains no datasets');
         }
-        set((s) => ({ datasets: [...s.datasets, ...newDatasets] }));
+        // Replace any previously loaded datasets. Dataset ids are regenerated per
+        // load, so the existing display selections can no longer match — reset them.
+        set((s) => ({
+          datasets: newDatasets,
+          nodeDisplay: { ...s.nodeDisplay, datasetId: null },
+          edgeDisplay: { ...s.edgeDisplay, datasetId: null },
+        }));
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         console.error('Error loading data file:', error);

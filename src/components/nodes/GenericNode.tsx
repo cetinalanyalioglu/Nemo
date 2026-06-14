@@ -521,7 +521,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
             <input
               value={editingStateValue.tempLabel}
               onChange={(e) => contextOnChange(id, e)}
-              onBlur={() => contextFinishEditing(id)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
               onKeyDown={(e) => contextOnKeyDown(id, e)}
               autoFocus
               className="custom-node-input"

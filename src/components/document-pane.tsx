@@ -10,6 +10,7 @@ import {
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
+import { useDataStore } from '../store/dataStore';
 
 const DOCUMENT_FILE_GROUP = '__document_file__';
 
@@ -17,7 +18,9 @@ const DocumentPane = React.memo(() => {
   const saveToFile = useGraphStore((s) => s.saveToFile);
   const loadFromFile = useGraphStore((s) => s.loadFromFile);
   const reset = useGraphStore((s) => s.reset);
+  const clearDatasets = useDataStore((s) => s.clearDatasets);
   const nodeCount = useGraphStore((s) => s.nodes.length);
+  const datasetCount = useDataStore((s) => s.datasets.length);
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -27,17 +30,23 @@ const DocumentPane = React.memo(() => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Loading a new canvas invalidates any datasets bound to the old one, so
+      // clear them just like the "New" button does.
+      clearDatasets();
       loadFromFile(file);
       event.target.value = '';
     }
   };
 
   const handleNew = () => {
-    if (nodeCount > 0) {
-      const confirmed = window.confirm('Start a new document? This will clear the current canvas.');
+    if (nodeCount > 0 || datasetCount > 0) {
+      const confirmed = window.confirm(
+        'Start a new document? This will clear the current canvas and any loaded data.'
+      );
       if (!confirmed) return;
     }
     reset();
+    clearDatasets();
   };
 
   return (

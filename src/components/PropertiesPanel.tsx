@@ -276,7 +276,10 @@ const PropertiesPanel = React.memo(() => {
         // If update failed, keep the old value and show error
         setInvalidInputs((prev) => ({
           ...prev,
-          [`${elementId}_${paramKey}`]: 'Parameter update was rejected',
+          [`${elementId}_${paramKey}`]:
+            paramKey === 'label'
+              ? 'A node with this name already exists'
+              : 'Parameter update was rejected',
         }));
         // Reset to the current value in the node state
         setTempValues((prev) => ({
