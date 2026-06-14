@@ -5,6 +5,7 @@ import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEve
 import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
+import { useDataStore } from './dataStore';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -60,7 +61,12 @@ interface GraphData {
   totalNodeCounters: Record<string, number>;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
+  /** Case title shown at the top of the canvas. */
+  title: string;
 }
+
+/** Default case title before any name is set or loaded. */
+export const DEFAULT_CASE_TITLE = 'Untitled';
 
 export interface GraphStore extends GraphData {
   // Model runtime, synced from ModelContext via the store bridge.
@@ -80,6 +86,9 @@ export interface GraphStore extends GraphData {
   // Selection.
   setSelectedNodeId: (id: string | null) => void;
   setSelectedEdgeId: (id: string | null) => void;
+
+  // Case title.
+  setTitle: (title: string) => void;
 
   // Graph mutations.
   addNode: (payload: {
@@ -323,10 +332,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     totalNodeCounters: {},
     selectedNodeId: null,
     selectedEdgeId: null,
+    title: DEFAULT_CASE_TITLE,
 
     // History
     past: [],
     future: [],
+
+    setTitle: (title) => set({ title }),
 
     onNodesChange: (changes) => {
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -673,6 +685,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         ),
         selectedNodeId: null,
         selectedEdgeId: null,
+        title: DEFAULT_CASE_TITLE,
       }));
       get().clearHistory();
       debugLog('All nodes and states have been cleared');
@@ -799,9 +812,15 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     generateSaveData: () => {
       const state = get();
 
+      // Embed only the datasets the user ticked for saving (Data pane / Document
+      // pane tick-list). Omit the section entirely when nothing is selected.
+      const savedDatasets = useDataStore.getState().datasets.filter((d) => d.includeInSave);
+
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
+        meta: { title: state.title },
+        ...(savedDatasets.length > 0 ? { data: { datasets: savedDatasets } } : {}),
         model: {
           id: state.model?.id,
           globalAttributes: { ...state.modelParameters },
@@ -936,7 +955,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         edges: newEdges,
         nodeCounters: saveData.uiState?.counters?.nodeCounters ?? {},
         totalNodeCounters: saveData.uiState?.counters?.totalNodeCounters ?? {},
+        title: saveData.meta?.title ?? DEFAULT_CASE_TITLE,
       });
+
+      // Restore any datasets embedded in the file. (The Document pane clears
+      // existing datasets before loading, so this is the authoritative set.)
+      if (saveData.data?.datasets && saveData.data.datasets.length > 0) {
+        useDataStore.getState().loadDatasetsFromObject(saveData.data.datasets);
+      }
 
       debugLog('Successfully loaded canvas state from file');
       if (saveData.timestamp) {
@@ -969,6 +995,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
           if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
             throw new Error('Invalid save file: Missing model data');
+          }
+
+          // When the file carries no explicit title, default to the filename
+          // (extension stripped). Set it on the payload so both the immediate
+          // and deferred (model-switch) load paths pick it up in applySaveData.
+          if (!saveData.meta?.title) {
+            const fallbackTitle = file.name.replace(/\.[^./\\]+$/, '');
+            saveData.meta = { ...(saveData.meta ?? {}), title: fallbackTitle };
           }
 
           const state = get();

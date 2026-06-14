@@ -5,22 +5,27 @@ import type {
   ColormapId,
   DataDisplayConfig,
   DataFilePayload,
+  DataItem,
+  DataItemFileEntry,
   DataTarget,
   Dataset,
-  DatasetFileEntry,
+  ValueNotation,
 } from '../types/data';
 
 const DEFAULT_COLORMAP: ColormapId = 'viridis';
 
 const makeDefaultDisplay = (): DataDisplayConfig => ({
-  datasetId: null,
+  itemId: null,
   colormap: DEFAULT_COLORMAP,
   min: 0,
   max: 1,
   auto: true,
+  showValues: false,
+  precision: 2,
+  notation: 'fixed',
 });
 
-/** Computes a [min, max] range over a dataset's finite values. */
+/** Computes a [min, max] range over an item's finite values. */
 const computeRange = (values: number[]): { min: number; max: number } => {
   let min = Infinity;
   let max = -Infinity;
@@ -39,23 +44,23 @@ const computeRange = (values: number[]): { min: number; max: number } => {
   return { min, max };
 };
 
-let datasetCounter = 0;
-const generateDatasetId = (): string => {
-  datasetCounter += 1;
-  return `ds-${Date.now().toString(36)}-${datasetCounter}`;
+let idCounter = 0;
+const generateId = (prefix: string): string => {
+  idCounter += 1;
+  return `${prefix}-${Date.now().toString(36)}-${idCounter}`;
 };
 
-/** Validates and normalizes a raw file entry into a Dataset, or throws. */
-const parseDatasetEntry = (entry: unknown, index: number): Dataset => {
+/** Validates and normalizes a raw file entry into a DataItem, or throws. */
+const parseItemEntry = (entry: unknown, index: number): DataItem => {
   if (!entry || typeof entry !== 'object') {
-    throw new Error(`Dataset #${index + 1} is not an object`);
+    throw new Error(`Item #${index + 1} is not an object`);
   }
-  const raw = entry as Partial<DatasetFileEntry>;
+  const raw = entry as Partial<DataItemFileEntry>;
   if (raw.target !== 'node' && raw.target !== 'edge') {
-    throw new Error(`Dataset #${index + 1} has invalid "target" (expected "node" or "edge")`);
+    throw new Error(`Item #${index + 1} has invalid "target" (expected "node" or "edge")`);
   }
   if (!Array.isArray(raw.values) || raw.values.some((v) => typeof v !== 'number')) {
-    throw new Error(`Dataset #${index + 1} has invalid "values" (expected an array of numbers)`);
+    throw new Error(`Item #${index + 1} has invalid "values" (expected an array of numbers)`);
   }
   const name =
     typeof raw.name === 'string' && raw.name.trim().length > 0
@@ -63,7 +68,7 @@ const parseDatasetEntry = (entry: unknown, index: number): Dataset => {
       : `${raw.target} data ${index + 1}`;
 
   return {
-    id: generateDatasetId(),
+    id: generateId('item'),
     name,
     target: raw.target,
     unit: typeof raw.unit === 'string' ? raw.unit : undefined,
@@ -71,38 +76,117 @@ const parseDatasetEntry = (entry: unknown, index: number): Dataset => {
   };
 };
 
+/** Strips a file extension to derive a default dataset name from a filename. */
+const stripExtension = (fileName: string): string => fileName.replace(/\.[^./\\]+$/, '');
+
+/**
+ * Returns a human-readable message describing the first item in a dataset whose
+ * value count doesn't match the canvas element count for its target, or null
+ * when every item matches.
+ */
+const findCountMismatch = (
+  dataset: Dataset,
+  expected: { nodeCount: number; edgeCount: number }
+): string | null => {
+  for (const item of dataset.items) {
+    const want = item.target === 'node' ? expected.nodeCount : expected.edgeCount;
+    const noun = item.target === 'node' ? 'node' : 'edge';
+    if (item.values.length !== want) {
+      return (
+        `Dataset rejected: item "${item.name}" has ${item.values.length} ${noun} ` +
+        `value${item.values.length === 1 ? '' : 's'}, but the canvas has ${want} ` +
+        `${noun}${want === 1 ? '' : 's'}. Data must match the canvas element count.`
+      );
+    }
+  }
+  return null;
+};
+
+/** Builds a Dataset group from a parsed file payload. */
+const buildDatasetFromPayload = (payload: DataFilePayload, fallbackName: string): Dataset => {
+  const entries = payload.items ?? payload.datasets;
+  if (!Array.isArray(entries)) {
+    throw new Error('Invalid data file: expected an "items" array');
+  }
+  const items = entries.map((entry, index) => parseItemEntry(entry, index));
+  if (items.length === 0) {
+    throw new Error('Data file contains no items');
+  }
+  const name =
+    typeof payload.name === 'string' && payload.name.trim().length > 0
+      ? payload.name.trim()
+      : fallbackName;
+  return { id: generateId('ds'), name, items, includeInSave: true };
+};
+
 interface DataStore {
   datasets: Dataset[];
+  /** Bumped on every successful load; observed by the canvas freeze bridge. */
+  loadCount: number;
   nodeDisplay: DataDisplayConfig;
   edgeDisplay: DataDisplayConfig;
   showContour: boolean;
-  showValueLabels: boolean;
-  valueLabelPrecision: number;
 
-  loadDatasetsFromFile: (file: File) => void;
+  loadDatasetsFromFile: (file: File, expected?: ExpectedCounts) => void;
+  /** Restores datasets embedded in a saved case file. */
+  loadDatasetsFromObject: (datasets: Dataset[]) => void;
   removeDataset: (id: string) => void;
+  renameDataset: (id: string, name: string) => void;
+  toggleDatasetSave: (id: string) => void;
+  setAllDatasetsSave: (include: boolean) => void;
   clearDatasets: () => void;
-  setDisplayDataset: (target: DataTarget, datasetId: string | null) => void;
+  setDisplayItem: (target: DataTarget, itemId: string | null) => void;
   setColormap: (target: DataTarget, colormap: ColormapId) => void;
   setRange: (target: DataTarget, min: number, max: number) => void;
   setAutoRange: (target: DataTarget, auto: boolean) => void;
   toggleContour: () => void;
-  toggleValueLabels: () => void;
-  setValueLabelPrecision: (precision: number) => void;
+  toggleShowValues: (target: DataTarget) => void;
+  setPrecision: (target: DataTarget, precision: number) => void;
+  setNotation: (target: DataTarget, notation: ValueNotation) => void;
+}
+
+/** Expected element counts used to validate a dataset on load (task: reject mismatched data). */
+export interface ExpectedCounts {
+  nodeCount: number;
+  edgeCount: number;
 }
 
 const displayKey = (target: DataTarget): 'nodeDisplay' | 'edgeDisplay' =>
   target === 'node' ? 'nodeDisplay' : 'edgeDisplay';
 
+/** Finds an item (and its parent dataset) by item id across all datasets. */
+const findItem = (
+  datasets: Dataset[],
+  itemId: string | null | undefined
+): { dataset: Dataset; item: DataItem } | undefined => {
+  if (!itemId) return undefined;
+  for (const dataset of datasets) {
+    const item = dataset.items.find((i) => i.id === itemId);
+    if (item) return { dataset, item };
+  }
+  return undefined;
+};
+
+/** Clears any display selection whose item is no longer present. */
+const clearStaleDisplays = (state: DataStore, datasets: Dataset[]): Partial<DataStore> => {
+  const patch: Partial<DataStore> = { datasets };
+  if (state.nodeDisplay.itemId && !findItem(datasets, state.nodeDisplay.itemId)) {
+    patch.nodeDisplay = { ...state.nodeDisplay, itemId: null };
+  }
+  if (state.edgeDisplay.itemId && !findItem(datasets, state.edgeDisplay.itemId)) {
+    patch.edgeDisplay = { ...state.edgeDisplay, itemId: null };
+  }
+  return patch;
+};
+
 export const useDataStore = create<DataStore>((set, get) => ({
   datasets: [],
+  loadCount: 0,
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
   showContour: true,
-  showValueLabels: false,
-  valueLabelPrecision: 2,
 
-  loadDatasetsFromFile: (file) => {
+  loadDatasetsFromFile: (file, expected) => {
     const reader = new FileReader();
     reader.onload = (event: ProgressEvent<FileReader>) => {
       try {
@@ -111,20 +195,21 @@ export const useDataStore = create<DataStore>((set, get) => ({
           throw new Error('Invalid file contents');
         }
         const parsed = JSON.parse(raw) as DataFilePayload;
-        if (!parsed || !Array.isArray(parsed.datasets)) {
-          throw new Error('Invalid data file: expected a top-level "datasets" array');
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Invalid data file');
         }
-        const newDatasets = parsed.datasets.map((entry, index) => parseDatasetEntry(entry, index));
-        if (newDatasets.length === 0) {
-          throw new Error('Data file contains no datasets');
+        const dataset = buildDatasetFromPayload(parsed, stripExtension(file.name));
+        // Reject datasets whose item lengths don't match the canvas element
+        // counts: data maps to elements by index, so a length mismatch can't be
+        // interpreted correctly.
+        if (expected) {
+          const mismatch = findCountMismatch(dataset, expected);
+          if (mismatch) {
+            throw new Error(mismatch);
+          }
         }
-        // Replace any previously loaded datasets. Dataset ids are regenerated per
-        // load, so the existing display selections can no longer match — reset them.
-        set((s) => ({
-          datasets: newDatasets,
-          nodeDisplay: { ...s.nodeDisplay, datasetId: null },
-          edgeDisplay: { ...s.edgeDisplay, datasetId: null },
-        }));
+        // Append: loading a file adds a dataset and keeps existing selections.
+        set((s) => ({ datasets: [...s.datasets, dataset], loadCount: s.loadCount + 1 }));
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         console.error('Error loading data file:', error);
@@ -138,38 +223,70 @@ export const useDataStore = create<DataStore>((set, get) => ({
     reader.readAsText(file);
   },
 
+  loadDatasetsFromObject: (datasets) => {
+    if (!Array.isArray(datasets) || datasets.length === 0) return;
+    // Regenerate ids so embedded datasets never collide with anything loaded
+    // in this session, and re-derive item ids the displays reference.
+    const cloned: Dataset[] = datasets.map((dataset) => ({
+      id: generateId('ds'),
+      name: dataset.name,
+      includeInSave: dataset.includeInSave ?? true,
+      items: (dataset.items ?? []).map((item) => ({
+        id: generateId('item'),
+        name: item.name,
+        target: item.target,
+        unit: item.unit,
+        values: item.values,
+      })),
+    }));
+    set((s) => ({ datasets: [...s.datasets, ...cloned], loadCount: s.loadCount + 1 }));
+  },
+
   removeDataset: (id) => {
     set((s) => {
       const datasets = s.datasets.filter((d) => d.id !== id);
-      const patch: Partial<DataStore> = { datasets };
-      if (s.nodeDisplay.datasetId === id) {
-        patch.nodeDisplay = { ...s.nodeDisplay, datasetId: null };
-      }
-      if (s.edgeDisplay.datasetId === id) {
-        patch.edgeDisplay = { ...s.edgeDisplay, datasetId: null };
-      }
-      return patch;
+      return clearStaleDisplays(s, datasets);
     });
+  },
+
+  renameDataset: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      datasets: s.datasets.map((d) => (d.id === id ? { ...d, name: trimmed } : d)),
+    }));
+  },
+
+  toggleDatasetSave: (id) => {
+    set((s) => ({
+      datasets: s.datasets.map((d) =>
+        d.id === id ? { ...d, includeInSave: !d.includeInSave } : d
+      ),
+    }));
+  },
+
+  setAllDatasetsSave: (include) => {
+    set((s) => ({ datasets: s.datasets.map((d) => ({ ...d, includeInSave: include })) }));
   },
 
   clearDatasets: () => {
     set((s) => ({
       datasets: [],
-      nodeDisplay: { ...s.nodeDisplay, datasetId: null },
-      edgeDisplay: { ...s.edgeDisplay, datasetId: null },
+      nodeDisplay: { ...s.nodeDisplay, itemId: null },
+      edgeDisplay: { ...s.edgeDisplay, itemId: null },
     }));
   },
 
-  setDisplayDataset: (target, datasetId) => {
+  setDisplayItem: (target, itemId) => {
     set((s) => {
       const key = displayKey(target);
       const current = s[key];
-      const dataset = datasetId ? s.datasets.find((d) => d.id === datasetId) : undefined;
-      const range = current.auto && dataset ? computeRange(dataset.values) : null;
+      const found = findItem(s.datasets, itemId);
+      const range = current.auto && found ? computeRange(found.item.values) : null;
       return {
         [key]: {
           ...current,
-          datasetId,
+          itemId,
           ...(range ?? {}),
         },
       } as Partial<DataStore>;
@@ -194,38 +311,82 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set((s) => {
       const key = displayKey(target);
       const current = s[key];
-      const dataset = current.datasetId
-        ? s.datasets.find((d) => d.id === current.datasetId)
-        : undefined;
-      const range = auto && dataset ? computeRange(dataset.values) : null;
+      const found = findItem(s.datasets, current.itemId);
+      const range = auto && found ? computeRange(found.item.values) : null;
       return { [key]: { ...current, auto, ...(range ?? {}) } } as Partial<DataStore>;
     });
   },
 
   toggleContour: () => set((s) => ({ showContour: !s.showContour })),
 
-  toggleValueLabels: () => set((s) => ({ showValueLabels: !s.showValueLabels })),
+  toggleShowValues: (target) => {
+    set((s) => {
+      const key = displayKey(target);
+      return { [key]: { ...s[key], showValues: !s[key].showValues } } as Partial<DataStore>;
+    });
+  },
 
-  setValueLabelPrecision: (precision) =>
-    set({ valueLabelPrecision: Math.max(0, Math.min(6, Math.round(precision))) }),
+  setPrecision: (target, precision) => {
+    set((s) => {
+      const key = displayKey(target);
+      const clamped = Math.max(0, Math.min(6, Math.round(precision)));
+      return { [key]: { ...s[key], precision: clamped } } as Partial<DataStore>;
+    });
+  },
+
+  setNotation: (target, notation) => {
+    set((s) => {
+      const key = displayKey(target);
+      return { [key]: { ...s[key], notation } } as Partial<DataStore>;
+    });
+  },
 }));
 
-/** Resolves the dataset currently displayed for a target, if any. */
-export const selectActiveDataset = (state: DataStore, target: DataTarget): Dataset | undefined => {
+/** Total number of items across all loaded datasets. */
+export const selectItemCount = (state: DataStore): number =>
+  state.datasets.reduce((sum, d) => sum + d.items.length, 0);
+
+/**
+ * Resolves the item currently displayed for a target, if any. Returns the item
+ * object straight from the store so the reference is stable across renders when
+ * the selection is unchanged (required by zustand's snapshot equality check).
+ */
+export const selectActiveItem = (state: DataStore, target: DataTarget): DataItem | undefined => {
   const display = target === 'node' ? state.nodeDisplay : state.edgeDisplay;
-  if (!display.datasetId) return undefined;
-  return state.datasets.find((d) => d.id === display.datasetId);
+  return findItem(state.datasets, display.itemId)?.item;
 };
 
+/**
+ * Resolves the parent dataset of the item currently displayed for a target.
+ * Like {@link selectActiveItem}, returns the stored object directly so the
+ * reference stays stable for unchanged selections.
+ */
+export const selectActiveDataset = (state: DataStore, target: DataTarget): Dataset | undefined => {
+  const display = target === 'node' ? state.nodeDisplay : state.edgeDisplay;
+  return findItem(state.datasets, display.itemId)?.dataset;
+};
+
+/** Finds an item (and its dataset) by id; exported for component use. */
+export const findItemById = (
+  state: DataStore,
+  itemId: string | null | undefined
+): { dataset: Dataset; item: DataItem } | undefined => findItem(state.datasets, itemId);
+
 /** Formats a numeric value for an on-canvas label, with optional unit. */
-export const formatDataValue = (value: number, precision: number, unit?: string): string => {
+export const formatDataValue = (
+  value: number,
+  precision: number,
+  notation: ValueNotation,
+  unit?: string
+): string => {
   if (!Number.isFinite(value)) return '—';
-  const text = value.toFixed(precision);
+  const text =
+    notation === 'scientific' ? value.toExponential(precision) : value.toFixed(precision);
   return unit ? `${text} ${unit}` : text;
 };
 
 export interface ElementDataView {
-  /** CSS color for this element, or null when there is no value/dataset. */
+  /** CSS color for this element, or null when there is no value/item. */
   color: string | null;
   /** Raw value for this element, or undefined when out of range/absent. */
   value: number | undefined;
@@ -235,27 +396,26 @@ export interface ElementDataView {
 /**
  * Hook returning the colormap color and value for a single element (node or
  * edge) at a given generated index. Subscribes to the small per-target display
- * config and the active dataset; the color is memoized so unrelated store
- * updates don't recompute it.
+ * config and the active item; the color is memoized so unrelated store updates
+ * don't recompute it.
  */
 export const useElementDataView = (
   target: DataTarget,
   index: number | undefined
 ): ElementDataView => {
   const display = useDataStore((s) => (target === 'node' ? s.nodeDisplay : s.edgeDisplay));
-  const dataset = useDataStore((s) =>
-    display.datasetId ? s.datasets.find((d) => d.id === display.datasetId) : undefined
-  );
+  const datasets = useDataStore((s) => s.datasets);
+  const item = useMemo(() => findItem(datasets, display.itemId)?.item, [datasets, display.itemId]);
 
   return useMemo(() => {
-    if (!dataset || typeof index !== 'number' || index < 0 || index >= dataset.values.length) {
-      return { color: null, value: undefined, unit: dataset?.unit };
+    if (!item || typeof index !== 'number' || index < 0 || index >= item.values.length) {
+      return { color: null, value: undefined, unit: item?.unit };
     }
-    const value = dataset.values[index];
+    const value = item.values[index];
     return {
       color: colorForValue(display.colormap, value, display.min, display.max),
       value,
-      unit: dataset.unit,
+      unit: item.unit,
     };
-  }, [dataset, index, display.colormap, display.min, display.max]);
+  }, [item, index, display.colormap, display.min, display.max]);
 };

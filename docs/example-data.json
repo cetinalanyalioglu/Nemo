@@ -1,5 +1,6 @@
 {
-  "datasets": [
+  "name": "Example results",
+  "items": [
     {
       "name": "Temperature",
       "target": "node",

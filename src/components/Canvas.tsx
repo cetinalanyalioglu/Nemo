@@ -4,6 +4,7 @@ import {
   SnapToGridControl,
   AutoLayoutControl,
   FlowInteractiveToggle,
+  DataFreezeBridge,
 } from './canvas-flow-controls';
 import type { Node, Edge, ReactFlowInstance, Connection, NodeTypes, EdgeTypes } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -12,6 +13,7 @@ import '../styles/sidebar.css';
 import '../styles/canvas.css';
 import { CanvasZoomIndicator } from './canvas-zoom-indicator';
 import CanvasHistoryControls from './canvas-history-controls';
+import CanvasTitle from './CanvasTitle';
 import DataLegend from './DataLegend';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
@@ -229,7 +231,9 @@ const Canvas = () => {
           <FlowInteractiveToggle />
         </Controls>
         {showMinimap && <MiniMap />}
+        <CanvasTitle />
         <DataLegend />
+        <DataFreezeBridge />
         <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />

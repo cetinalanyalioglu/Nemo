@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoConstructOutline,
   IoChevronDown,
   IoCheckbox,
   IoSquareOutline,
+  IoShieldCheckmarkOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
+import { useConsoleStore } from '../store/consoleStore';
 import { selectIndicesReady } from '../store/graph-selectors';
+import { checkNetworkValidity } from '../utils/network-validity';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
@@ -22,6 +25,29 @@ const ToolsPane = React.memo(() => {
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+
+  const handleCheckValidity = useCallback(() => {
+    const { nodes, edges, nodeStates, model } = useGraphStore.getState();
+    const issues = checkNetworkValidity({ nodes, edges, nodeStates, model });
+    const append = useConsoleStore.getState().append;
+
+    // Surface the results: open the console so they're visible.
+    actions.consolePane.setIsOpen(true);
+
+    if (nodes.length === 0) {
+      append('info', 'Network validity: canvas is empty.');
+      return;
+    }
+    if (issues.length === 0) {
+      append('success', 'Network validity: OK — no disconnected elements or open ports.');
+      return;
+    }
+    append(
+      'warn',
+      `Network validity: ${issues.length} issue${issues.length === 1 ? '' : 's'} found.`
+    );
+    issues.forEach((issue) => append('warn', `• ${issue.message}`));
+  }, [actions.consolePane]);
 
   return (
     <div className={`sidebar tools-pane ${isOpen ? 'open' : ''}`}>
@@ -80,6 +106,15 @@ const ToolsPane = React.memo(() => {
             >
               <IoConstructOutline className="document-pane-file-button-icon" />
               <span>Renumber</span>
+            </button>
+            <button
+              type="button"
+              className="document-pane-file-button"
+              onClick={handleCheckValidity}
+              title="Check for disconnected elements and unconnected ports; results go to the console"
+            >
+              <IoShieldCheckmarkOutline className="document-pane-file-button-icon" />
+              <span>Check validity</span>
             </button>
           </div>
         </div>

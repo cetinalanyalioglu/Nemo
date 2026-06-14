@@ -6,6 +6,8 @@ import {
   IoDocumentOutline,
   IoFolderOpenOutline,
   IoSaveOutline,
+  IoCheckbox,
+  IoSquareOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
@@ -19,8 +21,10 @@ const DocumentPane = React.memo(() => {
   const loadFromFile = useGraphStore((s) => s.loadFromFile);
   const reset = useGraphStore((s) => s.reset);
   const clearDatasets = useDataStore((s) => s.clearDatasets);
+  const datasets = useDataStore((s) => s.datasets);
+  const toggleDatasetSave = useDataStore((s) => s.toggleDatasetSave);
   const nodeCount = useGraphStore((s) => s.nodes.length);
-  const datasetCount = useDataStore((s) => s.datasets.length);
+  const datasetCount = datasets.length;
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -98,6 +102,33 @@ const DocumentPane = React.memo(() => {
               <span>Load</span>
             </button>
           </div>
+
+          {datasetCount > 0 && (
+            <div className="document-pane-save-data">
+              <div className="document-pane-save-data-title">Include data on save</div>
+              <ul className="document-pane-save-data-list">
+                {datasets.map((dataset) => (
+                  <li key={dataset.id} className="document-pane-save-data-row">
+                    <button
+                      type="button"
+                      className={`document-pane-save-check ${dataset.includeInSave ? 'checked' : ''}`}
+                      onClick={() => toggleDatasetSave(dataset.id)}
+                      aria-pressed={dataset.includeInSave}
+                      aria-label={`${dataset.includeInSave ? 'Exclude' : 'Include'} ${dataset.name}`}
+                    >
+                      {dataset.includeInSave ? <IoCheckbox /> : <IoSquareOutline />}
+                    </button>
+                    <span className="document-pane-save-data-name" title={dataset.name}>
+                      {dataset.name}
+                    </span>
+                    <span className="document-pane-save-data-count">
+                      {dataset.items.length} item{dataset.items.length === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>
