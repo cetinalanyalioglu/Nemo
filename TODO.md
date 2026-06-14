@@ -7,7 +7,7 @@
 - [x] Introduce a case title concept. The title should write appropriately at the top of the canvas. Default title is Untitled. If a file is loaded, default itle is file name, unless loaded file specifies a title. This requires you to add title capability in our machinery.
 - [x] Add a tool to check network validity. At basic we don't allow disconnected elements and non-connected ports.
 - [x] Show associated data with selected node/edge on the properties panel, on a subsection called "data". For now this is just for display, not editable.
-- [ ] To "include data on save", make it easy to select/deselect all items. Currently user needs to click one-by-one.
+- [x] To "include data on save", make it easy to select/deselect all items. Currently user needs to click one-by-one. (Added a Select all / Deselect all toggle to the Document pane list.)
 - [ ] Upon File/Load, user should be able to select which (if any) datasets should be loaded with the data. With a select/deselect all functionality as in the Save situation.
 - [x] Reject loading a dataset if it does not have correct number of nodes/edges. (Load passes the canvas node/edge counts; an item whose value count differs is rejected with a message.)
 - [x] The present state of Data/Datasets should be re-worked. It should offer functionality to rename a dataset. the "matches N edges" string is completely unnecesasry and should be removed. The individual panes that are dedicated to datasets should be collapsable and expandable, simialr to other stuff we hve with the chevron icon. In the expanded state, the pane should be scrollable. Currently only a few of the content is visible and user can't scroll it. The font in this panel can be made a bit smaller as well.
