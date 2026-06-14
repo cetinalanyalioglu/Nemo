@@ -82,6 +82,8 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   // incident edges change — not on unrelated edge updates or node drags.
   const nodeState = useGraphStore((s) => s.nodeStates[id]);
   const editingState = useGraphStore((s) => s.editingStates[id]);
+  // Boolean selector (stable) — re-renders only when this node's highlight flips.
+  const isHighlighted = useGraphStore((s) => s.highlightedNodeIds.includes(id));
   // Subscribe to the edges array reference (O(1)) and derive the incident-edge
   // signature with useMemo so the scan only runs when edges actually change,
   // not on every store update (e.g. each node-drag tick).
@@ -235,6 +237,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     'custom-node',
     type,
     selected ? 'custom-node-selected' : '',
+    isHighlighted ? 'custom-node-issue' : '',
     hasLeftPort ? 'has-left-port' : '',
     hasRightPort ? 'has-right-port' : '',
     isResizing ? 'resizing' : '',

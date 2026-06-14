@@ -87,6 +87,11 @@ export interface GraphStore extends GraphData {
   setSelectedNodeId: (id: string | null) => void;
   setSelectedEdgeId: (id: string | null) => void;
 
+  // Transient validity highlighting (not part of undo history). Cleared as soon
+  // as the user selects anything.
+  highlightedNodeIds: string[];
+  setHighlightedNodes: (ids: string[]) => void;
+
   // Case title.
   setTitle: (title: string) => void;
 
@@ -333,12 +338,15 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     selectedNodeId: null,
     selectedEdgeId: null,
     title: DEFAULT_CASE_TITLE,
+    highlightedNodeIds: [],
 
     // History
     past: [],
     future: [],
 
     setTitle: (title) => set({ title }),
+
+    setHighlightedNodes: (ids) => set({ highlightedNodeIds: ids }),
 
     onNodesChange: (changes) => {
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -348,8 +356,18 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       set((s) => ({ edges: applyEdgeChanges(changes, s.edges) }));
     },
 
-    setSelectedNodeId: (id) => set({ selectedNodeId: id }),
-    setSelectedEdgeId: (id) => set({ selectedEdgeId: id }),
+    // Selecting anything dismisses validity highlights (only clears the array
+    // when it's non-empty, so ordinary clicks don't churn node subscriptions).
+    setSelectedNodeId: (id) =>
+      set((s) => ({
+        selectedNodeId: id,
+        ...(s.highlightedNodeIds.length ? { highlightedNodeIds: [] } : {}),
+      })),
+    setSelectedEdgeId: (id) =>
+      set((s) => ({
+        selectedEdgeId: id,
+        ...(s.highlightedNodeIds.length ? { highlightedNodeIds: [] } : {}),
+      })),
 
     isValidConnection: (connection) => {
       if (!connection.sourceHandle || !connection.targetHandle) {

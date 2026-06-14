@@ -27,12 +27,16 @@ const ToolsPane = React.memo(() => {
   } = useAppState();
 
   const handleCheckValidity = useCallback(() => {
-    const { nodes, edges, nodeStates, model } = useGraphStore.getState();
+    const { nodes, edges, nodeStates, model, setHighlightedNodes } = useGraphStore.getState();
     const issues = checkNetworkValidity({ nodes, edges, nodeStates, model });
     const append = useConsoleStore.getState().append;
 
     // Surface the results: open the console so they're visible.
     actions.consolePane.setIsOpen(true);
+
+    // Highlight the offending nodes on the canvas (deduped); the highlight is
+    // cleared automatically as soon as the user selects anything.
+    setHighlightedNodes(Array.from(new Set(issues.map((issue) => issue.nodeId))));
 
     if (nodes.length === 0) {
       append('info', 'Network validity: canvas is empty.');
