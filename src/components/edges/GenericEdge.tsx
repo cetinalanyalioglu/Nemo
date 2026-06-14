@@ -54,7 +54,7 @@ const GenericEdge = ({
   // optionally print the value below it.
   const dataIndex = typeof elementIndex === 'number' ? elementIndex : undefined;
   const dataView = useElementDataView('edge', dataIndex);
-  const showContour = useDataStore((s) => s.showContour);
+  const showContour = useDataStore((s) => s.edgeDisplay.showContour);
   const showValues = useDataStore((s) => s.edgeDisplay.showValues);
   const precision = useDataStore((s) => s.edgeDisplay.precision);
   const notation = useDataStore((s) => s.edgeDisplay.notation);

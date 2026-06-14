@@ -47,7 +47,6 @@ const LegendItem = ({ target, dataset, item, display }: LegendItemProps) => {
  * ReactFlow via a top-right Panel so it stays clear of the bottom-right minimap.
  */
 const DataLegend = memo(() => {
-  const showContour = useDataStore((s) => s.showContour);
   const nodeDisplay = useDataStore((s) => s.nodeDisplay);
   const edgeDisplay = useDataStore((s) => s.edgeDisplay);
   // Select the item and its dataset separately: each returns a stored object
@@ -57,16 +56,19 @@ const DataLegend = memo(() => {
   const edgeItem = useDataStore((s) => selectActiveItem(s, 'edge'));
   const edgeDataset = useDataStore((s) => selectActiveDataset(s, 'edge'));
 
-  // The legend explains the colormap contour; hide it when contour is off.
-  if (!showContour || (!nodeItem && !edgeItem)) return null;
+  // The legend explains the colormap contour, so each target appears only when
+  // its own contour is enabled and an item is selected.
+  const showNode = nodeDisplay.showContour && !!nodeItem && !!nodeDataset;
+  const showEdge = edgeDisplay.showContour && !!edgeItem && !!edgeDataset;
+  if (!showNode && !showEdge) return null;
 
   return (
     <Panel position="top-right" className="data-legend">
-      {nodeItem && nodeDataset && (
-        <LegendItem target="node" dataset={nodeDataset} item={nodeItem} display={nodeDisplay} />
+      {showNode && (
+        <LegendItem target="node" dataset={nodeDataset!} item={nodeItem!} display={nodeDisplay} />
       )}
-      {edgeItem && edgeDataset && (
-        <LegendItem target="edge" dataset={edgeDataset} item={edgeItem} display={edgeDisplay} />
+      {showEdge && (
+        <LegendItem target="edge" dataset={edgeDataset!} item={edgeItem!} display={edgeDisplay} />
       )}
     </Panel>
   );

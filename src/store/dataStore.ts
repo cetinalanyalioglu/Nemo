@@ -20,6 +20,7 @@ const makeDefaultDisplay = (): DataDisplayConfig => ({
   min: 0,
   max: 1,
   auto: true,
+  showContour: true,
   showValues: false,
   precision: 2,
   notation: 'fixed',
@@ -125,7 +126,6 @@ interface DataStore {
   loadCount: number;
   nodeDisplay: DataDisplayConfig;
   edgeDisplay: DataDisplayConfig;
-  showContour: boolean;
 
   /**
    * Datasets embedded in a just-loaded case file, awaiting the user's choice of
@@ -151,7 +151,7 @@ interface DataStore {
   setColormap: (target: DataTarget, colormap: ColormapId) => void;
   setRange: (target: DataTarget, min: number, max: number) => void;
   setAutoRange: (target: DataTarget, auto: boolean) => void;
-  toggleContour: () => void;
+  toggleContour: (target: DataTarget) => void;
   toggleShowValues: (target: DataTarget) => void;
   setPrecision: (target: DataTarget, precision: number) => void;
   setNotation: (target: DataTarget, notation: ValueNotation) => void;
@@ -196,7 +196,6 @@ export const useDataStore = create<DataStore>((set, get) => ({
   loadCount: 0,
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
-  showContour: true,
   pendingDatasets: null,
 
   loadDatasetsFromFile: (file, expected) => {
@@ -348,7 +347,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
     });
   },
 
-  toggleContour: () => set((s) => ({ showContour: !s.showContour })),
+  toggleContour: (target) => {
+    set((s) => {
+      const key = displayKey(target);
+      return { [key]: { ...s[key], showContour: !s[key].showContour } } as Partial<DataStore>;
+    });
+  },
 
   toggleShowValues: (target) => {
     set((s) => {

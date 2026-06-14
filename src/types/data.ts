@@ -91,6 +91,8 @@ export interface DataDisplayConfig {
   max: number;
   /** When true, `min`/`max` track the selected item's value range. */
   auto: boolean;
+  /** Whether the colormap contour is drawn for this target. */
+  showContour: boolean;
   /** Whether numeric value labels are printed for this target. */
   showValues: boolean;
   /** Decimal places used for value labels. */

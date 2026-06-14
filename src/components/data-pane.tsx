@@ -26,7 +26,6 @@ import type { ColormapId, DataItem, DataTarget, Dataset, ValueNotation } from '.
 const DATA_DATASETS_GROUP = '__data_datasets__';
 const DATA_NODE_GROUP = '__data_node__';
 const DATA_EDGE_GROUP = '__data_edge__';
-const DATA_DISPLAY_GROUP = '__data_display__';
 
 /** Compact min–max summary for the item overview list. */
 const formatRange = (values: number[]): string => {
@@ -102,6 +101,7 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
   const setColormap = useDataStore((s) => s.setColormap);
   const setRange = useDataStore((s) => s.setRange);
   const setAutoRange = useDataStore((s) => s.setAutoRange);
+  const toggleContour = useDataStore((s) => s.toggleContour);
   const toggleShowValues = useDataStore((s) => s.toggleShowValues);
   const setPrecision = useDataStore((s) => s.setPrecision);
   const setNotation = useDataStore((s) => s.setNotation);
@@ -175,6 +175,12 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
         </div>
         <div className="data-pane-colormap-swatch" style={{ background: gradient }} />
       </div>
+
+      <BooleanField
+        label="Show contour"
+        checked={display.showContour}
+        onToggle={() => toggleContour(target)}
+      />
 
       <BooleanField
         label="Auto range"
@@ -420,8 +426,6 @@ const DataPane = React.memo(() => {
   const itemCount = useDataStore(selectItemCount);
   const loadDatasetsFromFile = useDataStore((s) => s.loadDatasetsFromFile);
   const clearDatasets = useDataStore((s) => s.clearDatasets);
-  const showContour = useDataStore((s) => s.showContour);
-  const toggleContour = useDataStore((s) => s.toggleContour);
   const nodeCount = useGraphStore((s) => s.nodes.length);
   const edgeCount = useGraphStore((s) => s.edges.length);
   const indicesReady = useGraphStore(selectIndicesReady);
@@ -541,18 +545,6 @@ const DataPane = React.memo(() => {
         onToggle={actions.sidebar.toggleGroup}
       >
         <TargetDisplayControls target="edge" />
-      </CollapsibleGroup>
-
-      <CollapsibleGroup
-        groupKey={DATA_DISPLAY_GROUP}
-        title="DISPLAY"
-        collapsed={!!collapsedGroups[DATA_DISPLAY_GROUP]}
-        onToggle={actions.sidebar.toggleGroup}
-      >
-        <BooleanField label="Show contour" checked={showContour} onToggle={toggleContour} />
-        <p className="data-pane-hint">
-          Value labels and number format are configured per target under Node data and Edge data.
-        </p>
       </CollapsibleGroup>
     </div>
   );

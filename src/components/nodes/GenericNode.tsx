@@ -108,7 +108,7 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const rawIndex = nodeState?.parameters?.index;
   const dataIndex = typeof rawIndex === 'number' ? rawIndex : undefined;
   const dataView = useElementDataView('node', dataIndex);
-  const showContour = useDataStore((s) => s.showContour);
+  const showContour = useDataStore((s) => s.nodeDisplay.showContour);
   const showValues = useDataStore((s) => s.nodeDisplay.showValues);
   const precision = useDataStore((s) => s.nodeDisplay.precision);
   const notation = useDataStore((s) => s.nodeDisplay.notation);
