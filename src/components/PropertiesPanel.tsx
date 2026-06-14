@@ -6,8 +6,10 @@ import type {
   EdgeRuntimeState,
 } from '../types/flow';
 import { useGraphStore } from '../store/graphStore';
+import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
+import type { DataTarget } from '../types/data';
 import '../styles/properties-panel.css';
 import {
   IoSettingsOutline,
@@ -30,6 +32,83 @@ const formatCategoryName = (category: string) => {
 
 const formatTitle = (title: string) => {
   return title.toUpperCase().replace(/I/g, 'I');
+};
+
+/** Compact display formatter for a data value (read-only properties view). */
+const formatElementValue = (value: number): string => {
+  if (!Number.isFinite(value)) return '—';
+  if (Number.isInteger(value)) return String(value);
+  return String(parseFloat(value.toPrecision(6)));
+};
+
+const ELEMENT_DATA_GROUP = '__element_data__';
+
+/**
+ * Read-only "DATA" section for the properties panel: lists every loaded data
+ * item matching the selected element's target and shows its value at the
+ * element's generated index. Renders nothing when no matching data is loaded.
+ */
+const ElementDataSection = ({
+  target,
+  index,
+}: {
+  target: DataTarget;
+  index: number | undefined;
+}) => {
+  const datasets = useDataStore((s) => s.datasets);
+  const {
+    propertiesPanel: { collapsedGroups },
+    actions,
+  } = useAppState();
+  const collapsed = !!collapsedGroups[ELEMENT_DATA_GROUP];
+
+  const rows = useMemo(
+    () =>
+      datasets.flatMap((dataset) =>
+        dataset.items.filter((item) => item.target === target).map((item) => ({ dataset, item }))
+      ),
+    [datasets, target]
+  );
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className={`parameter-group ${collapsed ? 'collapsed' : ''}`}>
+      <div
+        className="group-header"
+        onClick={() => actions.propertiesPanel.toggleGroup(ELEMENT_DATA_GROUP)}
+      >
+        <div className="group-header-content">
+          <span>DATA</span>
+          <IoChevronDown className="group-collapse-icon" />
+        </div>
+      </div>
+      <div className="group-content">
+        {typeof index !== 'number' && (
+          <p className="element-data-hint">
+            This element has no index, so data can&apos;t be matched.
+          </p>
+        )}
+        {rows.map(({ dataset, item }) => {
+          const value =
+            typeof index === 'number' && index >= 0 && index < item.values.length
+              ? item.values[index]
+              : undefined;
+          return (
+            <div key={item.id} className="element-data-row">
+              <span className="element-data-name" title={`${dataset.name} / ${item.name}`}>
+                {dataset.name} / {item.name}
+              </span>
+              <span className="element-data-value">
+                {value === undefined ? '—' : formatElementValue(value)}
+                {value !== undefined && item.unit ? ` ${item.unit}` : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 /**
@@ -584,6 +663,15 @@ const PropertiesPanel = React.memo(() => {
             </div>
           </div>
         ))}
+
+        <ElementDataSection
+          target={isEdge ? 'edge' : 'node'}
+          index={
+            typeof elementState.parameters.index === 'number'
+              ? elementState.parameters.index
+              : undefined
+          }
+        />
       </div>
     </div>
   );

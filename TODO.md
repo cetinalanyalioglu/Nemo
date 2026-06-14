@@ -6,7 +6,7 @@
 - [x] Ability to store case and data together. PRogram shoyuld automatically load found dataset(s) in the load file. Program should ask whether we should save the loaded dataset(s) as well on save. (Save embeds the datasets ticked in the Document pane "Include data on save" list; load auto-restores embedded datasets.)
 - [x] Introduce a case title concept. The title should write appropriately at the top of the canvas. Default title is Untitled. If a file is loaded, default itle is file name, unless loaded file specifies a title. This requires you to add title capability in our machinery.
 - [x] Add a tool to check network validity. At basic we don't allow disconnected elements and non-connected ports.
-- [ ] Show associated data with selected node/edge on the properties panel, on a subsection called "data". For now this is just for display, not editable.
+- [x] Show associated data with selected node/edge on the properties panel, on a subsection called "data". For now this is just for display, not editable.
 - [ ] To "include data on save", make it easy to select/deselect all items. Currently user needs to click one-by-one.
 - [ ] Upon File/Load, user should be able to select which (if any) datasets should be loaded with the data. With a select/deselect all functionality as in the Save situation.
 - [x] Reject loading a dataset if it does not have correct number of nodes/edges. (Load passes the canvas node/edge counts; an item whose value count differs is rejected with a message.)

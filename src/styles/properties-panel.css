@@ -352,3 +352,36 @@
 :is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane) .checkbox-wrapper.disabled:hover {
   background: transparent;
 }
+
+/* Read-only "DATA" section: loaded data values for the selected element. */
+.element-data-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.element-data-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.element-data-value {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--color-text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.element-data-hint {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
