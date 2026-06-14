@@ -1,21 +1,4 @@
 ## General
-- [x] In data pane, under datasets container, the data names should be selectable to switch edge or node data display to selected variable
-- [x] In data pane, it should write "Load dataset..." instead of data, and "N items" instead of "N datasets". We shall refer to dataset as the group of data present in a file, e.g. dataset. Individual pieces of this dataset are items: node or edge data. Rename accordingly.
-- [x] After loading data, let the canvas go automatically to the "freeze" mode. A warning should display if user "unfreezes" it. This is because a modified canvas renders to data incompatible with the canvas
-- [x] User should be able to load multiple datasets. Each dataset ideally has a name in the file, otherwise the filename becomes the title. The "datasets" pane allows user to switch between loaded datasets. The legend reads "dataset1/variable1" etc. to distinguish the dataset". (Implemented as free selection: any item from any loaded dataset can drive node/edge display; legend reads "dataset / item".)
-- [x] Ability to store case and data together. PRogram shoyuld automatically load found dataset(s) in the load file. Program should ask whether we should save the loaded dataset(s) as well on save. (Save embeds the datasets ticked in the Document pane "Include data on save" list; load auto-restores embedded datasets.)
-- [x] Introduce a case title concept. The title should write appropriately at the top of the canvas. Default title is Untitled. If a file is loaded, default itle is file name, unless loaded file specifies a title. This requires you to add title capability in our machinery.
-- [x] Add a tool to check network validity. At basic we don't allow disconnected elements and non-connected ports.
-- [x] Show associated data with selected node/edge on the properties panel, on a subsection called "data". For now this is just for display, not editable.
-- [x] To "include data on save", make it easy to select/deselect all items. Currently user needs to click one-by-one. (Added a Select all / Deselect all toggle to the Document pane list.)
-- [x] Upon File/Load, user should be able to select which (if any) datasets should be loaded with the data. With a select/deselect all functionality as in the Save situation. (A modal lists the embedded datasets with per-row checkboxes and select/deselect all; the chosen subset is imported.)
-- [x] Reject loading a dataset if it does not have correct number of nodes/edges. (Load passes the canvas node/edge counts; an item whose value count differs is rejected with a message.)
-- [x] The present state of Data/Datasets should be re-worked. It should offer functionality to rename a dataset. the "matches N edges" string is completely unnecesasry and should be removed. The individual panes that are dedicated to datasets should be collapsable and expandable, simialr to other stuff we hve with the chevron icon. In the expanded state, the pane should be scrollable. Currently only a few of the content is visible and user can't scroll it. The font in this panel can be made a bit smaller as well.
-- [x] Upon validity check, if there are issues, highlight issue elements. Highlight should be gone if user selects anything. (Offending nodes get a red highlight; cleared on the next selection.)
-- [x] Remove the text that sayus "indices aren't assigned, so element data won't appear yet". If we have unnumbered edges/nodes just write a warning that the canvas and data may not be compatible.
-- [x] Hiding the display of edge badges also removes display of edge values. The value text and the badges should be unrelated and hiding badges shouldn't hide edge values.
-- [x] If edge badges are not visible but the show values are active for edges, the value display should be positioned appropriately in the middle part of the edge. When badges are visible, value label appears below the badge.
-- [x] For the display of values offer scientific and float forms, and separate these settings for (decimals/show/notation) edges and nodes. Preferably move them under "node data" and "edge data" subsections.
 
 ## Wild ideas
 - [ ] Plot quantity "along" selected elements. Something like, user selects two nodes/edges whatever, we find possible paths between these two, and for each path plot the selected quality at y axis with x axis the position on path.
