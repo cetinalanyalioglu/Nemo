@@ -1,0 +1,40 @@
+/* Subtle, unobtrusive case-title overlay at the top-center of the canvas. */
+.canvas-title {
+  margin: 0;
+  pointer-events: none;
+}
+
+.canvas-title-label,
+.canvas-title-input {
+  pointer-events: auto;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 8px;
+  max-width: 360px;
+  text-align: center;
+}
+
+.canvas-title-label {
+  cursor: text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.canvas-title-label:hover {
+  color: var(--color-text-body);
+  background: var(--color-surface-muted);
+}
+
+.canvas-title-input {
+  color: var(--color-text-body);
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+  outline: none;
+}

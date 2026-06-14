@@ -1,10 +1,11 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import { ControlButton, useStore, useStoreApi } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
+import { useDataStore } from '../store/dataStore';
 import { getLayoutedElements } from '../utils/layoutUtils';
 
 const LockIcon = () => (
@@ -95,10 +96,21 @@ export const FlowInteractiveToggle = memo(() => {
   );
 
   const onToggle = () => {
+    const next = !isInteractive;
+    // Unfreezing while data is loaded is risky: editing the canvas changes the
+    // generated indices the data is bound to. Warn before allowing it.
+    if (next && useDataStore.getState().datasets.length > 0) {
+      const confirmed = window.confirm(
+        'The canvas was frozen because data is loaded. Editing it can change the ' +
+          'element indices the data maps to and make the loaded data incompatible. ' +
+          'Unfreeze anyway?'
+      );
+      if (!confirmed) return;
+    }
     store.setState({
-      nodesDraggable: !isInteractive,
-      nodesConnectable: !isInteractive,
-      elementsSelectable: !isInteractive,
+      nodesDraggable: next,
+      nodesConnectable: next,
+      elementsSelectable: next,
     });
   };
 
@@ -116,3 +128,31 @@ export const FlowInteractiveToggle = memo(() => {
 });
 
 FlowInteractiveToggle.displayName = 'FlowInteractiveToggle';
+
+/**
+ * Headless bridge: freezes the canvas (disables dragging, connecting, and
+ * selection) whenever a dataset is loaded. A modified canvas renders to data
+ * that no longer matches, so loading data drops the canvas into a safe,
+ * read-only state until the user explicitly unfreezes. Watches the data store's
+ * `loadCount` so every load — not just the first — re-freezes.
+ */
+export const DataFreezeBridge = memo(() => {
+  const store = useStoreApi();
+  const loadCount = useDataStore((s) => s.loadCount);
+  const prevLoadCount = useRef(loadCount);
+
+  useEffect(() => {
+    if (loadCount !== prevLoadCount.current) {
+      prevLoadCount.current = loadCount;
+      store.setState({
+        nodesDraggable: false,
+        nodesConnectable: false,
+        elementsSelectable: false,
+      });
+    }
+  }, [loadCount, store]);
+
+  return null;
+});
+
+DataFreezeBridge.displayName = 'DataFreezeBridge';

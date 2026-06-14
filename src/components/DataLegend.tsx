@@ -1,9 +1,9 @@
 import { memo } from 'react';
 import { Panel } from 'reactflow';
 import '../styles/data-legend.css';
-import { useDataStore, selectActiveDataset } from '../store/dataStore';
+import { useDataStore, selectActiveItem, selectActiveDataset } from '../store/dataStore';
 import { colormapGradient } from '../utils/colormap';
-import type { DataDisplayConfig, DataTarget, Dataset } from '../types/data';
+import type { DataDisplayConfig, DataItem, DataTarget, Dataset } from '../types/data';
 
 /** Formats a range bound compactly for the legend ticks. */
 const formatTick = (value: number): string => {
@@ -15,18 +15,20 @@ const formatTick = (value: number): string => {
 type LegendItemProps = {
   target: DataTarget;
   dataset: Dataset;
+  item: DataItem;
   display: DataDisplayConfig;
 };
 
-const LegendItem = ({ target, dataset, display }: LegendItemProps) => {
+const LegendItem = ({ target, dataset, item, display }: LegendItemProps) => {
   const mid = (display.min + display.max) / 2;
+  const label = `${dataset.name} / ${item.name}`;
   return (
     <div className="data-legend-item">
       <div className="data-legend-title">
         <span className={`data-legend-tag data-legend-tag-${target}`}>{target}</span>
-        <span className="data-legend-name" title={dataset.name}>
-          {dataset.name}
-          {dataset.unit ? ` (${dataset.unit})` : ''}
+        <span className="data-legend-name" title={label}>
+          {label}
+          {item.unit ? ` (${item.unit})` : ''}
         </span>
       </div>
       <div className="data-legend-bar" style={{ background: colormapGradient(display.colormap) }} />
@@ -48,16 +50,24 @@ const DataLegend = memo(() => {
   const showContour = useDataStore((s) => s.showContour);
   const nodeDisplay = useDataStore((s) => s.nodeDisplay);
   const edgeDisplay = useDataStore((s) => s.edgeDisplay);
+  // Select the item and its dataset separately: each returns a stored object
+  // (stable reference) so zustand doesn't see a new snapshot every render.
+  const nodeItem = useDataStore((s) => selectActiveItem(s, 'node'));
   const nodeDataset = useDataStore((s) => selectActiveDataset(s, 'node'));
+  const edgeItem = useDataStore((s) => selectActiveItem(s, 'edge'));
   const edgeDataset = useDataStore((s) => selectActiveDataset(s, 'edge'));
 
   // The legend explains the colormap contour; hide it when contour is off.
-  if (!showContour || (!nodeDataset && !edgeDataset)) return null;
+  if (!showContour || (!nodeItem && !edgeItem)) return null;
 
   return (
     <Panel position="top-right" className="data-legend">
-      {nodeDataset && <LegendItem target="node" dataset={nodeDataset} display={nodeDisplay} />}
-      {edgeDataset && <LegendItem target="edge" dataset={edgeDataset} display={edgeDisplay} />}
+      {nodeItem && nodeDataset && (
+        <LegendItem target="node" dataset={nodeDataset} item={nodeItem} display={nodeDisplay} />
+      )}
+      {edgeItem && edgeDataset && (
+        <LegendItem target="edge" dataset={edgeDataset} item={edgeItem} display={edgeDisplay} />
+      )}
     </Panel>
   );
 });

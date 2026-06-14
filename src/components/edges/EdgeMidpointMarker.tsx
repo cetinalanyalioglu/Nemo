@@ -8,8 +8,6 @@ interface EdgeMidpointMarkerProps {
   indexLabel?: number;
   /** Fill color for the badge ring when an edge dataset is active. */
   fillColor?: string | null;
-  /** Numeric data value printed below the badge when set. */
-  valueLabel?: string;
 }
 
 const EdgeMidpointMarker = ({
@@ -18,7 +16,6 @@ const EdgeMidpointMarker = ({
   selected = false,
   indexLabel,
   fillColor,
-  valueLabel,
 }: EdgeMidpointMarkerProps) => {
   const r = EDGE_MIDPOINT_MARKER_RADIUS;
   const className = selected
@@ -44,17 +41,6 @@ const EdgeMidpointMarker = ({
           dominantBaseline="central"
         >
           {indexLabel}
-        </text>
-      )}
-      {valueLabel !== undefined && (
-        <text
-          className="edge-midpoint-marker__value"
-          x={labelX}
-          y={labelY + r + 4}
-          textAnchor="middle"
-          dominantBaseline="hanging"
-        >
-          {valueLabel}
         </text>
       )}
     </g>

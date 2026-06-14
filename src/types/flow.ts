@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { IconType } from 'react-icons';
 import type { Edge, XYPosition } from 'reactflow';
+import type { Dataset } from './data';
 
 /** Runtime parameter bag for nodes and edges */
 export type ParameterValues = Record<string, unknown>;
@@ -218,6 +219,10 @@ export interface SaveFileUiNode {
 export interface SaveFilePayload {
   version: string;
   timestamp?: string;
+  /** Case-level metadata (e.g. the title shown at the top of the canvas). */
+  meta?: {
+    title?: string;
+  };
   model: {
     /** Id of the model definition (node/edge library) this document targets. */
     id?: string;
@@ -234,5 +239,9 @@ export interface SaveFilePayload {
       nodeCounters: Record<string, number>;
       totalNodeCounters: Record<string, number>;
     };
+  };
+  /** Optional embedded result datasets saved alongside the case. */
+  data?: {
+    datasets: Dataset[];
   };
 }

@@ -9,35 +9,8 @@ import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
-import type {
-  ParameterChangeHandler,
-  ElementInfoEntry,
-  DynamicPortSide,
-  NodePorts,
-} from '../../types/flow';
-
-/**
- * Resolves the number of ports for one side of a node. When the side is driven
- * by a parameter (`countParameter`), the value is read from the node state and
- * clamped to the configured minimum; otherwise the static port count is used.
- */
-const resolvePortCount = (
-  side: DynamicPortSide | undefined,
-  staticPorts: string[],
-  parameters: Record<string, unknown> | undefined
-): number => {
-  if (!side || !side.countParameter) {
-    return staticPorts.length;
-  }
-  const min = side.min ?? 0;
-  const fallback = Math.max(min, side.default ?? staticPorts.length);
-  const raw = parameters?.[side.countParameter];
-  if (raw === undefined || raw === null || raw === '') {
-    return fallback;
-  }
-  const parsed = parseInt(String(raw), 10);
-  return isNaN(parsed) ? fallback : Math.max(min, parsed);
-};
+import { computePortLayout } from '../../utils/ports';
+import type { ParameterChangeHandler, ElementInfoEntry, NodePorts } from '../../types/flow';
 
 type ResizeSession = {
   startX?: number;
@@ -134,8 +107,9 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const dataIndex = typeof rawIndex === 'number' ? rawIndex : undefined;
   const dataView = useElementDataView('node', dataIndex);
   const showContour = useDataStore((s) => s.showContour);
-  const showValueLabels = useDataStore((s) => s.showValueLabels);
-  const valueLabelPrecision = useDataStore((s) => s.valueLabelPrecision);
+  const showValues = useDataStore((s) => s.nodeDisplay.showValues);
+  const precision = useDataStore((s) => s.nodeDisplay.precision);
+  const notation = useDataStore((s) => s.nodeDisplay.notation);
 
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
@@ -154,24 +128,12 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     if (!config) {
       return { target: [], source: [] };
     }
-    if (!config.dynamicPorts || !config.dynamicPortConfig) {
-      return config.ports || { target: [], source: [] };
-    }
-
-    const dynamic = config.dynamicPortConfig;
-    const params = nodeState?.parameters;
-
-    const targetCount = resolvePortCount(dynamic.target, config.ports.target, params);
-    const sourceCount = resolvePortCount(dynamic.source, config.ports.source, params);
-
-    const target = dynamic.target?.countParameter
-      ? Array.from({ length: targetCount }, (_, index) => `${index}`)
-      : config.ports.target;
-    const source = dynamic.source?.countParameter
-      ? Array.from({ length: sourceCount }, (_, index) => `${targetCount + index}`)
-      : config.ports.source;
-
-    return { target, source };
+    return computePortLayout(
+      config.ports,
+      config.dynamicPorts,
+      config.dynamicPortConfig,
+      nodeState?.parameters
+    );
   }, [config, nodeState]);
 
   // When a dynamic-port count shrinks, prune any edges connected to ports that
@@ -507,9 +469,9 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       {elementIndexLabel !== undefined && (
         <span className="element-index-label port-index">{elementIndexLabel}</span>
       )}
-      {showValueLabels && dataView.value !== undefined && (
+      {showValues && dataView.value !== undefined && (
         <span className="custom-node-data-value">
-          {formatDataValue(dataView.value, valueLabelPrecision, dataView.unit)}
+          {formatDataValue(dataView.value, precision, notation, dataView.unit)}
         </span>
       )}
       <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>

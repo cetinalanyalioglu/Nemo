@@ -70,28 +70,6 @@
   color: var(--color-text-muted);
 }
 
-/* Per-dataset length-vs-count match indicator. */
-.data-pane-match {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: 11px;
-}
-
-.data-pane-match svg {
-  flex-shrink: 0;
-  font-size: 13px;
-}
-
-.data-pane-match.ok {
-  color: var(--color-success);
-}
-
-.data-pane-match.warn {
-  color: var(--color-error-strong);
-}
-
 /* Dataset list toolbar: count + clear-all */
 .data-pane-dataset-toolbar {
   display: flex;
@@ -144,28 +122,84 @@
   border-radius: 3px;
 }
 
+/* A dataset group: a header naming the file plus its list of items. */
 .data-pane-dataset {
-  position: relative;
-  padding: 8px 28px 8px 10px;
   border: 1px solid var(--color-border-light);
   border-radius: 6px;
   background: var(--color-surface-subtle);
+  overflow: hidden;
 }
 
-.data-pane-dataset-main {
+.data-pane-dataset-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  padding: 6px 6px 6px 4px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.data-pane-dataset.collapsed .data-pane-dataset-header {
+  border-bottom: none;
+}
+
+/* Chevron toggle button. */
+.data-pane-dataset-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  cursor: pointer;
+}
+
+.data-pane-dataset-chevron {
+  font-size: 14px;
+  transition: transform 0.2s ease;
+}
+
+.data-pane-dataset.collapsed .data-pane-dataset-chevron {
+  transform: rotate(-90deg);
 }
 
 .data-pane-dataset-name {
-  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--color-text-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Inline rename field replacing the name. */
+.data-pane-dataset-rename {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-body);
+  padding: 2px 4px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-surface);
+  outline: none;
+}
+
+.data-pane-dataset-itemcount {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--color-text-muted);
 }
 
 .data-pane-tag {
@@ -187,20 +221,8 @@
   background: var(--color-text-muted);
 }
 
-.data-pane-dataset-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.data-pane-dataset-remove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+.data-pane-dataset-action {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,11 +237,89 @@
   transition: all 0.2s ease;
 }
 
-.data-pane-dataset-remove:hover {
-  color: var(--color-error-strong, var(--color-accent));
+.data-pane-dataset-action:hover {
+  color: var(--color-accent);
   background: var(--color-surface-muted);
 }
 
-.data-pane-dataset-remove svg {
+.data-pane-dataset-remove:hover {
+  color: var(--color-error-strong, var(--color-accent));
+}
+
+.data-pane-dataset-action svg {
   font-size: 14px;
+}
+
+/* Item rows inside a dataset group — scrollable when the list is long. */
+.data-pane-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.data-pane-item-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.data-pane-item-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.data-pane-item {
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+
+.data-pane-item:hover {
+  background: var(--color-surface-muted);
+}
+
+/* The currently-displayed item is highlighted with the accent color. */
+.data-pane-item.active {
+  border-color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.data-pane-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.data-pane-item-name {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-pane-item.active .data-pane-item-name {
+  color: var(--color-accent);
+}
+
+.data-pane-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--color-text-muted);
 }

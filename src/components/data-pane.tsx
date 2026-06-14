@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoChevronDown,
@@ -9,26 +9,26 @@ import {
   IoSquareOutline,
   IoAdd,
   IoRemove,
-  IoCheckmarkCircle,
   IoWarningOutline,
   IoConstructOutline,
+  IoCreateOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
 import '../styles/data-pane.css';
 import { useAppState } from '../context/AppStateContext';
-import { useDataStore } from '../store/dataStore';
+import { useDataStore, selectItemCount } from '../store/dataStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
 import { COLORMAP_OPTIONS, colormapGradient } from '../utils/colormap';
-import type { ColormapId, DataTarget, Dataset } from '../types/data';
+import type { ColormapId, DataItem, DataTarget, Dataset, ValueNotation } from '../types/data';
 
 const DATA_DATASETS_GROUP = '__data_datasets__';
 const DATA_NODE_GROUP = '__data_node__';
 const DATA_EDGE_GROUP = '__data_edge__';
 const DATA_DISPLAY_GROUP = '__data_display__';
 
-/** Compact min–max summary for the dataset overview list. */
+/** Compact min–max summary for the item overview list. */
 const formatRange = (values: number[]): string => {
   let min = Infinity;
   let max = -Infinity;
@@ -91,16 +91,31 @@ const BooleanField = ({ label, checked, onToggle }: BooleanFieldProps) => (
   </div>
 );
 
-/** Per-target (node/edge) display controls: dataset, colormap, and range. */
+/** A flat option for the per-target variable selector: an item plus its dataset. */
+type ItemOption = { item: DataItem; datasetName: string };
+
+/** Per-target (node/edge) display controls: variable, colormap, and range. */
 const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
   const datasets = useDataStore((s) => s.datasets);
   const display = useDataStore((s) => (target === 'node' ? s.nodeDisplay : s.edgeDisplay));
-  const setDisplayDataset = useDataStore((s) => s.setDisplayDataset);
+  const setDisplayItem = useDataStore((s) => s.setDisplayItem);
   const setColormap = useDataStore((s) => s.setColormap);
   const setRange = useDataStore((s) => s.setRange);
   const setAutoRange = useDataStore((s) => s.setAutoRange);
+  const toggleShowValues = useDataStore((s) => s.toggleShowValues);
+  const setPrecision = useDataStore((s) => s.setPrecision);
+  const setNotation = useDataStore((s) => s.setNotation);
 
-  const options = useMemo(() => datasets.filter((d) => d.target === target), [datasets, target]);
+  // Free selection: any item from any dataset matching this target.
+  const options = useMemo<ItemOption[]>(() => {
+    const list: ItemOption[] = [];
+    for (const dataset of datasets) {
+      for (const item of dataset.items) {
+        if (item.target === target) list.push({ item, datasetName: dataset.name });
+      }
+    }
+    return list;
+  }, [datasets, target]);
   const gradient = useMemo(() => colormapGradient(display.colormap), [display.colormap]);
 
   const handleMinChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,26 +132,26 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
   return (
     <>
       <div className="parameter-row">
-        <label className="parameter-label" htmlFor={`${idPrefix}-dataset`}>
-          Dataset
+        <label className="parameter-label" htmlFor={`${idPrefix}-item`}>
+          Variable
         </label>
         <div className="parameter-input-container">
           <select
-            id={`${idPrefix}-dataset`}
+            id={`${idPrefix}-item`}
             className="parameter-select"
-            value={display.datasetId ?? ''}
-            onChange={(e) => setDisplayDataset(target, e.target.value || null)}
+            value={display.itemId ?? ''}
+            onChange={(e) => setDisplayItem(target, e.target.value || null)}
           >
             <option value="">None</option>
-            {options.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
+            {options.map(({ item, datasetName }) => (
+              <option key={item.id} value={item.id}>
+                {datasetName} / {item.name}
               </option>
             ))}
           </select>
           <IoChevronDown className="parameter-select-icon" aria-hidden />
         </div>
-        {options.length === 0 && <p className="data-pane-hint">No {target} datasets loaded.</p>}
+        {options.length === 0 && <p className="data-pane-hint">No {target} items loaded.</p>}
       </div>
 
       <div className="parameter-row">
@@ -199,59 +214,200 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
           </div>
         </div>
       </div>
+
+      <BooleanField
+        label="Show values"
+        checked={display.showValues}
+        onToggle={() => toggleShowValues(target)}
+      />
+
+      <div className="parameter-row">
+        <label className="parameter-label" htmlFor={`${idPrefix}-notation`}>
+          Notation
+        </label>
+        <div className="parameter-input-container">
+          <select
+            id={`${idPrefix}-notation`}
+            className="parameter-select"
+            value={display.notation}
+            disabled={!display.showValues}
+            onChange={(e) => setNotation(target, e.target.value as ValueNotation)}
+          >
+            <option value="fixed">Float</option>
+            <option value="scientific">Scientific</option>
+          </select>
+          <IoChevronDown className="parameter-select-icon" aria-hidden />
+        </div>
+      </div>
+
+      <div className="parameter-row">
+        <label className="parameter-label" htmlFor={`${idPrefix}-precision`}>
+          Decimals
+        </label>
+        <div className="parameter-input-container">
+          <input
+            id={`${idPrefix}-precision`}
+            type="number"
+            className="parameter-input"
+            value={display.precision}
+            min={0}
+            max={6}
+            step={1}
+            disabled={!display.showValues}
+            onChange={(e) => {
+              const parsed = parseInt(e.target.value, 10);
+              if (!Number.isNaN(parsed)) setPrecision(target, parsed);
+            }}
+          />
+          <div className="number-controls">
+            <button
+              type="button"
+              className="number-control-btn"
+              onClick={() => setPrecision(target, display.precision + 1)}
+              aria-label="Increase"
+            >
+              <IoAdd />
+            </button>
+            <button
+              type="button"
+              className="number-control-btn"
+              onClick={() => setPrecision(target, display.precision - 1)}
+              aria-label="Decrease"
+            >
+              <IoRemove />
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   );
 };
 
-const DatasetRow = ({ dataset, expectedCount }: { dataset: Dataset; expectedCount: number }) => {
-  const removeDataset = useDataStore((s) => s.removeDataset);
-  const noun = dataset.target === 'node' ? 'nodes' : 'edges';
-  const length = dataset.values.length;
-  const matches = length === expectedCount;
+/** A single item row. Clicking the name assigns it to its target's display. */
+const DataItemRow = ({ item }: { item: DataItem }) => {
+  const setDisplayItem = useDataStore((s) => s.setDisplayItem);
+  const isActive = useDataStore((s) =>
+    item.target === 'node' ? s.nodeDisplay.itemId === item.id : s.edgeDisplay.itemId === item.id
+  );
+  const length = item.values.length;
+
+  // Clicking an already-active item clears it; otherwise selects it.
+  const onSelect = () => setDisplayItem(item.target, isActive ? null : item.id);
+
   return (
-    <li className="data-pane-dataset">
-      <div className="data-pane-dataset-main">
-        <span className="data-pane-dataset-name" title={dataset.name}>
-          {dataset.name}
-        </span>
-        <span className={`data-pane-tag data-pane-tag-${dataset.target}`}>{dataset.target}</span>
-      </div>
-      <div className="data-pane-dataset-meta">
-        <span>{length} values</span>
-        <span>
-          {formatRange(dataset.values)}
-          {dataset.unit ? ` ${dataset.unit}` : ''}
-        </span>
-      </div>
-      {expectedCount > 0 &&
-        (matches ? (
-          <div className="data-pane-match ok">
-            <IoCheckmarkCircle />
-            <span>
-              matches {expectedCount} {noun}
-            </span>
-          </div>
-        ) : (
-          <div
-            className="data-pane-match warn"
-            title={`${length} values, graph has ${expectedCount} ${noun}`}
-          >
-            <IoWarningOutline />
-            <span>
-              graph has {expectedCount} {noun}
-            </span>
-          </div>
-        ))}
+    <li className={`data-pane-item ${isActive ? 'active' : ''}`}>
       <button
         type="button"
-        className="data-pane-dataset-remove"
-        onClick={() => removeDataset(dataset.id)}
-        title="Remove dataset"
-        aria-label={`Remove ${dataset.name}`}
+        className="data-pane-item-main"
+        onClick={onSelect}
+        title={isActive ? `Hide ${item.name}` : `Display ${item.name}`}
+        aria-pressed={isActive}
       >
-        <IoTrashOutline />
+        <span className="data-pane-item-name">{item.name}</span>
+        <span className={`data-pane-tag data-pane-tag-${item.target}`}>{item.target}</span>
       </button>
+      <div className="data-pane-item-meta">
+        <span>{length} values</span>
+        <span>
+          {formatRange(item.values)}
+          {item.unit ? ` ${item.unit}` : ''}
+        </span>
+      </div>
     </li>
+  );
+};
+
+/**
+ * A dataset group: a collapsible header (chevron) naming the file plus its
+ * scrollable list of items. The name is renamable inline via the edit button.
+ */
+const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
+  const removeDataset = useDataStore((s) => s.removeDataset);
+  const renameDataset = useDataStore((s) => s.renameDataset);
+  const {
+    sidebar: { collapsedGroups },
+    actions,
+  } = useAppState();
+  const collapsed = !!collapsedGroups[dataset.id];
+
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(dataset.name);
+
+  const startRename = () => {
+    setDraftName(dataset.name);
+    setEditing(true);
+  };
+  const commitRename = () => {
+    renameDataset(dataset.id, draftName);
+    setEditing(false);
+  };
+  const cancelRename = () => setEditing(false);
+
+  return (
+    <div className={`data-pane-dataset ${collapsed ? 'collapsed' : ''}`}>
+      <div className="data-pane-dataset-header">
+        <button
+          type="button"
+          className="data-pane-dataset-toggle"
+          onClick={() => actions.sidebar.toggleGroup(dataset.id)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `Expand ${dataset.name}` : `Collapse ${dataset.name}`}
+        >
+          <IoChevronDown className="data-pane-dataset-chevron" />
+        </button>
+        {editing ? (
+          <input
+            className="data-pane-dataset-rename"
+            value={draftName}
+            autoFocus
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') cancelRename();
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="data-pane-dataset-name"
+            title={dataset.name}
+            onClick={() => actions.sidebar.toggleGroup(dataset.id)}
+            onDoubleClick={startRename}
+          >
+            {dataset.name}
+          </button>
+        )}
+        <span className="data-pane-dataset-itemcount">
+          {dataset.items.length} item{dataset.items.length === 1 ? '' : 's'}
+        </span>
+        <button
+          type="button"
+          className="data-pane-dataset-action"
+          onClick={startRename}
+          title="Rename dataset"
+          aria-label={`Rename ${dataset.name}`}
+        >
+          <IoCreateOutline />
+        </button>
+        <button
+          type="button"
+          className="data-pane-dataset-action data-pane-dataset-remove"
+          onClick={() => removeDataset(dataset.id)}
+          title="Remove dataset"
+          aria-label={`Remove ${dataset.name}`}
+        >
+          <IoTrashOutline />
+        </button>
+      </div>
+      {!collapsed && (
+        <ul className="data-pane-item-list">
+          {dataset.items.map((item) => (
+            <DataItemRow key={item.id} item={item} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };
 
@@ -261,14 +417,11 @@ const DataPane = React.memo(() => {
     actions,
   } = useAppState();
   const datasets = useDataStore((s) => s.datasets);
+  const itemCount = useDataStore(selectItemCount);
   const loadDatasetsFromFile = useDataStore((s) => s.loadDatasetsFromFile);
   const clearDatasets = useDataStore((s) => s.clearDatasets);
   const showContour = useDataStore((s) => s.showContour);
   const toggleContour = useDataStore((s) => s.toggleContour);
-  const showValueLabels = useDataStore((s) => s.showValueLabels);
-  const toggleValueLabels = useDataStore((s) => s.toggleValueLabels);
-  const valueLabelPrecision = useDataStore((s) => s.valueLabelPrecision);
-  const setValueLabelPrecision = useDataStore((s) => s.setValueLabelPrecision);
   const nodeCount = useGraphStore((s) => s.nodes.length);
   const edgeCount = useGraphStore((s) => s.edges.length);
   const indicesReady = useGraphStore(selectIndicesReady);
@@ -278,7 +431,8 @@ const DataPane = React.memo(() => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      loadDatasetsFromFile(file);
+      // Reject datasets whose lengths don't match the current canvas.
+      loadDatasetsFromFile(file, { nodeCount, edgeCount });
       event.target.value = '';
     }
   };
@@ -315,13 +469,13 @@ const DataPane = React.memo(() => {
           onClick={() => fileInputRef.current?.click()}
         >
           <IoCloudUploadOutline className="document-pane-file-button-icon" />
-          <span>Load data…</span>
+          <span>Load dataset…</span>
         </button>
 
         {datasets.length === 0 ? (
           <p className="data-pane-hint data-pane-hint-block">
-            Load a JSON file of datasets. Each dataset is a list of numbers ordered by element
-            index.
+            Load a JSON dataset file. A dataset is a named group of items; each item is a list of
+            numbers ordered by element index. You can load several datasets and display any item.
           </p>
         ) : (
           <>
@@ -330,8 +484,7 @@ const DataPane = React.memo(() => {
                 <div className="data-pane-index-notice-text">
                   <IoWarningOutline className="data-pane-index-notice-icon" />
                   <span>
-                    Indices aren’t assigned, so element data won’t appear yet. Values map to
-                    nodes/edges by their generated index.
+                    Some elements are unnumbered — the canvas and data may not be compatible.
                   </span>
                 </div>
                 <button
@@ -348,7 +501,7 @@ const DataPane = React.memo(() => {
 
             <div className="data-pane-dataset-toolbar">
               <span className="data-pane-dataset-count">
-                {datasets.length} dataset{datasets.length === 1 ? '' : 's'}
+                {itemCount} item{itemCount === 1 ? '' : 's'}
               </span>
               <button
                 type="button"
@@ -363,15 +516,11 @@ const DataPane = React.memo(() => {
               Graph: {nodeCount} node{nodeCount === 1 ? '' : 's'} · {edgeCount} edge
               {edgeCount === 1 ? '' : 's'}
             </p>
-            <ul className="data-pane-dataset-list">
+            <div className="data-pane-dataset-list">
               {datasets.map((dataset) => (
-                <DatasetRow
-                  key={dataset.id}
-                  dataset={dataset}
-                  expectedCount={dataset.target === 'node' ? nodeCount : edgeCount}
-                />
+                <DatasetGroup key={dataset.id} dataset={dataset} />
               ))}
-            </ul>
+            </div>
           </>
         )}
       </CollapsibleGroup>
@@ -401,45 +550,9 @@ const DataPane = React.memo(() => {
         onToggle={actions.sidebar.toggleGroup}
       >
         <BooleanField label="Show contour" checked={showContour} onToggle={toggleContour} />
-        <BooleanField label="Show values" checked={showValueLabels} onToggle={toggleValueLabels} />
-        <div className="parameter-row">
-          <label className="parameter-label" htmlFor="data-precision">
-            Decimals
-          </label>
-          <div className="parameter-input-container">
-            <input
-              id="data-precision"
-              type="number"
-              className="parameter-input"
-              value={valueLabelPrecision}
-              min={0}
-              max={6}
-              step={1}
-              onChange={(e) => {
-                const parsed = parseInt(e.target.value, 10);
-                if (!Number.isNaN(parsed)) setValueLabelPrecision(parsed);
-              }}
-            />
-            <div className="number-controls">
-              <button
-                type="button"
-                className="number-control-btn"
-                onClick={() => setValueLabelPrecision(valueLabelPrecision + 1)}
-                aria-label="Increase"
-              >
-                <IoAdd />
-              </button>
-              <button
-                type="button"
-                className="number-control-btn"
-                onClick={() => setValueLabelPrecision(valueLabelPrecision - 1)}
-                aria-label="Decrease"
-              >
-                <IoRemove />
-              </button>
-            </div>
-          </div>
-        </div>
+        <p className="data-pane-hint">
+          Value labels and number format are configured per target under Node data and Edge data.
+        </p>
       </CollapsibleGroup>
     </div>
   );

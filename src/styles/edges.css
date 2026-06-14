@@ -38,7 +38,7 @@
   user-select: none;
 }
 
-.edge-midpoint-marker__value {
+.edge-value-label {
   font-family: Arial, sans-serif;
   font-size: 9px;
   fill: var(--color-text-secondary);
