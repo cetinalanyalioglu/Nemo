@@ -23,8 +23,10 @@ const DocumentPane = React.memo(() => {
   const clearDatasets = useDataStore((s) => s.clearDatasets);
   const datasets = useDataStore((s) => s.datasets);
   const toggleDatasetSave = useDataStore((s) => s.toggleDatasetSave);
+  const setAllDatasetsSave = useDataStore((s) => s.setAllDatasetsSave);
   const nodeCount = useGraphStore((s) => s.nodes.length);
   const datasetCount = datasets.length;
+  const allIncluded = datasetCount > 0 && datasets.every((d) => d.includeInSave);
   const {
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -105,7 +107,16 @@ const DocumentPane = React.memo(() => {
 
           {datasetCount > 0 && (
             <div className="document-pane-save-data">
-              <div className="document-pane-save-data-title">Include data on save</div>
+              <div className="document-pane-save-data-header">
+                <span className="document-pane-save-data-title">Include data on save</span>
+                <button
+                  type="button"
+                  className="document-pane-save-data-toggle-all"
+                  onClick={() => setAllDatasetsSave(!allIncluded)}
+                >
+                  {allIncluded ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
               <ul className="document-pane-save-data-list">
                 {datasets.map((dataset) => (
                   <li key={dataset.id} className="document-pane-save-data-row">
