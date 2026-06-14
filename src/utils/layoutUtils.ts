@@ -19,12 +19,12 @@ export const getLayoutedElements = (
   });
 
   nodes.forEach((node) => {
-    const width = node.style?.width || 150;
-    const height = node.style?.height || 50;
-    dagreGraph.setNode(node.id, {
-      width: width as number,
-      height: height as number,
-    });
+    // Prefer ReactFlow's measured dimensions (numeric) so dagre spaces nodes by
+    // their real rendered size; fall back to any explicit style size, then a default.
+    const width = (typeof node.width === 'number' ? node.width : Number(node.style?.width)) || 150;
+    const height =
+      (typeof node.height === 'number' ? node.height : Number(node.style?.height)) || 50;
+    dagreGraph.setNode(node.id, { width, height });
   });
 
   edges.forEach((edge) => {

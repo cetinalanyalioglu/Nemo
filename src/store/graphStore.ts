@@ -109,7 +109,7 @@ export interface GraphStore extends GraphData {
   startEditing: (nodeId: string) => void;
   onChange: (nodeId: string, evt: ReactChangeEvent<HTMLInputElement>) => void;
   onKeyDown: (nodeId: string, event: ReactKeyboardEvent<HTMLInputElement>) => void;
-  finishEditing: (nodeId: string) => void;
+  finishEditing: (nodeId: string, opts?: { fromBlur?: boolean }) => void;
 
   // Save / load.
   generateSaveData: () => SaveFilePayload;
@@ -398,6 +398,18 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const oldValue = state.nodeStates[nodeId]?.parameters[paramName];
       if (oldValue === value) {
         return true;
+      }
+
+      // Enforce label uniqueness for every write path (properties pane, inline
+      // editor, etc.). Callers treat a false return as a rejected edit.
+      if (
+        paramName === 'label' &&
+        state.model?.forceUniqueNodeLabels &&
+        typeof value === 'string' &&
+        isNodeLabelTaken(state.nodeStates, value, nodeId)
+      ) {
+        debugLog(`Rejected duplicate node label "${value}"`);
+        return false;
       }
 
       const handlers: Record<string, ParameterChangeHandler> = (nodeElementInfo.onParameterChange ||
@@ -745,7 +757,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }));
     },
 
-    finishEditing: (nodeId) => {
+    finishEditing: (nodeId, opts) => {
       const state = get();
       const newLabel = state.editingStates[nodeId]?.tempLabel?.trim();
       if (newLabel) {
@@ -753,9 +765,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           state.model?.forceUniqueNodeLabels &&
           isNodeLabelTaken(state.nodeStates, newLabel, nodeId)
         ) {
-          // Duplicate label: reject and keep the editor open so the user can
-          // pick a different one rather than silently discarding the edit.
-          alert(`A node labeled "${newLabel}" already exists. Node labels must be unique.`);
+          // Duplicate label. On an explicit commit (Enter) warn once and keep the
+          // editor open so the user can fix it. On blur (clicking away) cancel the
+          // edit silently — otherwise the blur-triggered re-validation loops the alert.
+          if (!opts?.fromBlur) {
+            alert(`A node labeled "${newLabel}" already exists. Node labels must be unique.`);
+            return;
+          }
+          set((s) => ({
+            editingStates: { ...s.editingStates, [nodeId]: { isEditing: false, tempLabel: '' } },
+          }));
           return;
         }
         state.updateNodeParameter(nodeId, 'label', newLabel);
