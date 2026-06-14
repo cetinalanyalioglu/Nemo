@@ -127,9 +127,21 @@ interface DataStore {
   edgeDisplay: DataDisplayConfig;
   showContour: boolean;
 
+  /**
+   * Datasets embedded in a just-loaded case file, awaiting the user's choice of
+   * which to import. Null when no choice is pending.
+   */
+  pendingDatasets: Dataset[] | null;
+
   loadDatasetsFromFile: (file: File, expected?: ExpectedCounts) => void;
   /** Restores datasets embedded in a saved case file. */
   loadDatasetsFromObject: (datasets: Dataset[]) => void;
+  /** Opens the load-time selection dialog for embedded datasets. */
+  presentDatasetChoice: (datasets: Dataset[]) => void;
+  /** Imports the chosen subset of pending datasets and closes the dialog. */
+  resolveDatasetChoice: (chosen: Dataset[]) => void;
+  /** Dismisses the dialog without importing anything. */
+  cancelDatasetChoice: () => void;
   removeDataset: (id: string) => void;
   renameDataset: (id: string, name: string) => void;
   toggleDatasetSave: (id: string) => void;
@@ -185,6 +197,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
   showContour: true,
+  pendingDatasets: null,
 
   loadDatasetsFromFile: (file, expected) => {
     const reader = new FileReader();
@@ -242,6 +255,23 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set((s) => ({ datasets: [...s.datasets, ...cloned], loadCount: s.loadCount + 1 }));
   },
 
+  presentDatasetChoice: (datasets) => {
+    if (!Array.isArray(datasets) || datasets.length === 0) {
+      set({ pendingDatasets: null });
+      return;
+    }
+    set({ pendingDatasets: datasets });
+  },
+
+  resolveDatasetChoice: (chosen) => {
+    if (chosen.length > 0) {
+      get().loadDatasetsFromObject(chosen);
+    }
+    set({ pendingDatasets: null });
+  },
+
+  cancelDatasetChoice: () => set({ pendingDatasets: null }),
+
   removeDataset: (id) => {
     set((s) => {
       const datasets = s.datasets.filter((d) => d.id !== id);
@@ -272,6 +302,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   clearDatasets: () => {
     set((s) => ({
       datasets: [],
+      pendingDatasets: null,
       nodeDisplay: { ...s.nodeDisplay, itemId: null },
       edgeDisplay: { ...s.edgeDisplay, itemId: null },
     }));

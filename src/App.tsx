@@ -11,6 +11,7 @@ import SettingsPane from './components/settings-pane';
 import Canvas from './components/Canvas';
 import ConsolePane from './components/console-pane';
 import PropertiesPanel from './components/PropertiesPanel';
+import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
@@ -42,6 +43,7 @@ function AppContent() {
         </div>
       </div>
       <PropertiesPanel />
+      <DatasetLoadDialog />
     </div>
   );
 }
