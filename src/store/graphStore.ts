@@ -976,10 +976,11 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         title: saveData.meta?.title ?? DEFAULT_CASE_TITLE,
       });
 
-      // Restore any datasets embedded in the file. (The Document pane clears
-      // existing datasets before loading, so this is the authoritative set.)
+      // Let the user choose which embedded datasets to import. (The Document
+      // pane clears existing datasets before loading, so this is the
+      // authoritative set.) The dialog imports the chosen subset.
       if (saveData.data?.datasets && saveData.data.datasets.length > 0) {
-        useDataStore.getState().loadDatasetsFromObject(saveData.data.datasets);
+        useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
       }
 
       debugLog('Successfully loaded canvas state from file');
