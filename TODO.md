@@ -1,4 +1,6 @@
 ## General
+- [ ] Contour plot "scale to visible" option
+- [ ] Some indicator hinting there is unread stuff printed in the console
 
 ## Wild ideas
 - [ ] Plot quantity "along" selected elements. Something like, user selects two nodes/edges whatever, we find possible paths between these two, and for each path plot the selected quality at y axis with x axis the position on path.
