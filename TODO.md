@@ -1,3 +1,6 @@
+## Issues
+- [ ] After "Load", the canvas view is sometimes positioned abruptly. An automatic "fit view" would be appropriate.
+
 ## General
 - [ ] Contour plot "scale to visible" option
 - [ ] Some indicator hinting there is unread stuff printed in the console
