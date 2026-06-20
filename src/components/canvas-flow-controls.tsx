@@ -1,12 +1,13 @@
 import React, { memo, useCallback, useEffect, useRef } from 'react';
-import { ControlButton, useStore, useStoreApi } from 'reactflow';
+import { ControlButton, useStore, useStoreApi, useNodesInitialized } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
-import { useDataStore } from '../store/dataStore';
+import { useDataStore, selectActiveItem } from '../store/dataStore';
 import { getLayoutedElements } from '../utils/layoutUtils';
+import { logger } from '../utils/logger';
 
 const LockIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 32" aria-hidden>
@@ -156,3 +157,147 @@ export const DataFreezeBridge = memo(() => {
 });
 
 DataFreezeBridge.displayName = 'DataFreezeBridge';
+
+/**
+ * Headless bridge: fits the freshly-loaded graph into view whenever a saved
+ * case is applied. Loading a file can leave the viewport positioned far from
+ * the loaded nodes; watching the graph store's `viewFitNonce` re-centers them.
+ *
+ * The fit is measurement-driven rather than time-based: it waits for
+ * `useNodesInitialized` so every loaded node has reported its measured size
+ * before framing them. Because that hook can still read the *previous* graph's
+ * initialized state on the render the nonce bumps (ReactFlow processes the new
+ * nodes in a later effect), we wait for the initialized flag to fall to false
+ * and rise back to true after each load — the false→true edge guarantees the
+ * loaded nodes, not the old ones, are what got measured. The initial mount is
+ * skipped so the empty default canvas isn't fitted on startup.
+ */
+export const FitViewBridge = memo(() => {
+  const { reactFlowInstance } = useReactFlow();
+  const viewFitNonce = useGraphStore((s) => s.viewFitNonce);
+  const nodesInitialized = useNodesInitialized();
+
+  const lastNonce = useRef(viewFitNonce);
+  // 'idle' → nothing pending; 'armed' → load seen, awaiting the unmeasured
+  // (false) window; 'awaiting' → unmeasured window seen, awaiting measurement.
+  const phase = useRef<'idle' | 'armed' | 'awaiting'>('idle');
+
+  useEffect(() => {
+    if (viewFitNonce !== lastNonce.current) {
+      lastNonce.current = viewFitNonce;
+      phase.current = 'armed';
+    }
+
+    // New nodes mount unmeasured, so the flag drops to false first; only then do
+    // we wait for it to come back true, ignoring any stale true from before.
+    if (phase.current === 'armed' && !nodesInitialized) {
+      phase.current = 'awaiting';
+    }
+
+    if (phase.current === 'awaiting' && nodesInitialized) {
+      phase.current = 'idle';
+      reactFlowInstance?.fitView({ padding: 0.2, duration: 400 });
+    }
+  }, [viewFitNonce, nodesInitialized, reactFlowInstance]);
+
+  return null;
+});
+
+FitViewBridge.displayName = 'FitViewBridge';
+
+/**
+ * Headless bridge: fulfills "scale to visible" requests from the Data pane.
+ * Recomputes the target's colormap min/max from only the elements currently
+ * within the canvas viewport. Lives inside ReactFlow so it can read the live
+ * viewport transform and node geometry from the flow store.
+ */
+export const ScaleToVisibleBridge = memo(() => {
+  const store = useStoreApi();
+  const scaleRequest = useDataStore((s) => s.scaleRequest);
+  const prevSeq = useRef(scaleRequest?.seq ?? 0);
+
+  useEffect(() => {
+    if (!scaleRequest || scaleRequest.seq === prevSeq.current) return;
+    prevSeq.current = scaleRequest.seq;
+    const target = scaleRequest.target;
+
+    const item = selectActiveItem(useDataStore.getState(), target);
+    if (!item) {
+      logger.warn(`Scale to visible: select a ${target} variable first.`);
+      return;
+    }
+
+    // Visible region in flow coordinates, derived from the live viewport.
+    const { width, height, transform } = store.getState();
+    const [tx, ty, zoom] = transform;
+    if (!width || !height || !zoom) return;
+    const viewMinX = -tx / zoom;
+    const viewMinY = -ty / zoom;
+    const viewMaxX = (width - tx) / zoom;
+    const viewMaxY = (height - ty) / zoom;
+
+    const nodeInternals = store.getState().nodeInternals;
+    const graph = useGraphStore.getState();
+
+    // Resolve the value mapped to an element via its generated index.
+    const valueAtIndex = (index: unknown): number | null => {
+      if (typeof index !== 'number' || index < 0 || index >= item.values.length) return null;
+      const value = item.values[index];
+      return Number.isFinite(value) ? value : null;
+    };
+
+    const values: number[] = [];
+
+    if (target === 'node') {
+      nodeInternals.forEach((node, id) => {
+        const pos = node.positionAbsolute ?? node.position;
+        const w = node.width ?? 0;
+        const h = node.height ?? 0;
+        const intersects =
+          pos.x <= viewMaxX && pos.x + w >= viewMinX && pos.y <= viewMaxY && pos.y + h >= viewMinY;
+        if (!intersects) return;
+        const value = valueAtIndex(graph.nodeStates[id]?.parameters?.index);
+        if (value !== null) values.push(value);
+      });
+    } else {
+      // An edge counts as visible when either endpoint node's center is in view.
+      const centerInView = (nodeId: string): boolean => {
+        const node = nodeInternals.get(nodeId);
+        if (!node) return false;
+        const pos = node.positionAbsolute ?? node.position;
+        const cx = pos.x + (node.width ?? 0) / 2;
+        const cy = pos.y + (node.height ?? 0) / 2;
+        return cx >= viewMinX && cx <= viewMaxX && cy >= viewMinY && cy <= viewMaxY;
+      };
+      for (const edge of graph.edges) {
+        if (!centerInView(edge.source) && !centerInView(edge.target)) continue;
+        const value = valueAtIndex(graph.edgeStates[edge.id]?.parameters?.index);
+        if (value !== null) values.push(value);
+      }
+    }
+
+    if (values.length === 0) {
+      logger.warn(`Scale to visible: no ${target} values are currently in view.`);
+      return;
+    }
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const value of values) {
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    if (min === max) max = min + 1; // keep the colormap spanning a visible interval
+
+    useDataStore.getState().setRange(target, min, max);
+    const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toPrecision(4));
+    logger.info(
+      `Scaled ${target} colormap to visible range [${fmt(min)}, ${fmt(max)}] ` +
+        `(${values.length} element${values.length === 1 ? '' : 's'}).`
+    );
+  }, [scaleRequest, store]);
+
+  return null;
+});
+
+ScaleToVisibleBridge.displayName = 'ScaleToVisibleBridge';
