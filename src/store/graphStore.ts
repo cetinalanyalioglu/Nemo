@@ -76,6 +76,13 @@ export interface GraphStore extends GraphData {
   requestModelSwitch: (id: string) => void;
   pendingLoad: SaveFilePayload | null;
 
+  /**
+   * Bumped whenever a saved case is applied to the canvas. The canvas watches
+   * this to fit the freshly-loaded graph into view (a load can otherwise leave
+   * the viewport positioned far from the loaded nodes).
+   */
+  viewFitNonce: number;
+
   // Undo/redo history stacks.
   past: CanvasSnapshot[];
   future: CanvasSnapshot[];
@@ -326,6 +333,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     models: [],
     requestModelSwitch: () => {},
     pendingLoad: null,
+    viewFitNonce: 0,
 
     // Graph state
     nodes: [],
@@ -980,6 +988,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         nodeCounters: saveData.uiState?.counters?.nodeCounters ?? {},
         totalNodeCounters: saveData.uiState?.counters?.totalNodeCounters ?? {},
         title: saveData.meta?.title ?? DEFAULT_CASE_TITLE,
+        // Signal the canvas to fit the loaded graph into view.
+        viewFitNonce: get().viewFitNonce + 1,
       });
 
       // Let the user choose which embedded datasets to import. (The Document

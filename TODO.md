@@ -1,9 +1,10 @@
 ## Issues
-- [ ] After "Load", the canvas view is sometimes positioned abruptly. An automatic "fit view" would be appropriate.
+- [x] After "Load", the canvas view is sometimes positioned abruptly. An automatic "fit view" would be appropriate.
+- [ ] When canvas is in a locked state, user can still perform actions which modify the canvas, such as adding new nodes, and adding/removing ports on supported elements through the properties pane. When canvas is locked, any topological change that would render the current numbering invalid should not be allowed.
 
 ## General
-- [ ] Contour plot "scale to visible" option
-- [ ] Some indicator hinting there is unread stuff printed in the console
+- [x] Contour plot "scale to visible" option
+- [x] Some indicator hinting there is unread stuff printed in the console when a new message is printed there
 
 ## Wild ideas
 - [ ] Plot quantity "along" selected elements. Something like, user selects two nodes/edges whatever, we find possible paths between these two, and for each path plot the selected quality at y axis with x axis the position on path.
