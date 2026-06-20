@@ -148,6 +148,16 @@
   color: var(--color-accent);
 }
 
+.element-item.locked {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.element-item.locked:hover {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
 .element-icon {
   font-size: 16px;
   color: var(--color-accent);

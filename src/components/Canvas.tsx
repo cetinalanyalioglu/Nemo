@@ -5,6 +5,7 @@ import {
   AutoLayoutControl,
   FlowInteractiveToggle,
   DataFreezeBridge,
+  LockSyncBridge,
   FitViewBridge,
   ScaleToVisibleBridge,
 } from './canvas-flow-controls';
@@ -164,6 +165,11 @@ const Canvas = () => {
       }
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Deletion is a topological change; a locked canvas rejects it in the
+        // store. Bail early so inspecting a selected element doesn't spam the
+        // console with one rejection per selected node/edge.
+        if (useGraphStore.getState().locked) return;
+
         const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
         selectedNodes.forEach((node) => {
           deleteNode(node.id);
@@ -236,6 +242,7 @@ const Canvas = () => {
         <CanvasTitle />
         <DataLegend />
         <DataFreezeBridge />
+        <LockSyncBridge />
         <FitViewBridge />
         <ScaleToVisibleBridge />
         <CanvasZoomIndicator />

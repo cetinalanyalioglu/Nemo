@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
+import { isPortCountParameter } from '../utils/ports';
 import { useDataStore } from './dataStore';
 import type {
   EditingState,
@@ -82,6 +83,16 @@ export interface GraphStore extends GraphData {
    * the viewport positioned far from the loaded nodes).
    */
   viewFitNonce: number;
+
+  /**
+   * When true, the canvas is locked: topological edits that would renumber the
+   * generated indices (adding/deleting nodes or edges, changing dynamic-port
+   * counts) are rejected. Loading a dataset locks the canvas so the indices the
+   * data maps to stay valid; the user can unlock explicitly. Not part of the
+   * undo history or save files — purely a transient UI guard.
+   */
+  locked: boolean;
+  setLocked: (locked: boolean) => void;
 
   // Undo/redo history stacks.
   past: CanvasSnapshot[];
@@ -348,10 +359,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     selectedEdgeId: null,
     title: DEFAULT_CASE_TITLE,
     highlightedNodeIds: [],
+    locked: false,
 
     // History
     past: [],
     future: [],
+
+    setLocked: (locked) => set({ locked }),
 
     setTitle: (title) => set({ title }),
 
@@ -439,6 +453,19 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const oldValue = state.nodeStates[nodeId]?.parameters[paramName];
       if (oldValue === value) {
         return true;
+      }
+
+      // While locked, reject edits that change a dynamic-port count: adding or
+      // removing ports renumbers handles and invalidates the indices loaded data
+      // maps to. Non-topological parameter edits (values, labels) stay allowed.
+      if (state.locked) {
+        const nodeConfig = state.model?.nodeConfig[nodeType];
+        if (
+          isPortCountParameter(nodeConfig?.dynamicPorts, nodeConfig?.dynamicPortConfig, paramName)
+        ) {
+          logger.warn('Canvas is locked: unlock it before changing the port count.');
+          return false;
+        }
       }
 
       // Enforce label uniqueness for every write path (properties pane, inline
@@ -584,6 +611,11 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         return undefined;
       }
 
+      if (get().locked) {
+        logger.warn('Canvas is locked: unlock it before adding nodes.');
+        return undefined;
+      }
+
       const state = get();
       const elementInfo = state.model?.elementInfo ?? EMPTY_ELEMENT_INFO;
       const nodeTemplate = elementInfo[type];
@@ -656,6 +688,11 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         return;
       }
 
+      if (get().locked) {
+        logger.warn('Canvas is locked: unlock it before deleting nodes.');
+        return;
+      }
+
       const state = get();
       const node = state.nodes.find((n) => n.id === nodeId);
       if (!node) {
@@ -721,6 +758,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     },
 
     addCustomEdge: (params, type) => {
+      if (get().locked) {
+        logger.warn('Canvas is locked: unlock it before adding edges.');
+        return;
+      }
       const model = get().model;
       const edgeInfo = model?.edgeInfo ?? EMPTY_EDGE_INFO;
       const resolvedType = type ?? getDefaultEdgeType(model);
@@ -753,6 +794,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     },
 
     deleteEdge: (edgeId) => {
+      if (get().locked) {
+        logger.warn('Canvas is locked: unlock it before deleting edges.');
+        return;
+      }
       get().recordHistory();
       set((s) => {
         const newEdgeStates = { ...s.edgeStates };

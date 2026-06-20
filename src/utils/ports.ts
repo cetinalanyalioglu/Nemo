@@ -52,6 +52,24 @@ export const computePortLayout = (
   return { target, source };
 };
 
+/**
+ * Returns whether `paramName` drives a dynamic-port count for either side of a
+ * node. Changing such a parameter adds or removes ports, which renumbers the
+ * node's handles — a topological change. Used to gate these edits while the
+ * canvas is locked.
+ */
+export const isPortCountParameter = (
+  dynamicPorts: boolean | undefined,
+  dynamicPortConfig: DynamicPortConfig | undefined,
+  paramName: string
+): boolean => {
+  if (!dynamicPorts || !dynamicPortConfig) return false;
+  return (
+    dynamicPortConfig.target?.countParameter === paramName ||
+    dynamicPortConfig.source?.countParameter === paramName
+  );
+};
+
 /** A node port with its positional handle suffix and side. */
 export interface PortDescriptor {
   /** Positional port number, also the handle id suffix. */
