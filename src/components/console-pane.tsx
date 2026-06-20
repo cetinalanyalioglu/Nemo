@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { IoChevronUpOutline, IoTerminalOutline } from 'react-icons/io5';
 import { useAppState } from '../context/AppStateContext';
 import { useConsoleResize } from '../hooks/use-console-resize';
+import { useConsoleStore } from '../store/consoleStore';
 import ConsoleLogsTab from './console-logs-tab';
 import '../styles/console-pane.css';
 
@@ -10,6 +11,15 @@ const ConsolePane = React.memo(() => {
     consolePane: { isOpen, height },
     actions,
   } = useAppState();
+
+  const unreadCount = useConsoleStore((s) => s.unreadCount);
+  const markRead = useConsoleStore((s) => s.markRead);
+
+  // While the pane is open, every message is seen as it arrives, so keep the
+  // unread counter cleared. Closing the pane lets the counter accumulate again.
+  useEffect(() => {
+    if (isOpen && unreadCount > 0) markRead();
+  }, [isOpen, unreadCount, markRead]);
 
   const { paneRef, onResizePointerDown } = useConsoleResize(
     height,
@@ -37,6 +47,15 @@ const ConsolePane = React.memo(() => {
         <div className="console-pane-title-group">
           <IoTerminalOutline className="console-pane-icon" aria-hidden />
           <span className="console-pane-title">CONSOLE</span>
+          {!isOpen && unreadCount > 0 && (
+            <span
+              className="console-pane-unread-badge"
+              title={`${unreadCount} new message${unreadCount === 1 ? '' : 's'}`}
+              aria-label={`${unreadCount} unread console message${unreadCount === 1 ? '' : 's'}`}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </div>
         <IoChevronUpOutline
           className="console-pane-toggle"

@@ -323,3 +323,18 @@
   font-size: 10.5px;
   color: var(--color-text-muted);
 }
+
+.data-pane-scale-visible {
+  margin-top: 8px;
+}
+
+.data-pane-scale-visible:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.data-pane-scale-visible:disabled:hover {
+  border-color: var(--color-border);
+  color: var(--color-text-control);
+  background: var(--color-surface);
+}
