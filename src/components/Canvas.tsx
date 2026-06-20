@@ -5,6 +5,8 @@ import {
   AutoLayoutControl,
   FlowInteractiveToggle,
   DataFreezeBridge,
+  FitViewBridge,
+  ScaleToVisibleBridge,
 } from './canvas-flow-controls';
 import type { Node, Edge, ReactFlowInstance, Connection, NodeTypes, EdgeTypes } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -234,6 +236,8 @@ const Canvas = () => {
         <CanvasTitle />
         <DataLegend />
         <DataFreezeBridge />
+        <FitViewBridge />
+        <ScaleToVisibleBridge />
         <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />

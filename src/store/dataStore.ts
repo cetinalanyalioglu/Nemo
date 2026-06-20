@@ -134,6 +134,13 @@ interface DataStore {
    */
   pendingDatasets: Dataset[] | null;
 
+  /**
+   * A pending "scale to visible" request: the target to rescale and a sequence
+   * number that increments on every request so the canvas bridge re-runs even
+   * for repeated requests on the same target. Null when none is pending.
+   */
+  scaleRequest: { target: DataTarget; seq: number } | null;
+
   loadDatasetsFromFile: (file: File, expected?: ExpectedCounts) => void;
   /** Restores datasets embedded in a saved case file. */
   loadDatasetsFromObject: (datasets: Dataset[]) => void;
@@ -152,6 +159,13 @@ interface DataStore {
   setColormap: (target: DataTarget, colormap: ColormapId) => void;
   setRange: (target: DataTarget, min: number, max: number) => void;
   setAutoRange: (target: DataTarget, auto: boolean) => void;
+  /**
+   * Requests the colormap range for a target be rescaled to the elements
+   * currently inside the canvas viewport. Bumped here; fulfilled by the canvas
+   * bridge, which alone knows which elements are on screen (see
+   * {@link ScaleToVisibleBridge}).
+   */
+  requestScaleToVisible: (target: DataTarget) => void;
   toggleContour: (target: DataTarget) => void;
   toggleShowValues: (target: DataTarget) => void;
   setPrecision: (target: DataTarget, precision: number) => void;
@@ -198,6 +212,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
   pendingDatasets: null,
+  scaleRequest: null,
 
   loadDatasetsFromFile: (file, expected) => {
     const reader = new FileReader();
@@ -353,6 +368,10 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const range = auto && found ? computeRange(found.item.values) : null;
       return { [key]: { ...current, auto, ...(range ?? {}) } } as Partial<DataStore>;
     });
+  },
+
+  requestScaleToVisible: (target) => {
+    set((s) => ({ scaleRequest: { target, seq: (s.scaleRequest?.seq ?? 0) + 1 } }));
   },
 
   toggleContour: (target) => {

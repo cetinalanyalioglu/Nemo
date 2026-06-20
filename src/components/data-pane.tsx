@@ -12,6 +12,7 @@ import {
   IoWarningOutline,
   IoConstructOutline,
   IoCreateOutline,
+  IoScanOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
@@ -101,6 +102,7 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
   const setColormap = useDataStore((s) => s.setColormap);
   const setRange = useDataStore((s) => s.setRange);
   const setAutoRange = useDataStore((s) => s.setAutoRange);
+  const requestScaleToVisible = useDataStore((s) => s.requestScaleToVisible);
   const toggleContour = useDataStore((s) => s.toggleContour);
   const toggleShowValues = useDataStore((s) => s.toggleShowValues);
   const setPrecision = useDataStore((s) => s.setPrecision);
@@ -220,6 +222,17 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        className="document-pane-file-button data-pane-scale-visible"
+        onClick={() => requestScaleToVisible(target)}
+        disabled={!display.itemId}
+        title="Set the colormap range to the min/max of the elements currently in view"
+      >
+        <IoScanOutline className="document-pane-file-button-icon" />
+        <span>Scale to visible</span>
+      </button>
 
       <BooleanField
         label="Show values"
