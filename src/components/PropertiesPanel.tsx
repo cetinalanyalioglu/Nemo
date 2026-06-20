@@ -140,6 +140,9 @@ const PropertiesPanel = React.memo(() => {
   const selectedEdgeType = useGraphStore((s) =>
     s.selectedEdgeId ? (s.edges.find((e) => e.id === s.selectedEdgeId)?.type ?? null) : null
   );
+  // A locked canvas rejects port-count edits (they renumber handles and break
+  // the indices loaded data maps to); the panel disables those fields to match.
+  const locked = useGraphStore((s) => s.locked);
 
   const {
     propertiesPanel: { isOpen, collapsedGroups },
@@ -193,6 +196,20 @@ const PropertiesPanel = React.memo(() => {
     }
     return elementInfo[elementType]?.parameters || {};
   }, [isEdge, elementType, elementInfo, edgeInfo]);
+
+  // Parameter keys that drive this node's dynamic-port counts. Editing one
+  // adds/removes ports — a topological change — so they're disabled while the
+  // canvas is locked. Edges have no ports, so the set is empty for them.
+  const portCountParamKeys = useMemo(() => {
+    if (isEdge || !elementType) return new Set<string>();
+    const config = model?.nodeConfig[elementType];
+    if (!config?.dynamicPorts || !config.dynamicPortConfig) return new Set<string>();
+    const keys = new Set<string>();
+    const { target, source } = config.dynamicPortConfig;
+    if (target?.countParameter) keys.add(target.countParameter);
+    if (source?.countParameter) keys.add(source.countParameter);
+    return keys;
+  }, [isEdge, elementType, model]);
 
   // Group parameters by their categories - memoized to avoid recalculation on every render
   // Must be called before early returns to satisfy Rules of Hooks
@@ -565,7 +582,8 @@ const PropertiesPanel = React.memo(() => {
                 // Check visibility
                 if (!isParameterVisible(info, elementState)) return null;
 
-                const isEditable = isParameterEditable(info);
+                const isEditable =
+                  isParameterEditable(info) && !(locked && portCountParamKeys.has(key));
                 const tempValueKey = `${selectedId}_${key}`;
 
                 return (
