@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useRef } from 'react';
-import { ControlButton, useStore, useStoreApi, useNodesInitialized } from 'reactflow';
+import { ControlButton, useStoreApi, useNodesInitialized } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
@@ -91,28 +91,22 @@ export const AutoLayoutControl = memo(() => {
 AutoLayoutControl.displayName = 'AutoLayoutControl';
 
 export const FlowInteractiveToggle = memo(() => {
-  const store = useStoreApi();
-  const isInteractive = useStore(
-    (s) => !!(s.nodesDraggable || s.nodesConnectable || s.elementsSelectable)
-  );
+  const locked = useGraphStore((s) => s.locked);
+  const setLocked = useGraphStore((s) => s.setLocked);
 
   const onToggle = () => {
-    const next = !isInteractive;
-    // Unfreezing while data is loaded is risky: editing the canvas changes the
+    const nextLocked = !locked;
+    // Unlocking while data is loaded is risky: editing the canvas changes the
     // generated indices the data is bound to. Warn before allowing it.
-    if (next && useDataStore.getState().datasets.length > 0) {
+    if (!nextLocked && useDataStore.getState().datasets.length > 0) {
       const confirmed = window.confirm(
-        'The canvas was frozen because data is loaded. Editing it can change the ' +
+        'The canvas was locked because data is loaded. Editing it can change the ' +
           'element indices the data maps to and make the loaded data incompatible. ' +
-          'Unfreeze anyway?'
+          'Unlock anyway?'
       );
       if (!confirmed) return;
     }
-    store.setState({
-      nodesDraggable: next,
-      nodesConnectable: next,
-      elementsSelectable: next,
-    });
+    setLocked(nextLocked);
   };
 
   return (
@@ -120,10 +114,11 @@ export const FlowInteractiveToggle = memo(() => {
       type="button"
       className="react-flow__controls-interactive"
       onClick={onToggle}
-      title="toggle interactivity"
-      aria-label="toggle interactivity"
+      title={locked ? 'Unlock canvas' : 'Lock canvas'}
+      aria-label={locked ? 'Unlock canvas' : 'Lock canvas'}
+      aria-pressed={locked}
     >
-      {isInteractive ? <UnlockIcon /> : <LockIcon />}
+      {locked ? <LockIcon /> : <UnlockIcon />}
     </ControlButton>
   );
 });
@@ -131,27 +126,53 @@ export const FlowInteractiveToggle = memo(() => {
 FlowInteractiveToggle.displayName = 'FlowInteractiveToggle';
 
 /**
- * Headless bridge: freezes the canvas (disables dragging, connecting, and
- * selection) whenever a dataset is loaded. A modified canvas renders to data
- * that no longer matches, so loading data drops the canvas into a safe,
- * read-only state until the user explicitly unfreezes. Watches the data store's
- * `loadCount` so every load — not just the first — re-freezes.
+ * Headless bridge: mirrors the graph store's `locked` flag onto ReactFlow's
+ * interactivity flags so a locked canvas can't be dragged or connected. `locked`
+ * is the single source of truth (it's also readable from outside the ReactFlow
+ * subtree, where these flags aren't); this keeps the pointer-level affordances
+ * in step with it.
+ *
+ * Selection stays enabled regardless of lock: clicking a node or edge opens the
+ * properties pane for read-only inspection (e.g. loaded data values), which is
+ * the whole point of a locked, data-bound canvas. Selection doesn't renumber
+ * anything, and the destructive paths it could feed (delete) are guarded in the
+ * store.
+ */
+export const LockSyncBridge = memo(() => {
+  const store = useStoreApi();
+  const locked = useGraphStore((s) => s.locked);
+
+  useEffect(() => {
+    store.setState({
+      nodesDraggable: !locked,
+      nodesConnectable: !locked,
+      elementsSelectable: true,
+    });
+  }, [locked, store]);
+
+  return null;
+});
+
+LockSyncBridge.displayName = 'LockSyncBridge';
+
+/**
+ * Headless bridge: locks the canvas whenever a dataset is loaded. A modified
+ * canvas renders to data that no longer matches, so loading data drops the
+ * canvas into a safe, read-only state until the user explicitly unlocks.
+ * Watches the data store's `loadCount` so every load — not just the first —
+ * re-locks. `LockSyncBridge` then disables dragging and connecting (selection
+ * stays on for inspection).
  */
 export const DataFreezeBridge = memo(() => {
-  const store = useStoreApi();
   const loadCount = useDataStore((s) => s.loadCount);
   const prevLoadCount = useRef(loadCount);
 
   useEffect(() => {
     if (loadCount !== prevLoadCount.current) {
       prevLoadCount.current = loadCount;
-      store.setState({
-        nodesDraggable: false,
-        nodesConnectable: false,
-        elementsSelectable: false,
-      });
+      useGraphStore.getState().setLocked(true);
     }
-  }, [loadCount, store]);
+  }, [loadCount]);
 
   return null;
 });

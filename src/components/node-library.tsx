@@ -8,6 +8,7 @@ import {
 import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
+import { useGraphStore } from '../store/graphStore';
 import type { ElementInfoEntry } from '../types/flow';
 
 const formatCategoryName = (category: string) => {
@@ -20,6 +21,9 @@ const NodeLibrary = React.memo(() => {
     actions,
   } = useAppState();
   const { model } = useModel();
+  // A locked canvas rejects new nodes (adding one renumbers the indices loaded
+  // data maps to), so disable the drag affordance to make that visible.
+  const locked = useGraphStore((s) => s.locked);
 
   const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -78,9 +82,10 @@ const NodeLibrary = React.memo(() => {
               return (
                 <div
                   key={type}
-                  className="element-item"
-                  draggable
-                  onDragStart={(e) => onDragStart(e, type)}
+                  className={`element-item ${locked ? 'locked' : ''}`}
+                  draggable={!locked}
+                  onDragStart={locked ? undefined : (e) => onDragStart(e, type)}
+                  title={locked ? 'Canvas is locked — unlock it to add nodes' : undefined}
                 >
                   {Icon && <Icon className="element-icon" />}
                   <span className="element-label">{info.displayName || type}</span>
