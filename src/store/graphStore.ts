@@ -4,6 +4,7 @@ import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from 
 import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
+import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
 import { useDataStore } from './dataStore';
 import type {
@@ -414,14 +415,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
       const node = state.nodes.find((n) => n.id === nodeId);
       if (!node) {
-        console.error(`Cannot update parameter: Node ${nodeId} not found`);
+        logger.error(`Cannot update parameter "${paramName}": node ${nodeId} not found.`);
         return false;
       }
 
       const nodeType = node.type!;
       const nodeElementInfo = elementInfo[nodeType];
       if (!nodeElementInfo) {
-        console.error(`Cannot update parameter: Element info not found for type "${nodeType}"`);
+        logger.error(
+          `Cannot update parameter "${paramName}": element info not found for type "${nodeType}".`
+        );
         return false;
       }
 
@@ -569,7 +572,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       debugLog('Adding node with type: ', type);
 
       if (!type) {
-        console.error('Cannot add node: Node type is required');
+        logger.error('Cannot add node: node type is required.');
         return undefined;
       }
 
@@ -577,7 +580,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const elementInfo = state.model?.elementInfo ?? EMPTY_ELEMENT_INFO;
       const nodeTemplate = elementInfo[type];
       if (!nodeTemplate) {
-        console.error(`Cannot add node: Element info not found for type "${type}"`);
+        logger.error(`Cannot add node: element info not found for type "${type}".`);
         return undefined;
       }
 
@@ -641,14 +644,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       debugLog('Deleting node with id: ', nodeId);
 
       if (!nodeId) {
-        console.error('Cannot delete node: No node ID provided');
+        logger.error('Cannot delete node: no node id provided.');
         return;
       }
 
       const state = get();
       const node = state.nodes.find((n) => n.id === nodeId);
       if (!node) {
-        console.error(`Cannot delete node: Node not found for ID ${nodeId}`);
+        logger.error(`Cannot delete node: node not found for id ${nodeId}.`);
         return;
       }
 
@@ -715,7 +718,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const resolvedType = type ?? getDefaultEdgeType(model);
       const edgeTemplate = edgeInfo[resolvedType];
       if (!edgeTemplate) {
-        console.error(`Cannot add edge: Edge info not found for type "${resolvedType}"`);
+        logger.error(`Cannot add edge: edge info not found for type "${resolvedType}".`);
         return;
       }
 
@@ -892,9 +895,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        debugLog('Successfully saved canvas state to file');
+        logger.success(`Saved canvas to "${link.download}".`);
       } catch (error) {
-        console.error('Error saving canvas state:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to save canvas: ${message}`);
       }
     },
 
@@ -944,7 +948,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         } else {
           const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
           if (!edgeTemplate) {
-            console.warn(`Edge template not found for type ${edge.type}`);
+            logger.warn(
+              `Edge "${edge.id}": template not found for type "${edge.type}"; using empty parameters.`
+            );
           }
           const defaultParameters: Record<string, unknown> = {};
           if (edgeTemplate) {
@@ -983,7 +989,11 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
       }
 
-      debugLog('Successfully loaded canvas state from file');
+      logger.success(
+        `Loaded canvas "${saveData.meta?.title ?? DEFAULT_CASE_TITLE}" ` +
+          `(${newNodes.length} node${newNodes.length === 1 ? '' : 's'}, ` +
+          `${newEdges.length} edge${newEdges.length === 1 ? '' : 's'}).`
+      );
       if (saveData.timestamp) {
         debugLog('File was saved on: ' + new Date(saveData.timestamp).toLocaleString());
       }
@@ -1041,14 +1051,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
             state.requestModelSwitch(targetModelId);
           }
         } catch (error: unknown) {
-          console.error('Error loading canvas state:', error);
           const message = error instanceof Error ? error.message : String(error);
+          logger.error(`Failed to load file "${file.name}": ${message}`);
           alert('Error loading file: ' + message);
         }
       };
 
       reader.onerror = () => {
-        console.error('Error reading file');
+        logger.error(`Failed to read file "${file.name}".`);
         alert('Error reading file');
       };
 

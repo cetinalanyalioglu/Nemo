@@ -4,7 +4,7 @@ import { buildRuntimeModel, validateModelDefinition } from '../models/model-buil
 import type { RuntimeModel } from '../models/model-builder';
 import { withStableTypeMaps } from '../models/stable-type-maps';
 import type { ModelSummary } from '../types/flow';
-import { debugLog } from '../utils/debug';
+import { logger } from '../utils/logger';
 
 const MODELS_BASE = `${process.env.PUBLIC_URL ?? ''}/models`;
 
@@ -57,14 +57,17 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
 
         setModels(list);
         if (list.length > 0) {
+          logger.info(`Found ${list.length} model${list.length === 1 ? '' : 's'} in manifest.`);
           setActiveModelIdState(list[0].id);
         } else {
+          logger.warn('No models found in manifest.');
           setError('No models found in manifest.');
           setIsLoading(false);
         }
       } catch (err: unknown) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
+        logger.error(`Failed to load model manifest: ${message}`);
         setError(message);
         setIsLoading(false);
       }
@@ -91,12 +94,12 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
         if (cancelled) return;
         setModel(withStableTypeMaps(runtimeModel));
         setIsLoading(false);
-        debugLog(`Loaded model "${runtimeModel.id}"`);
+        logger.info(`Loaded model "${runtimeModel.name ?? runtimeModel.id}".`);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
-        console.error('Error loading model:', err);
+        logger.error(`Failed to load model: ${message}`);
         setError(message);
         setIsLoading(false);
       });

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { colorForValue } from '../utils/colormap';
+import { logger } from '../utils/logger';
 import type {
   ColormapId,
   DataDisplayConfig,
@@ -222,14 +223,18 @@ export const useDataStore = create<DataStore>((set, get) => ({
         }
         // Append: loading a file adds a dataset and keeps existing selections.
         set((s) => ({ datasets: [...s.datasets, dataset], loadCount: s.loadCount + 1 }));
+        logger.success(
+          `Loaded dataset "${dataset.name}" with ${dataset.items.length} ` +
+            `item${dataset.items.length === 1 ? '' : 's'}.`
+        );
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error('Error loading data file:', error);
+        logger.error(`Failed to load data file "${file.name}": ${message}`);
         alert('Error loading data file: ' + message);
       }
     };
     reader.onerror = () => {
-      console.error('Error reading data file');
+      logger.error(`Failed to read data file "${file.name}".`);
       alert('Error reading data file');
     };
     reader.readAsText(file);
@@ -252,6 +257,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
       })),
     }));
     set((s) => ({ datasets: [...s.datasets, ...cloned], loadCount: s.loadCount + 1 }));
+    logger.info(
+      `Imported ${cloned.length} dataset${cloned.length === 1 ? '' : 's'} from saved case.`
+    );
   },
 
   presentDatasetChoice: (datasets) => {
