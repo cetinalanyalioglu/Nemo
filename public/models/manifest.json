@@ -1,6 +1,11 @@
 {
   "models": [
     {
+      "id": "fns-flow-network",
+      "name": "FNS Flow Network",
+      "file": "fns-flow-network.yaml"
+    },
+    {
       "id": "generic-network",
       "name": "Generic Network",
       "file": "generic-network.yaml"
