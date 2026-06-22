@@ -2,4 +2,5 @@ This document contains general guidelines for Claude Code while working with the
 
 ### Version control
 
-- Do not include "Generated with Claude Code" or similar authorship statements in commit messages.
+- Do NOT include "Generated with Claude Code" or similar authorship statements in commit messages.
+- ALWAYS delete merged branches.
