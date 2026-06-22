@@ -123,20 +123,19 @@ nodes:
         category: Parameters
         min: 1
         description: Total temperature of the supplied stream
-      rigid:
-        label: Rigid (closed wall)
-        type: boolean
-        defaultValue: false
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: impedance
         category: Acoustics
-        description: Infinite acoustic impedance -- a rigid wall (u' = 0). Overrides Open and the impedance below.
-        visibleIf: {parameter: open, equals: false}
-      open:
-        label: Open (pressure release)
-        type: boolean
-        defaultValue: false
-        category: Acoustics
-        description: Ideal open end -- zero acoustic pressure (p' = 0, reflection R = -1). Overrides the impedance below.
-        visibleIf: {parameter: rigid, equals: false}
+        description: >-
+          Acoustic termination at this terminal. Rigid is an infinite impedance
+          (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
+          reflection R = -1); Impedance sets the specific acoustic impedance below.
+        options:
+          - {value: rigid, label: Rigid (u' = 0)}
+          - {value: open, label: Open (p' = 0)}
+          - {value: impedance, label: Impedance}
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -147,10 +146,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -158,10 +154,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
     disallowedConnections:
       - MassFlowInlet
       - TotalPressureInlet
@@ -193,20 +186,19 @@ nodes:
         category: Parameters
         min: 1
         description: Reservoir total temperature
-      rigid:
-        label: Rigid (closed wall)
-        type: boolean
-        defaultValue: false
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: open
         category: Acoustics
-        description: Infinite acoustic impedance -- a rigid wall (u' = 0). Overrides Open and the impedance below.
-        visibleIf: {parameter: open, equals: false}
-      open:
-        label: Open (pressure release)
-        type: boolean
-        defaultValue: true
-        category: Acoustics
-        description: Ideal open end -- zero acoustic pressure (p' = 0, reflection R = -1). Overrides the impedance below.
-        visibleIf: {parameter: rigid, equals: false}
+        description: >-
+          Acoustic termination at this terminal. Rigid is an infinite impedance
+          (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
+          reflection R = -1); Impedance sets the specific acoustic impedance below.
+        options:
+          - {value: rigid, label: Rigid (u' = 0)}
+          - {value: open, label: Open (p' = 0)}
+          - {value: impedance, label: Impedance}
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -217,10 +209,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -228,10 +217,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
     disallowedConnections:
       - MassFlowInlet
       - TotalPressureInlet
@@ -263,20 +249,19 @@ nodes:
         category: Parameters
         min: 1
         description: Total temperature advected into the network if the flow reverses here
-      rigid:
-        label: Rigid (closed wall)
-        type: boolean
-        defaultValue: false
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: open
         category: Acoustics
-        description: Infinite acoustic impedance -- a rigid wall (u' = 0). Overrides Open and the impedance below.
-        visibleIf: {parameter: open, equals: false}
-      open:
-        label: Open (pressure release)
-        type: boolean
-        defaultValue: true
-        category: Acoustics
-        description: Ideal open end -- zero acoustic pressure (p' = 0, reflection R = -1). Overrides the impedance below.
-        visibleIf: {parameter: rigid, equals: false}
+        description: >-
+          Acoustic termination at this terminal. Rigid is an infinite impedance
+          (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
+          reflection R = -1); Impedance sets the specific acoustic impedance below.
+        options:
+          - {value: rigid, label: Rigid (u' = 0)}
+          - {value: open, label: Open (p' = 0)}
+          - {value: impedance, label: Impedance}
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -287,10 +272,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -298,10 +280,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf:
-          and:
-            - {parameter: rigid, equals: false}
-            - {parameter: open, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
 
   Wall:
     displayName: Wall
@@ -314,15 +293,18 @@ nodes:
     parameters:
       label:
         defaultValue: Wall
-      rigid:
-        label: Rigid (closed wall)
-        type: boolean
-        defaultValue: true
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: rigid
         category: Acoustics
         description: >-
-          Impermeable termination (mean flow blocked, mdot = 0).  Rigid is an
-          infinite acoustic impedance (u' = 0); uncheck it to give the wall a liner
-          impedance instead.
+          Acoustic closure of the wall (mean flow is always blocked, mdot = 0).
+          Rigid is an infinite acoustic impedance (a hard wall, u' = 0); Impedance
+          gives the wall a liner impedance instead.
+        options:
+          - {value: rigid, label: Rigid (u' = 0)}
+          - {value: impedance, label: Impedance}
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -330,7 +312,7 @@ nodes:
         category: Acoustics
         min: 0
         description: Specific acoustic impedance magnitude |Z| / (rho c) of the liner (1 = matched).
-        visibleIf: {parameter: rigid, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -338,7 +320,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: rigid, equals: false}
+        visibleIf: {parameter: boundaryType, equals: impedance}
 
   IsentropicAreaChange:
     displayName: Isentropic Area Change

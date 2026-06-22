@@ -45,6 +45,8 @@ export type ParameterInfo = Record<string, unknown> & {
   unit?: string;
   description?: string;
   key?: string;
+  /** Choices for a `select` (dropdown) parameter. `label` defaults to `value`. */
+  options?: Array<{ value: string; label?: string; description?: string }>;
 };
 
 export type VisibilityCondition =
