@@ -2,8 +2,8 @@
 - [ ] The default acoustic BC for mass flow inlet (FNS) is not correct
 
 ## General
-- [ ] For FSN, we would like to have the edge parameter "Area" to be mandatory -- user should input something and default value shouldn't persist. This should work without causing the model to leak into code, doable over the YAML model definition. If user fails to input such a mandatory parameter (could be a node parameter as well), the "verify" functionality should raise an error.
-- [ ] Verify on save
+- [x] For FSN, we would like to have the edge parameter "Area" to be mandatory -- user should input something and default value shouldn't persist. This should work without causing the model to leak into code, doable over the YAML model definition. If user fails to input such a mandatory parameter (could be a node parameter as well), the "verify" functionality should raise an error.
+- [x] Verify on save
 - [ ] Icon and element display overhaul
 
 ## Wild ideas

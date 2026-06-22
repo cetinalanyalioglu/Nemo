@@ -378,6 +378,23 @@
   background-color: var(--color-invalid-bg);
 }
 
+/* Mandatory-parameter cue: a red asterisk on the label and a dashed red border
+   on the still-empty field. Distinct from `.invalid` (a rejected value) — this
+   signals "input needed", which verify and save will enforce. */
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane)
+  .parameter-required-marker {
+  color: var(--color-invalid);
+  font-weight: 600;
+}
+
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane)
+  .parameter-input.required-missing:not(.invalid),
+:is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane)
+  .math-select-trigger.required-missing {
+  border-color: var(--color-invalid);
+  border-style: dashed;
+}
+
 :is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane) .parameter-input.invalid:hover,
 :is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane) .parameter-input.invalid:focus {
   border-color: var(--color-invalid);

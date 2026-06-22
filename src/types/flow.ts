@@ -38,6 +38,12 @@ export type ParameterInfo = Record<string, unknown> & {
   category?: string;
   editable?: boolean;
   visible?: boolean;
+  /**
+   * When true, the parameter has no usable default: it is created unset (the
+   * model default is never seeded), the properties panel flags it while empty,
+   * and `checkNetworkValidity` reports an error until the user supplies a value.
+   */
+  required?: boolean;
   visibleIf?: VisibilityCondition;
   step?: number;
   min?: number;

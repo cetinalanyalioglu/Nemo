@@ -6,10 +6,6 @@ import { useDataStore, useElementDataView, formatDataValue } from '../../store/d
 import EdgeMidpointMarker from './EdgeMidpointMarker';
 import { computeEdgePathGeometry, EDGE_MIDPOINT_MARKER_RADIUS } from './edge-path-utils';
 
-const BaseEdgeStyled = BaseEdge as React.ComponentType<
-  React.ComponentProps<typeof BaseEdge> & { className?: string }
->;
-
 /**
  * Base configuration object that defines common properties for all edges.
  * Generic parameters that all edges should have.
@@ -47,6 +43,9 @@ const GenericEdge = ({
   const { edgePathStyle } = useLayoutState();
   const { showEdgeBadges, showIndices } = useAppearanceState();
   const edgeState = useGraphStore((s) => s.edgeStates[id]);
+  // Boolean selector (stable) — re-renders only when this edge's validity
+  // highlight flips. Set by the verify/save checks; cleared on next selection.
+  const isHighlighted = useGraphStore((s) => s.highlightedEdgeIds.includes(id));
   const elementIndex = edgeState?.parameters?.index;
   const indexLabel = showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
 
@@ -77,9 +76,12 @@ const GenericEdge = ({
     [edgePathStyle, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
   );
 
+  // reactflow's BaseEdge hardcodes the path className and drops any we pass, so
+  // the validity-highlight class goes on a wrapping <g> and the CSS targets the
+  // descendant path (`.custom-edge-issue .react-flow__edge-path`).
   return (
-    <>
-      <BaseEdgeStyled id={id} path={edgePath} className="custom-edge" style={style} />
+    <g className={`custom-edge${isHighlighted ? ' custom-edge-issue' : ''}`}>
+      <BaseEdge id={id} path={edgePath} style={style} />
       {showEdgeBadges && (
         <EdgeMidpointMarker
           labelX={labelX}
@@ -102,7 +104,7 @@ const GenericEdge = ({
           {valueLabel}
         </text>
       )}
-    </>
+    </g>
   );
 };
 

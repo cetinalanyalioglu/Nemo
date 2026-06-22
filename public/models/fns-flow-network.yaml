@@ -87,11 +87,11 @@ edges:
       area:
         label: Area
         type: float
-        defaultValue: 1.0
         unit: m^2
         category: Parameters
         min: 0.000001
-        description: Cross-sectional flow area at this port surface
+        required: true
+        description: Cross-sectional flow area at this port surface (must be supplied)
         editable: true
         visible: true
 
