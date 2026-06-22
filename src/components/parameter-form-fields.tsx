@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import type { ParameterInfo, ParameterValues, VisibilityCondition } from '../types/flow';
 import MathLabel from './MathLabel';
+import MathSelect from './MathSelect';
 
 const formatCategoryName = (category: string) => category.toUpperCase().replace(/I/g, 'I');
 
@@ -252,19 +253,13 @@ export const ParameterFormFields = ({
                           <MathLabel text={info.label || key} />
                         </label>
                         <div className="parameter-input-container">
-                          <select
-                            className={`parameter-select ${!isEditable ? 'readonly' : ''}`}
+                          <MathSelect
+                            className={!isEditable ? 'readonly' : ''}
                             value={String(value ?? info.defaultValue ?? '')}
-                            onChange={(e) => isEditable && onUpdateParameter(key, e.target.value)}
+                            options={info.options ?? []}
+                            onChange={(next) => onUpdateParameter(key, next)}
                             disabled={!isEditable}
-                          >
-                            {(info.options ?? []).map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label ?? opt.value}
-                              </option>
-                            ))}
-                          </select>
-                          <IoChevronDown className="parameter-select-icon" aria-hidden />
+                          />
                         </div>
                       </>
                     ) : (

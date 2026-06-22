@@ -10,6 +10,7 @@ import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import MathLabel from './MathLabel';
+import MathSelect from './MathSelect';
 import type { DataTarget } from '../types/data';
 import '../styles/properties-panel.css';
 import {
@@ -607,21 +608,13 @@ const PropertiesPanel = React.memo(() => {
                           <MathLabel text={info.label || key} />
                         </label>
                         <div className="parameter-input-container">
-                          <select
-                            className={`parameter-select ${!isEditable ? 'readonly' : ''}`}
+                          <MathSelect
+                            className={!isEditable ? 'readonly' : ''}
                             value={String(value ?? info.defaultValue ?? '')}
-                            onChange={(e) =>
-                              isEditable && updateParameter(selectedId, key, e.target.value)
-                            }
+                            options={info.options ?? []}
+                            onChange={(next) => updateParameter(selectedId, key, next)}
                             disabled={!isEditable}
-                          >
-                            {(info.options ?? []).map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label ?? opt.value}
-                              </option>
-                            ))}
-                          </select>
-                          <IoChevronDown className="parameter-select-icon" aria-hidden />
+                          />
                         </div>
                       </>
                     ) : (
