@@ -2,7 +2,11 @@ import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { useGraphStore } from './graphStore';
 import { useConsoleStore } from './consoleStore';
 import type { ConsoleLogEntry } from '../types/console';
-import type { RuntimeModel } from '../models/model-builder';
+import {
+  buildRuntimeModel,
+  validateModelDefinition,
+  type RuntimeModel,
+} from '../models/model-builder';
 
 /** Returns the most recent console-pane entry, or undefined when empty. */
 const lastEntry = (): ConsoleLogEntry | undefined => {
@@ -74,6 +78,29 @@ describe('graphStore logging', () => {
       expect(ok).toBe(false);
       expect(lastEntry()?.level).toBe('error');
       expect(lastEntry()?.message).toContain('node nope not found');
+    });
+  });
+
+  describe('updateEdgeParameter', () => {
+    // The properties panel treats a falsy return as a rejected edit, so this must
+    // report success — otherwise committed edge values (e.g. an edge's area) snap
+    // back to the old value with a spurious "rejected" border.
+    it('returns true after applying a new value', () => {
+      useGraphStore.setState({
+        edges: [{ id: 'e1', source: 'a', target: 'b' }],
+        edgeStates: { e1: { parameters: { area: undefined } } },
+      });
+      const ok = useGraphStore.getState().updateEdgeParameter('e1', 'area', 0.5);
+      expect(ok).toBe(true);
+      expect(useGraphStore.getState().edgeStates.e1.parameters.area).toBe(0.5);
+    });
+
+    it('returns true for a no-op when the value is unchanged', () => {
+      useGraphStore.setState({
+        edges: [{ id: 'e1', source: 'a', target: 'b' }],
+        edgeStates: { e1: { parameters: { area: 0.5 } } },
+      });
+      expect(useGraphStore.getState().updateEdgeParameter('e1', 'area', 0.5)).toBe(true);
     });
   });
 
@@ -206,5 +233,133 @@ describe('graphStore logging', () => {
       expect(ok).toBe(true);
       expect(useGraphStore.getState().nodeStates.pump1.parameters.label).toBe('Renamed');
     });
+  });
+});
+
+describe('graphStore saveToFile verify-on-save', () => {
+  /** A two-element model whose `flow` edge carries a mandatory `area`. */
+  const verifyModel = buildRuntimeModel(
+    validateModelDefinition({
+      id: 'verify',
+      name: 'Verify',
+      nodes: {
+        Source: {
+          displayName: 'Source',
+          category: 'E',
+          ports: { target: [], source: ['0'] },
+          parameters: { label: { defaultValue: 'Source' } },
+        },
+        Sink: {
+          displayName: 'Sink',
+          category: 'E',
+          ports: { target: ['0'], source: [] },
+          parameters: { label: { defaultValue: 'Sink' } },
+        },
+      },
+      edges: {
+        flow: {
+          displayName: 'Flow',
+          category: 'C',
+          parameters: { area: { label: 'Area', type: 'float', category: 'P', required: true } },
+        },
+      },
+    })
+  );
+
+  /** Installs a connected Source→Sink graph; `area` is supplied only when given. */
+  const installGraph = (area?: number) => {
+    useGraphStore.setState({
+      model: verifyModel,
+      nodes: [
+        { id: 's', type: 'Source', position: { x: 0, y: 0 }, data: {} },
+        { id: 'k', type: 'Sink', position: { x: 0, y: 0 }, data: {} },
+      ],
+      nodeStates: {
+        s: { parameters: { label: 'Source' } },
+        k: { parameters: { label: 'Sink' } },
+      },
+      edges: [
+        {
+          id: 'e1',
+          source: 's',
+          target: 'k',
+          sourceHandle: 's-port-0',
+          targetHandle: 'k-port-0',
+          type: 'flow',
+        },
+      ],
+      edgeStates: { e1: { parameters: area === undefined ? {} : { area } } },
+      highlightedNodeIds: [],
+    });
+  };
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+      highlightedNodeIds: [],
+      highlightedEdgeIds: [],
+    });
+    useConsoleStore.getState().clear();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    // Stub the browser download path so the happy path doesn't touch unimplemented jsdom APIs.
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = jest.fn(() => 'blob:x');
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = jest.fn(() => {});
+    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('blocks the save when a required parameter is missing and the user declines', () => {
+    installGraph();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    useGraphStore.getState().saveToFile();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    const entries = useConsoleStore.getState().entries;
+    expect(entries.some((e) => e.message.includes('missing required parameter "Area"'))).toBe(true);
+    expect(entries.some((e) => e.message.includes('Save cancelled'))).toBe(true);
+    // The offending edge is highlighted for the user (no node-level issues here).
+    expect(useGraphStore.getState().highlightedEdgeIds).toEqual(['e1']);
+    expect(useGraphStore.getState().highlightedNodeIds).toEqual([]);
+  });
+
+  it('saves anyway when the user confirms past the errors', () => {
+    installGraph();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    useGraphStore.getState().saveToFile();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(useConsoleStore.getState().entries.some((e) => e.message.includes('Saved canvas'))).toBe(
+      true
+    );
+  });
+
+  it('saves without prompting when there are no validation errors', () => {
+    installGraph(0.5);
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    useGraphStore.getState().saveToFile();
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(useConsoleStore.getState().entries.some((e) => e.message.includes('Saved canvas'))).toBe(
+      true
+    );
   });
 });

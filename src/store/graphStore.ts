@@ -7,6 +7,7 @@ import { debugLog } from '../utils/debug';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
 import { isPortCountParameter } from '../utils/ports';
+import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 import { useDataStore } from './dataStore';
 import type {
   EditingState,
@@ -16,6 +17,7 @@ import type {
   ModelSummary,
   NodeRuntimeState,
   ParameterChangeHandler,
+  ParameterInfo,
   ParameterValues,
   SaveFilePayload,
 } from '../types/flow';
@@ -109,7 +111,9 @@ export interface GraphStore extends GraphData {
   // Transient validity highlighting (not part of undo history). Cleared as soon
   // as the user selects anything.
   highlightedNodeIds: string[];
+  highlightedEdgeIds: string[];
   setHighlightedNodes: (ids: string[]) => void;
+  setHighlightedEdges: (ids: string[]) => void;
 
   // Case title.
   setTitle: (title: string) => void;
@@ -130,7 +134,7 @@ export interface GraphStore extends GraphData {
     options?: { recordHistory?: boolean }
   ) => boolean;
   setNodeDimensions: (nodeId: string, width: number, height: number) => void;
-  updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => void;
+  updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => boolean;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
   addCustomEdge: (params: Connection, type?: string) => void;
@@ -231,6 +235,23 @@ const restorePatch = (snapshot: CanvasSnapshot): Partial<GraphData> => ({
 });
 
 const serializeSnapshot = (snapshot: CanvasSnapshot): string => JSON.stringify(snapshot);
+
+/**
+ * Seeds a parameter bag from a parameter-info map. Required parameters are
+ * intentionally left unset (their key is present with an `undefined` value) so
+ * the model default never silently persists: the user must supply a value, and
+ * `checkNetworkValidity` flags any that stay empty.
+ */
+const buildDefaultParameters = (
+  parametersInfo: Record<string, ParameterInfo> | undefined
+): Record<string, unknown> => {
+  const defaults: Record<string, unknown> = {};
+  for (const key in parametersInfo) {
+    const info = parametersInfo[key];
+    defaults[key] = info?.required ? undefined : info?.defaultValue;
+  }
+  return defaults;
+};
 
 const buildDefaultModelParameters = (model: RuntimeModel | null): ParameterValues => {
   const params = model?.modelParameters ?? {};
@@ -359,6 +380,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     selectedEdgeId: null,
     title: DEFAULT_CASE_TITLE,
     highlightedNodeIds: [],
+    highlightedEdgeIds: [],
     locked: false,
 
     // History
@@ -370,6 +392,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     setTitle: (title) => set({ title }),
 
     setHighlightedNodes: (ids) => set({ highlightedNodeIds: ids }),
+
+    setHighlightedEdges: (ids) => set({ highlightedEdgeIds: ids }),
 
     onNodesChange: (changes) => {
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -385,11 +409,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       set((s) => ({
         selectedNodeId: id,
         ...(s.highlightedNodeIds.length ? { highlightedNodeIds: [] } : {}),
+        ...(s.highlightedEdgeIds.length ? { highlightedEdgeIds: [] } : {}),
       })),
     setSelectedEdgeId: (id) =>
       set((s) => ({
         selectedEdgeId: id,
         ...(s.highlightedNodeIds.length ? { highlightedNodeIds: [] } : {}),
+        ...(s.highlightedEdgeIds.length ? { highlightedEdgeIds: [] } : {}),
       })),
 
     isValidConnection: (connection) => {
@@ -575,9 +601,12 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       });
     },
 
+    // Returns true once the value is applied (or already current). Callers — the
+    // properties panel in particular — treat a falsy return as a rejected edit,
+    // so a void return here made every edge-parameter commit look like a failure.
     updateEdgeParameter: (edgeId, paramName, value) => {
       if (get().edgeStates[edgeId]?.parameters?.[paramName] === value) {
-        return;
+        return true;
       }
       get().recordHistory();
       set((s) => ({
@@ -592,6 +621,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           },
         },
       }));
+      return true;
     },
 
     updateModelParameter: (paramName, value) => {
@@ -650,10 +680,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         }
       }
 
-      const defaultParameters: Record<string, unknown> = {};
-      for (const key in nodeTemplate.parameters) {
-        defaultParameters[key] = nodeTemplate.parameters[key].defaultValue;
-      }
+      const defaultParameters = buildDefaultParameters(nodeTemplate.parameters);
 
       const mergedParameters = {
         ...defaultParameters,
@@ -771,10 +798,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         return;
       }
 
-      const defaultParameters: Record<string, unknown> = {};
-      for (const key in edgeTemplate.parameters) {
-        defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
-      }
+      const defaultParameters = buildDefaultParameters(edgeTemplate.parameters);
       const edgeState: EdgeRuntimeState = { parameters: { ...defaultParameters } };
 
       get().recordHistory();
@@ -931,6 +955,34 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
     saveToFile: () => {
       try {
+        // Verify on save: surface any validity problems before writing the file
+        // and block on hard errors (e.g. a missing required parameter the solver
+        // cannot read) unless the user explicitly opts to save anyway.
+        const { nodes, edges, nodeStates, edgeStates, model } = get();
+        const issues = checkNetworkValidity({ nodes, edges, nodeStates, edgeStates, model });
+        if (issues.length > 0) {
+          const { nodeIds, edgeIds } = collectHighlightTargets(issues);
+          get().setHighlightedNodes(nodeIds);
+          get().setHighlightedEdges(edgeIds);
+          issues.forEach((issue) =>
+            issue.severity === 'error'
+              ? logger.error(`• ${issue.message}`)
+              : logger.warn(`• ${issue.message}`)
+          );
+
+          const errorCount = issues.filter((issue) => issue.severity === 'error').length;
+          if (errorCount > 0) {
+            const proceed = window.confirm(
+              `The network has ${errorCount} validation error${errorCount === 1 ? '' : 's'} ` +
+                `(see the console — e.g. missing required parameters). Save anyway?`
+            );
+            if (!proceed) {
+              logger.warn('Save cancelled: resolve the validation errors first.');
+              return;
+            }
+          }
+        }
+
         if (RENUMBER_ON_SAVE) {
           applyIndices();
         }
@@ -1005,13 +1057,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
               `Edge "${edge.id}": template not found for type "${edge.type}"; using empty parameters.`
             );
           }
-          const defaultParameters: Record<string, unknown> = {};
-          if (edgeTemplate) {
-            for (const key in edgeTemplate.parameters) {
-              defaultParameters[key] = edgeTemplate.parameters[key].defaultValue;
-            }
-          }
-          newEdgeStates[edge.id] = { parameters: defaultParameters };
+          newEdgeStates[edge.id] = {
+            parameters: edgeTemplate ? buildDefaultParameters(edgeTemplate.parameters) : {},
+          };
         }
       });
 

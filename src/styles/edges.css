@@ -68,6 +68,16 @@
   filter: drop-shadow(0 0 var(--highlight-width) var(--color-accent));
 }
 
+/* Validity-check highlight: drawn until the user selects anything. Mirrors the
+   node issue cue (.custom-node-issue) so a missing-required edge stands out.
+   The class sits on a wrapping <g> (GenericEdge) because reactflow's BaseEdge
+   hardcodes the path className and drops any we pass. */
+.custom-edge-issue .react-flow__edge-path {
+  stroke: var(--color-error-strong, #d23);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 3px var(--color-error-subtle-bg, rgba(221, 51, 51, 0.6)));
+}
+
 .react-flow__edge-interaction {
   stroke-width: 10;
   stroke: transparent;

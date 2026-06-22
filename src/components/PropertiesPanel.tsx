@@ -1,14 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import type {
-  ParameterInfo,
-  VisibilityCondition,
-  NodeRuntimeState,
-  EdgeRuntimeState,
-} from '../types/flow';
+import type { ParameterInfo } from '../types/flow';
 import { useGraphStore } from '../store/graphStore';
 import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
+import { isParameterVisible } from '../utils/parameter-conditions';
 import MathLabel from './MathLabel';
 import MathSelect from './MathSelect';
 import type { DataTarget } from '../types/data';
@@ -477,64 +473,6 @@ const PropertiesPanel = React.memo(() => {
   };
 
   /**
-   * Evaluates a single condition
-   */
-  const evaluateCondition = (
-    condition: VisibilityCondition | undefined | null,
-    nodeState: NodeRuntimeState | EdgeRuntimeState
-  ): boolean => {
-    if (!condition) return true;
-
-    if ('parameter' in condition && condition.parameter) {
-      const paramValue = nodeState.parameters[condition.parameter];
-
-      if (condition.equals !== undefined) {
-        return paramValue === condition.equals;
-      }
-      if (condition.greaterThan !== undefined) {
-        return (paramValue as number) > condition.greaterThan;
-      }
-      if (condition.lessThan !== undefined) {
-        return (paramValue as number) < condition.lessThan;
-      }
-      if (condition.oneOf !== undefined && Array.isArray(condition.oneOf)) {
-        return condition.oneOf.includes(paramValue);
-      }
-    }
-
-    if ('and' in condition && condition.and) {
-      return condition.and.every((subCond) => evaluateCondition(subCond, nodeState));
-    }
-
-    if ('or' in condition && condition.or) {
-      return condition.or.some((subCond) => evaluateCondition(subCond, nodeState));
-    }
-
-    return true;
-  };
-
-  /**
-   * Determines if a parameter should be visible based on its configuration
-   */
-  const isParameterVisible = (
-    paramInfo: ParameterInfo | undefined,
-    eltState: NodeRuntimeState | EdgeRuntimeState
-  ) => {
-    // Handle case where paramInfo is undefined
-    if (!paramInfo) return true;
-
-    // Check explicit visibility flag
-    if (paramInfo.visible === false) return false;
-
-    // Check visibility conditions
-    if (paramInfo.visibleIf) {
-      return evaluateCondition(paramInfo.visibleIf as VisibilityCondition, eltState);
-    }
-
-    return true;
-  };
-
-  /**
    * Determines if a parameter is editable
    */
   const isParameterEditable = (paramInfo: ParameterInfo | undefined) => {
@@ -582,11 +520,21 @@ const PropertiesPanel = React.memo(() => {
             <div className="group-content">
               {parameters.map(({ key, value, info }) => {
                 // Check visibility
-                if (!isParameterVisible(info, elementState)) return null;
+                if (!isParameterVisible(info, elementState.parameters)) return null;
 
                 const isEditable =
                   isParameterEditable(info) && !(locked && portCountParamKeys.has(key));
                 const tempValueKey = `${selectedId}_${key}`;
+                // A mandatory parameter still awaiting a value: flagged inline so
+                // the user knows verify/save will reject it.
+                const requiredMissing =
+                  !!info.required && (value === undefined || value === null || value === '');
+                const requiredMarker = info.required ? (
+                  <span className="parameter-required-marker" title="Required">
+                    {' '}
+                    *
+                  </span>
+                ) : null;
 
                 return (
                   <div key={key} className="parameter-row">
@@ -594,6 +542,7 @@ const PropertiesPanel = React.memo(() => {
                       <div className="boolean-parameter-row">
                         <label className="parameter-label">
                           <MathLabel text={info.label || key} />
+                          {requiredMarker}
                         </label>
                         <div
                           className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
@@ -606,10 +555,11 @@ const PropertiesPanel = React.memo(() => {
                       <>
                         <label className="parameter-label">
                           <MathLabel text={info.label || key} />
+                          {requiredMarker}
                         </label>
                         <div className="parameter-input-container">
                           <MathSelect
-                            className={!isEditable ? 'readonly' : ''}
+                            className={`${!isEditable ? 'readonly' : ''} ${requiredMissing ? 'required-missing' : ''}`}
                             value={String(value ?? info.defaultValue ?? '')}
                             options={info.options ?? []}
                             onChange={(next) => updateParameter(selectedId, key, next)}
@@ -621,11 +571,19 @@ const PropertiesPanel = React.memo(() => {
                       <>
                         <label className="parameter-label">
                           <MathLabel text={info.label || key} />
+                          {requiredMarker}
                         </label>
                         <div className="parameter-input-container">
                           <input
-                            type={
-                              info.type === 'number' || info.type === 'float' ? 'number' : 'text'
+                            // Always a text input: a native `type="number"`
+                            // reports an empty value mid-edit (e.g. while typing
+                            // "0."), which made decimals jump and vanish. The
+                            // regex guard in handleInputChange keeps it numeric.
+                            type="text"
+                            inputMode={
+                              info.type === 'number' || info.type === 'float'
+                                ? 'decimal'
+                                : undefined
                             }
                             value={
                               tempValues[tempValueKey] !== undefined
@@ -638,10 +596,14 @@ const PropertiesPanel = React.memo(() => {
                             onBlur={(e) =>
                               isEditable && handleInputBlur(selectedId, key, info, e.target.value)
                             }
-                            className={`parameter-input 
-                                                            ${invalidInputs[tempValueKey] ? 'invalid' : ''} 
+                            className={`parameter-input
+                                                            ${invalidInputs[tempValueKey] ? 'invalid' : ''}
+                                                            ${requiredMissing ? 'required-missing' : ''}
                                                             ${!isEditable ? 'readonly' : ''}`}
-                            title={invalidInputs[tempValueKey] || ''}
+                            title={
+                              invalidInputs[tempValueKey] ||
+                              (requiredMissing ? 'This parameter is required' : '')
+                            }
                             disabled={!isEditable}
                           />
                           {isEditable && info.type === 'number' && info.step !== undefined && (

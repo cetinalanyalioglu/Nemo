@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
-import type { ParameterInfo, ParameterValues, VisibilityCondition } from '../types/flow';
+import type { ParameterInfo, ParameterValues } from '../types/flow';
+import { isParameterVisible } from '../utils/parameter-conditions';
 import MathLabel from './MathLabel';
 import MathSelect from './MathSelect';
 
@@ -52,49 +53,6 @@ const getSafeValue = (value: unknown, info: ParameterInfo) => {
     }
   }
   return value as string | number | boolean;
-};
-
-const evaluateCondition = (
-  condition: VisibilityCondition | undefined | null,
-  parameters: ParameterValues
-): boolean => {
-  if (!condition) return true;
-
-  if ('parameter' in condition && condition.parameter) {
-    const paramValue = parameters[condition.parameter];
-
-    if (condition.equals !== undefined) {
-      return paramValue === condition.equals;
-    }
-    if (condition.greaterThan !== undefined) {
-      return (paramValue as number) > condition.greaterThan;
-    }
-    if (condition.lessThan !== undefined) {
-      return (paramValue as number) < condition.lessThan;
-    }
-    if (condition.oneOf !== undefined && Array.isArray(condition.oneOf)) {
-      return condition.oneOf.includes(paramValue);
-    }
-  }
-
-  if ('and' in condition && condition.and) {
-    return condition.and.every((subCond) => evaluateCondition(subCond, parameters));
-  }
-
-  if ('or' in condition && condition.or) {
-    return condition.or.some((subCond) => evaluateCondition(subCond, parameters));
-  }
-
-  return true;
-};
-
-const isParameterVisible = (paramInfo: ParameterInfo | undefined, parameters: ParameterValues) => {
-  if (!paramInfo) return true;
-  if (paramInfo.visible === false) return false;
-  if (paramInfo.visibleIf) {
-    return evaluateCondition(paramInfo.visibleIf as VisibilityCondition, parameters);
-  }
-  return true;
 };
 
 const isParameterEditable = (paramInfo: ParameterInfo | undefined) => {
@@ -269,8 +227,14 @@ export const ParameterFormFields = ({
                         </label>
                         <div className="parameter-input-container">
                           <input
-                            type={
-                              info.type === 'number' || info.type === 'float' ? 'number' : 'text'
+                            // Text input with a numeric inputMode: a native
+                            // `type="number"` reports an empty value mid-edit
+                            // (e.g. while typing "0."), making decimals jump.
+                            type="text"
+                            inputMode={
+                              info.type === 'number' || info.type === 'float'
+                                ? 'decimal'
+                                : undefined
                             }
                             value={
                               tempValues[tempValueKey] !== undefined

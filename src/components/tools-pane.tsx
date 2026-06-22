@@ -13,7 +13,7 @@ import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
 import { useConsoleStore } from '../store/consoleStore';
 import { selectIndicesReady } from '../store/graph-selectors';
-import { checkNetworkValidity } from '../utils/network-validity';
+import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
@@ -27,30 +27,46 @@ const ToolsPane = React.memo(() => {
   } = useAppState();
 
   const handleCheckValidity = useCallback(() => {
-    const { nodes, edges, nodeStates, model, setHighlightedNodes } = useGraphStore.getState();
-    const issues = checkNetworkValidity({ nodes, edges, nodeStates, model });
+    const {
+      nodes,
+      edges,
+      nodeStates,
+      edgeStates,
+      model,
+      setHighlightedNodes,
+      setHighlightedEdges,
+    } = useGraphStore.getState();
+    const issues = checkNetworkValidity({ nodes, edges, nodeStates, edgeStates, model });
     const append = useConsoleStore.getState().append;
 
     // Surface the results: open the console so they're visible.
     actions.consolePane.setIsOpen(true);
 
-    // Highlight the offending nodes on the canvas (deduped); the highlight is
-    // cleared automatically as soon as the user selects anything.
-    setHighlightedNodes(Array.from(new Set(issues.map((issue) => issue.nodeId))));
+    // Highlight the offending nodes and edges on the canvas (deduped). The
+    // highlight clears as soon as the user selects anything.
+    const { nodeIds, edgeIds } = collectHighlightTargets(issues);
+    setHighlightedNodes(nodeIds);
+    setHighlightedEdges(edgeIds);
 
     if (nodes.length === 0) {
       append('info', 'Network validity: canvas is empty.');
       return;
     }
     if (issues.length === 0) {
-      append('success', 'Network validity: OK — no disconnected elements or open ports.');
+      append(
+        'success',
+        'Network validity: OK — no disconnected elements, open ports, or missing inputs.'
+      );
       return;
     }
-    append(
-      'warn',
-      `Network validity: ${issues.length} issue${issues.length === 1 ? '' : 's'} found.`
+    const errorCount = issues.filter((issue) => issue.severity === 'error').length;
+    const summary = `Network validity: ${issues.length} issue${issues.length === 1 ? '' : 's'} found${
+      errorCount > 0 ? ` (${errorCount} error${errorCount === 1 ? '' : 's'})` : ''
+    }.`;
+    append(errorCount > 0 ? 'error' : 'warn', summary);
+    issues.forEach((issue) =>
+      append(issue.severity === 'error' ? 'error' : 'warn', `• ${issue.message}`)
     );
-    issues.forEach((issue) => append('warn', `• ${issue.message}`));
   }, [actions.consolePane]);
 
   return (
