@@ -126,7 +126,7 @@ nodes:
       boundaryType:
         label: Acoustic boundary
         type: select
-        defaultValue: impedance
+        defaultValue: rigid
         category: Acoustics
         description: >-
           Acoustic termination at this terminal. Rigid is an infinite impedance
@@ -347,9 +347,26 @@ nodes:
     parameters:
       label:
         defaultValue: SuddenAreaChange
+      contractionCoefficient:
+        label: Contraction coefficient $C_c$
+        type: float
+        defaultValue: 1.0
+        category: Parameters
+        min: 0.01
+        max: 1.0
+        step: 0.01
+        description: >-
+          Vena-contracta coefficient for the reverse (large -> small) contracting
+          direction. The contraction loss is K x dynamic head referenced to the
+          small (downstream) side, with K = (1/Cc - 1)^2. Cc = 1 (default) is a
+          loss-free contraction; ~0.62 suits a sharp-edged contraction at a small
+          area ratio (Weisbach / Idelchik). Forward (expanding) flow is unaffected.
     # Borda-Carnot momentum balance for small -> large (expansion with mixing
-    # loss); loss-free in the contraction direction.  Small/large sides are
-    # identified from the attached edge areas.
+    # loss).  Reverse (large -> small) is a vena-contracta contraction loss set by
+    # contractionCoefficient (Cc = 1 -> loss-free).  Small/large sides are
+    # identified from the attached edge areas.  The contraction head is the
+    # incompressible 1/2 rho u^2, so the loss is accurate to O(M^2); a dedicated
+    # contraction element is planned for full high-Mach fidelity.
 
   LossElement:
     displayName: Loss Element
@@ -369,9 +386,10 @@ nodes:
         category: Parameters
         min: 0
         step: 0.1
+        displayInfoTag: true
+        infoType: popover
         description: >-
-          Total-pressure loss = K x dynamic head, referenced to the target-side
-          (port 0) edge area; always opposes the flow.
+          Loss always opposes the flow, and is given by $\Delta p_t = \frac{1}{2} K \varrho u_0^2$.
 
   Duct:
     displayName: Duct

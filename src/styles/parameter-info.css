@@ -1,0 +1,157 @@
+/* When a label carries an info icon, lay it out as a row so the icon is
+   vertically centred with the text and pushed to the right edge. */
+.parameter-label.parameter-label--with-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Info icon trigger shown next to a parameter label when it has a description. */
+.parameter-info-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.parameter-info-button:hover,
+.parameter-info-button[aria-expanded='true'] {
+  color: var(--color-accent);
+}
+
+.parameter-info-button svg {
+  font-size: 14px;
+}
+
+/* Anchored popover: brief descriptions, text typeset with KaTeX. */
+.parameter-info-popover {
+  position: fixed;
+  z-index: 2100;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-body);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sidebar, 0 8px 24px rgba(0, 0, 0, 0.18));
+}
+
+/* Centered modal: detailed descriptions rendered as Markdown (incl. media). */
+.parameter-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-overlay, rgba(0, 0, 0, 0.4));
+}
+
+.parameter-info-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sidebar, 0 12px 32px rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+}
+
+.parameter-info-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.parameter-info-modal-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-body);
+}
+
+.parameter-info-modal-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.parameter-info-modal-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-body);
+}
+
+.parameter-info-modal-close svg {
+  font-size: 18px;
+}
+
+.parameter-info-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-body);
+}
+
+.parameter-info-modal-body > :first-child {
+  margin-top: 0;
+}
+
+.parameter-info-modal-body > :last-child {
+  margin-bottom: 0;
+}
+
+.parameter-info-modal-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.parameter-info-modal-body a {
+  color: var(--color-accent);
+}
+
+.parameter-info-modal-body pre {
+  overflow-x: auto;
+  padding: 10px;
+  background: var(--color-surface-muted);
+  border-radius: 6px;
+}
+
+.parameter-info-modal-body code {
+  font-size: 12px;
+}
+
+.parameter-info-loading {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
