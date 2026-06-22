@@ -50,6 +50,19 @@ export type ParameterInfo = Record<string, unknown> & {
   max?: number;
   unit?: string;
   description?: string;
+  /**
+   * Opt-in: show an info icon next to the label that reveals `description`.
+   * The icon is hidden unless this is explicitly set, so an authored
+   * description does not surface in the UI on its own.
+   */
+  displayInfoTag?: boolean;
+  /**
+   * How `description` is surfaced when the info icon is clicked (only relevant
+   * when `displayInfoTag` is set). `popover` (the default) shows a small
+   * anchored card with the text typeset via KaTeX; `modal` opens a centered
+   * dialog that renders the description as Markdown (richer content like images).
+   */
+  infoStyle?: 'popover' | 'modal';
   key?: string;
   /** Choices for a `select` (dropdown) parameter. `label` defaults to `value`. */
   options?: Array<{ value: string; label?: string; description?: string }>;

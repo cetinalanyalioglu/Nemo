@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import type { ParameterInfo, ParameterValues } from '../types/flow';
 import { isParameterVisible } from '../utils/parameter-conditions';
-import MathLabel from './MathLabel';
+import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
 
 const formatCategoryName = (category: string) => category.toUpperCase().replace(/I/g, 'I');
@@ -190,14 +190,21 @@ export const ParameterFormFields = ({
 
                 const isEditable = isParameterEditable(info);
                 const tempValueKey = `${contextId}_${key}`;
+                const parameterLabel = (
+                  <ParameterLabel
+                    label={info.label || key}
+                    description={info.description}
+                    displayInfoTag={!!info.displayInfoTag}
+                    infoStyle={info.infoStyle}
+                    required={!!info.required}
+                  />
+                );
 
                 return (
                   <div key={key} className="parameter-row">
                     {info.type === 'boolean' ? (
                       <div className="boolean-parameter-row">
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                        </label>
+                        {parameterLabel}
                         <div
                           className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
                           onClick={() => isEditable && onUpdateParameter(key, !value)}
@@ -207,9 +214,7 @@ export const ParameterFormFields = ({
                       </div>
                     ) : info.type === 'select' ? (
                       <>
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                        </label>
+                        {parameterLabel}
                         <div className="parameter-input-container">
                           <MathSelect
                             className={!isEditable ? 'readonly' : ''}
@@ -222,9 +227,7 @@ export const ParameterFormFields = ({
                       </>
                     ) : (
                       <>
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                        </label>
+                        {parameterLabel}
                         <div className="parameter-input-container">
                           <input
                             // Text input with a numeric inputMode: a native

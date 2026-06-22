@@ -5,7 +5,7 @@ import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { isParameterVisible } from '../utils/parameter-conditions';
-import MathLabel from './MathLabel';
+import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
 import type { DataTarget } from '../types/data';
 import '../styles/properties-panel.css';
@@ -529,21 +529,21 @@ const PropertiesPanel = React.memo(() => {
                 // the user knows verify/save will reject it.
                 const requiredMissing =
                   !!info.required && (value === undefined || value === null || value === '');
-                const requiredMarker = info.required ? (
-                  <span className="parameter-required-marker" title="Required">
-                    {' '}
-                    *
-                  </span>
-                ) : null;
+                const parameterLabel = (
+                  <ParameterLabel
+                    label={info.label || key}
+                    description={info.description}
+                    displayInfoTag={!!info.displayInfoTag}
+                    infoStyle={info.infoStyle}
+                    required={!!info.required}
+                  />
+                );
 
                 return (
                   <div key={key} className="parameter-row">
                     {info.type === 'boolean' ? (
                       <div className="boolean-parameter-row">
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                          {requiredMarker}
-                        </label>
+                        {parameterLabel}
                         <div
                           className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
                           onClick={() => isEditable && updateParameter(selectedId, key, !value)}
@@ -553,10 +553,7 @@ const PropertiesPanel = React.memo(() => {
                       </div>
                     ) : info.type === 'select' ? (
                       <>
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                          {requiredMarker}
-                        </label>
+                        {parameterLabel}
                         <div className="parameter-input-container">
                           <MathSelect
                             className={`${!isEditable ? 'readonly' : ''} ${requiredMissing ? 'required-missing' : ''}`}
@@ -569,10 +566,7 @@ const PropertiesPanel = React.memo(() => {
                       </>
                     ) : (
                       <>
-                        <label className="parameter-label">
-                          <MathLabel text={info.label || key} />
-                          {requiredMarker}
-                        </label>
+                        {parameterLabel}
                         <div className="parameter-input-container">
                           <input
                             // Always a text input: a native `type="number"`
