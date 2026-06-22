@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import type { ParameterInfo, ParameterValues, VisibilityCondition } from '../types/flow';
+import MathLabel from './MathLabel';
 
 const formatCategoryName = (category: string) => category.toUpperCase().replace(/I/g, 'I');
 
@@ -235,7 +236,9 @@ export const ParameterFormFields = ({
                   <div key={key} className="parameter-row">
                     {info.type === 'boolean' ? (
                       <div className="boolean-parameter-row">
-                        <label className="parameter-label">{info.label || key}</label>
+                        <label className="parameter-label">
+                          <MathLabel text={info.label || key} />
+                        </label>
                         <div
                           className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
                           onClick={() => isEditable && onUpdateParameter(key, !value)}
@@ -243,9 +246,32 @@ export const ParameterFormFields = ({
                           {value ? <IoCheckbox /> : <IoSquareOutline />}
                         </div>
                       </div>
+                    ) : info.type === 'select' ? (
+                      <>
+                        <label className="parameter-label">
+                          <MathLabel text={info.label || key} />
+                        </label>
+                        <div className="parameter-input-container">
+                          <select
+                            className={`parameter-select ${!isEditable ? 'readonly' : ''}`}
+                            value={String(value ?? info.defaultValue ?? '')}
+                            onChange={(e) => isEditable && onUpdateParameter(key, e.target.value)}
+                            disabled={!isEditable}
+                          >
+                            {(info.options ?? []).map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label ?? opt.value}
+                              </option>
+                            ))}
+                          </select>
+                          <IoChevronDown className="parameter-select-icon" aria-hidden />
+                        </div>
+                      </>
                     ) : (
                       <>
-                        <label className="parameter-label">{info.label || key}</label>
+                        <label className="parameter-label">
+                          <MathLabel text={info.label || key} />
+                        </label>
                         <div className="parameter-input-container">
                           <input
                             type={
