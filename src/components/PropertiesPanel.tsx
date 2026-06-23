@@ -5,6 +5,7 @@ import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { isParameterVisible } from '../utils/parameter-conditions';
+import { sortCategories } from '../utils/category-order';
 import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
 import type { DataTarget } from '../types/data';
@@ -150,6 +151,7 @@ const PropertiesPanel = React.memo(() => {
   const { model } = useModel();
   const elementInfo = useMemo(() => model?.elementInfo ?? {}, [model]);
   const edgeInfo = useMemo(() => model?.edgeInfo ?? {}, [model]);
+  const categoryPrecedence = useMemo(() => model?.categoryPrecedence ?? {}, [model]);
 
   // Extract setIsOpen for stable reference in useEffect
   const setIsOpen = actions.propertiesPanel.setIsOpen;
@@ -500,164 +502,168 @@ const PropertiesPanel = React.memo(() => {
           </span>
         </div>
 
-        {/* Parameter groups */}
-        {Object.entries(groupedParameters).map(([category, parameters]) => (
-          <div
-            key={category}
-            className={`parameter-group ${collapsedGroups[category] ? 'collapsed' : ''}`}
-          >
-            {/* Group header with collapse toggle */}
+        {/* Parameter groups, ordered by precedence then alphabetically */}
+        {sortCategories(Object.keys(groupedParameters), categoryPrecedence).map((category) => {
+          const parameters = groupedParameters[category];
+          return (
             <div
-              className="group-header"
-              onClick={() => actions.propertiesPanel.toggleGroup(category)}
+              key={category}
+              className={`parameter-group ${collapsedGroups[category] ? 'collapsed' : ''}`}
             >
-              <div className="group-header-content">
-                <span>{formatCategoryName(category)}</span>
-                <IoChevronDown className="group-collapse-icon" />
+              {/* Group header with collapse toggle */}
+              <div
+                className="group-header"
+                onClick={() => actions.propertiesPanel.toggleGroup(category)}
+              >
+                <div className="group-header-content">
+                  <span>{formatCategoryName(category)}</span>
+                  <IoChevronDown className="group-collapse-icon" />
+                </div>
               </div>
-            </div>
-            {/* Group content with parameters */}
-            <div className="group-content">
-              {parameters.map(({ key, value, info }) => {
-                // Check visibility
-                if (!isParameterVisible(info, elementState.parameters)) return null;
+              {/* Group content with parameters */}
+              <div className="group-content">
+                {parameters.map(({ key, value, info }) => {
+                  // Check visibility
+                  if (!isParameterVisible(info, elementState.parameters)) return null;
 
-                const isEditable =
-                  isParameterEditable(info) && !(locked && portCountParamKeys.has(key));
-                const tempValueKey = `${selectedId}_${key}`;
-                // A mandatory parameter still awaiting a value: flagged inline so
-                // the user knows verify/save will reject it.
-                const requiredMissing =
-                  !!info.required && (value === undefined || value === null || value === '');
-                const parameterLabel = (
-                  <ParameterLabel
-                    label={info.label || key}
-                    description={info.description}
-                    displayInfoTag={!!info.displayInfoTag}
-                    infoStyle={info.infoStyle}
-                    required={!!info.required}
-                  />
-                );
+                  const isEditable =
+                    isParameterEditable(info) && !(locked && portCountParamKeys.has(key));
+                  const tempValueKey = `${selectedId}_${key}`;
+                  // A mandatory parameter still awaiting a value: flagged inline so
+                  // the user knows verify/save will reject it.
+                  const requiredMissing =
+                    !!info.required && (value === undefined || value === null || value === '');
+                  const parameterLabel = (
+                    <ParameterLabel
+                      label={info.label || key}
+                      description={info.description}
+                      displayInfoTag={!!info.displayInfoTag}
+                      infoStyle={info.infoStyle}
+                      required={!!info.required}
+                    />
+                  );
 
-                return (
-                  <div key={key} className="parameter-row">
-                    {info.type === 'boolean' ? (
-                      <div className="boolean-parameter-row">
-                        {parameterLabel}
-                        <div
-                          className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
-                          onClick={() => isEditable && updateParameter(selectedId, key, !value)}
-                        >
-                          {value ? <IoCheckbox /> : <IoSquareOutline />}
+                  return (
+                    <div key={key} className="parameter-row">
+                      {info.type === 'boolean' ? (
+                        <div className="boolean-parameter-row">
+                          {parameterLabel}
+                          <div
+                            className={`checkbox-wrapper ${value ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}`}
+                            onClick={() => isEditable && updateParameter(selectedId, key, !value)}
+                          >
+                            {value ? <IoCheckbox /> : <IoSquareOutline />}
+                          </div>
                         </div>
-                      </div>
-                    ) : info.type === 'select' ? (
-                      <>
-                        {parameterLabel}
-                        <div className="parameter-input-container">
-                          <MathSelect
-                            className={`${!isEditable ? 'readonly' : ''} ${requiredMissing ? 'required-missing' : ''}`}
-                            value={String(value ?? info.defaultValue ?? '')}
-                            options={info.options ?? []}
-                            onChange={(next) => updateParameter(selectedId, key, next)}
-                            disabled={!isEditable}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        {parameterLabel}
-                        <div className="parameter-input-container">
-                          <input
-                            // Always a text input: a native `type="number"`
-                            // reports an empty value mid-edit (e.g. while typing
-                            // "0."), which made decimals jump and vanish. The
-                            // regex guard in handleInputChange keeps it numeric.
-                            type="text"
-                            inputMode={
-                              info.type === 'number' || info.type === 'float'
-                                ? 'decimal'
-                                : undefined
-                            }
-                            value={
-                              tempValues[tempValueKey] !== undefined
-                                ? tempValues[tempValueKey]
-                                : String(getSafeValue(value, info) ?? '')
-                            }
-                            onChange={(e) =>
-                              isEditable && handleInputChange(selectedId, key, info, e.target.value)
-                            }
-                            onBlur={(e) =>
-                              isEditable && handleInputBlur(selectedId, key, info, e.target.value)
-                            }
-                            className={`parameter-input
+                      ) : info.type === 'select' ? (
+                        <>
+                          {parameterLabel}
+                          <div className="parameter-input-container">
+                            <MathSelect
+                              className={`${!isEditable ? 'readonly' : ''} ${requiredMissing ? 'required-missing' : ''}`}
+                              value={String(value ?? info.defaultValue ?? '')}
+                              options={info.options ?? []}
+                              onChange={(next) => updateParameter(selectedId, key, next)}
+                              disabled={!isEditable}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {parameterLabel}
+                          <div className="parameter-input-container">
+                            <input
+                              // Always a text input: a native `type="number"`
+                              // reports an empty value mid-edit (e.g. while typing
+                              // "0."), which made decimals jump and vanish. The
+                              // regex guard in handleInputChange keeps it numeric.
+                              type="text"
+                              inputMode={
+                                info.type === 'number' || info.type === 'float'
+                                  ? 'decimal'
+                                  : undefined
+                              }
+                              value={
+                                tempValues[tempValueKey] !== undefined
+                                  ? tempValues[tempValueKey]
+                                  : String(getSafeValue(value, info) ?? '')
+                              }
+                              onChange={(e) =>
+                                isEditable &&
+                                handleInputChange(selectedId, key, info, e.target.value)
+                              }
+                              onBlur={(e) =>
+                                isEditable && handleInputBlur(selectedId, key, info, e.target.value)
+                              }
+                              className={`parameter-input
                                                             ${invalidInputs[tempValueKey] ? 'invalid' : ''}
                                                             ${requiredMissing ? 'required-missing' : ''}
                                                             ${!isEditable ? 'readonly' : ''}`}
-                            title={
-                              invalidInputs[tempValueKey] ||
-                              (requiredMissing ? 'This parameter is required' : '')
-                            }
-                            disabled={!isEditable}
-                          />
-                          {isEditable && info.type === 'number' && info.step !== undefined && (
-                            <div className="number-controls">
-                              <button
-                                type="button"
-                                className="number-control-btn"
-                                onClick={() => {
-                                  const newValue = incrementValue(
-                                    tempValues[tempValueKey] !== undefined
-                                      ? tempValues[tempValueKey]
-                                      : String(value ?? ''),
-                                    typeof info.step === 'number' ? info.step : undefined,
-                                    { ...info, key }
-                                  );
-                                  // Update temp value during editing
-                                  setTempValues((prev) => ({
-                                    ...prev,
-                                    [tempValueKey]: newValue.toString(),
-                                  }));
-                                  // Also update node parameter
-                                  updateParameter(selectedId, key, newValue);
-                                }}
-                              >
-                                <IoAdd />
-                              </button>
-                              <button
-                                type="button"
-                                className="number-control-btn"
-                                onClick={() => {
-                                  const newValue = decrementValue(
-                                    tempValues[tempValueKey] !== undefined
-                                      ? tempValues[tempValueKey]
-                                      : String(value ?? ''),
-                                    typeof info.step === 'number' ? info.step : undefined,
-                                    { ...info, key }
-                                  );
-                                  // Update temp value during editing
-                                  setTempValues((prev) => ({
-                                    ...prev,
-                                    [tempValueKey]: newValue.toString(),
-                                  }));
-                                  // Also update node parameter
-                                  updateParameter(selectedId, key, newValue);
-                                }}
-                              >
-                                <IoRemove />
-                              </button>
-                            </div>
-                          )}
-                          {info.unit && <span className="parameter-unit">{info.unit}</span>}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+                              title={
+                                invalidInputs[tempValueKey] ||
+                                (requiredMissing ? 'This parameter is required' : '')
+                              }
+                              disabled={!isEditable}
+                            />
+                            {isEditable && info.type === 'number' && info.step !== undefined && (
+                              <div className="number-controls">
+                                <button
+                                  type="button"
+                                  className="number-control-btn"
+                                  onClick={() => {
+                                    const newValue = incrementValue(
+                                      tempValues[tempValueKey] !== undefined
+                                        ? tempValues[tempValueKey]
+                                        : String(value ?? ''),
+                                      typeof info.step === 'number' ? info.step : undefined,
+                                      { ...info, key }
+                                    );
+                                    // Update temp value during editing
+                                    setTempValues((prev) => ({
+                                      ...prev,
+                                      [tempValueKey]: newValue.toString(),
+                                    }));
+                                    // Also update node parameter
+                                    updateParameter(selectedId, key, newValue);
+                                  }}
+                                >
+                                  <IoAdd />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="number-control-btn"
+                                  onClick={() => {
+                                    const newValue = decrementValue(
+                                      tempValues[tempValueKey] !== undefined
+                                        ? tempValues[tempValueKey]
+                                        : String(value ?? ''),
+                                      typeof info.step === 'number' ? info.step : undefined,
+                                      { ...info, key }
+                                    );
+                                    // Update temp value during editing
+                                    setTempValues((prev) => ({
+                                      ...prev,
+                                      [tempValueKey]: newValue.toString(),
+                                    }));
+                                    // Also update node parameter
+                                    updateParameter(selectedId, key, newValue);
+                                  }}
+                                >
+                                  <IoRemove />
+                                </button>
+                              </div>
+                            )}
+                            {info.unit && <span className="parameter-unit">{info.unit}</span>}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <ElementDataSection
           target={isEdge ? 'edge' : 'node'}

@@ -3,6 +3,15 @@ name: Generic Network
 description: Generic network model for testing and development.
 forceUniqueNodeLabels: true
 
+# Parameter sections (categories) sort alphabetically by default. Listing a
+# category here pins it to the front; lower numbers appear first, and any
+# category not listed follows alphabetically after the pinned ones. Here Text
+# and Numeric are pinned ahead of the alphabetical default, so the Model pane
+# shows: Text, Numeric, then Options (unlisted → alphabetical).
+categoryPrecedence:
+  Text: 1
+  Numeric: 2
+
 parameters:
   exampleFloat:
     label: Example Float

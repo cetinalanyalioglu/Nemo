@@ -188,6 +188,13 @@ export interface ModelDefinition {
   forceUniqueNodeLabels?: boolean;
   /** Model-wide parameters defined in the model YAML file. */
   parameters?: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
+  /**
+   * Optional per-category display precedence for parameter sections. Categories
+   * listed here sort first, in ascending precedence order (lower appears
+   * earlier); any category not listed falls back to alphabetical order. When
+   * omitted, all parameter sections sort alphabetically.
+   */
+  categoryPrecedence?: Record<string, number>;
   nodes: Record<string, ModelNodeDefinition>;
   edges: Record<string, ModelEdgeDefinition>;
 }

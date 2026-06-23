@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { IoAdd, IoRemove, IoChevronDown, IoCheckbox, IoSquareOutline } from 'react-icons/io5';
 import type { ParameterInfo, ParameterValues } from '../types/flow';
 import { isParameterVisible } from '../utils/parameter-conditions';
+import { sortCategories } from '../utils/category-order';
 import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
 
@@ -16,6 +17,8 @@ type ParameterFormFieldsProps = {
   collapsedGroups: Record<string, boolean>;
   onToggleGroup: (category: string) => void;
   onUpdateParameter: (key: string, value: unknown) => void;
+  /** Per-category display precedence; categories default to alphabetical order. */
+  categoryPrecedence?: Record<string, number>;
 };
 
 type ValidateNumberResult = { isValid: true } | { isValid: false; message: string };
@@ -67,6 +70,7 @@ export const ParameterFormFields = ({
   collapsedGroups,
   onToggleGroup,
   onUpdateParameter,
+  categoryPrecedence,
 }: ParameterFormFieldsProps) => {
   const [invalidInputs, setInvalidInputs] = useState<Record<string, string | undefined>>({});
   const [tempValues, setTempValues] = useState<Record<string, string>>({});
@@ -171,7 +175,8 @@ export const ParameterFormFields = ({
 
   return (
     <>
-      {Object.entries(groupedParameters).map(([category, categoryParameters]) => {
+      {sortCategories(Object.keys(groupedParameters), categoryPrecedence).map((category) => {
+        const categoryParameters = groupedParameters[category];
         const groupKey = modelParameterGroupKey(category);
         return (
           <div

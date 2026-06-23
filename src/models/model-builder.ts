@@ -23,6 +23,8 @@ export interface RuntimeModel {
   forceUniqueNodeLabels: boolean;
   /** Model-wide parameter metadata from the model YAML file. */
   modelParameters: Record<string, Record<string, unknown>>;
+  /** Per-category display precedence for parameter sections (see ModelDefinition). */
+  categoryPrecedence: Record<string, number>;
   nodeConfig: Record<string, NodeConfigEntry>;
   edgeConfig: Record<string, EdgeConfigEntry>;
   elementInfo: Record<string, ElementInfoEntry>;
@@ -154,6 +156,7 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
     description: candidate.description,
     forceUniqueNodeLabels: candidate.forceUniqueNodeLabels ?? false,
     parameters: candidate.parameters ?? {},
+    categoryPrecedence: candidate.categoryPrecedence ?? {},
     nodes: candidate.nodes,
     edges: candidate.edges ?? {},
   };
@@ -235,6 +238,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
     description: def.description,
     forceUniqueNodeLabels: def.forceUniqueNodeLabels ?? false,
     modelParameters: def.parameters ?? {},
+    categoryPrecedence: def.categoryPrecedence ?? {},
     nodeConfig,
     edgeConfig,
     elementInfo,

@@ -83,6 +83,7 @@ const ModelPane = React.memo(() => {
           collapsedGroups={collapsedGroups}
           onToggleGroup={actions.sidebar.toggleGroup}
           onUpdateParameter={updateModelParameter}
+          categoryPrecedence={model?.categoryPrecedence}
         />
       </div>
     </div>
