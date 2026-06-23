@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from './graphStore';
 import { useConsoleStore } from './consoleStore';
 import type { ConsoleLogEntry } from '../types/console';
@@ -30,12 +30,12 @@ describe('graphStore logging', () => {
     });
     useConsoleStore.getState().clear();
     // logger.error/.warn mirror to the browser console; silence the noise.
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterAll(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('addNode', () => {
@@ -308,22 +308,22 @@ describe('graphStore saveToFile verify-on-save', () => {
       highlightedEdgeIds: [],
     });
     useConsoleStore.getState().clear();
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     // Stub the browser download path so the happy path doesn't touch unimplemented jsdom APIs.
-    (URL as unknown as { createObjectURL: () => string }).createObjectURL = jest.fn(() => 'blob:x');
-    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = jest.fn(() => {});
-    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = vi.fn(() => 'blob:x');
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = vi.fn(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   });
 
   afterAll(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('blocks the save when a required parameter is missing and the user declines', () => {
     installGraph();
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     useGraphStore.getState().saveToFile();
 
@@ -339,7 +339,7 @@ describe('graphStore saveToFile verify-on-save', () => {
 
   it('saves anyway when the user confirms past the errors', () => {
     installGraph();
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     useGraphStore.getState().saveToFile();
 
@@ -352,7 +352,7 @@ describe('graphStore saveToFile verify-on-save', () => {
 
   it('saves without prompting when there are no validation errors', () => {
     installGraph(0.5);
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     useGraphStore.getState().saveToFile();
 

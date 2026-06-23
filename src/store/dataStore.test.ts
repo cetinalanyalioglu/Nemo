@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDataStore } from './dataStore';
 import { useConsoleStore } from './consoleStore';
 import type { ConsoleLogEntry } from '../types/console';
@@ -36,8 +36,8 @@ describe('dataStore logging', () => {
   beforeEach(() => {
     useDataStore.setState({ datasets: [], loadCount: 0, pendingDatasets: null });
     useConsoleStore.getState().clear();
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('logs an info entry when importing datasets from a saved case', () => {

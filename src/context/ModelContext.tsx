@@ -6,7 +6,7 @@ import { withStableTypeMaps } from '../models/stable-type-maps';
 import type { ModelSummary } from '../types/flow';
 import { logger } from '../utils/logger';
 
-const MODELS_BASE = `${process.env.PUBLIC_URL ?? ''}/models`;
+const MODELS_BASE = `${import.meta.env.BASE_URL}models`;
 
 interface ModelContextValue {
   /** Available models listed in the manifest. */
