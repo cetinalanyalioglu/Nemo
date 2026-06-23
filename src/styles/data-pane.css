@@ -100,16 +100,18 @@
   color: var(--color-error-strong, var(--color-accent));
 }
 
-/* Dataset overview list — bounded height so many datasets stay scrollable
-   instead of pushing the rest of the pane off-screen. */
+/* Dataset overview list — the single scroll region for the Datasets section.
+   Bounded to a fraction of the viewport (capped) so many datasets/items stay
+   scrollable here without pushing Node/Edge Data off-screen, while staying
+   within the collapsible group's animated max-height. */
 .data-pane-dataset-list {
   list-style: none;
   margin: 8px 0 0;
-  padding: 0;
+  padding: 0 2px 2px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 240px;
+  max-height: min(60vh, 560px);
   overflow-y: auto;
 }
 
@@ -122,8 +124,13 @@
   border-radius: 3px;
 }
 
-/* A dataset group: a header naming the file plus its list of items. */
+/* A dataset group: a header naming the file plus its list of items. As a flex
+   child of the scrolling .data-pane-dataset-list, it must keep its natural
+   height: flex-shrink:0 stops the column from compressing the card (its
+   overflow:hidden would otherwise let it collapse and clip its own items, so
+   the outer list never gets the chance to scroll). */
 .data-pane-dataset {
+  flex-shrink: 0;
   border: 1px solid var(--color-border-light);
   border-radius: 6px;
   background: var(--color-surface-subtle);
@@ -250,7 +257,10 @@
   font-size: 14px;
 }
 
-/* Item rows inside a dataset group — scrollable when the list is long. */
+/* Item rows inside a dataset group. The card grows to fit all its items; the
+   surrounding .data-pane-dataset-list provides the single scroll region, so we
+   deliberately avoid a nested scrollbar here (nesting clipped the list to a few
+   rows and made the scroll behaviour unpredictable). */
 .data-pane-item-list {
   list-style: none;
   margin: 0;
@@ -258,17 +268,6 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.data-pane-item-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.data-pane-item-list::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
 }
 
 .data-pane-item {
