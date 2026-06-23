@@ -96,3 +96,83 @@ describe('dataStore logging', () => {
     expect(entry.message).toContain('Failed to load data file "data.json"');
   });
 });
+
+describe('dataStore per-target display ranges', () => {
+  const defaultDisplay = {
+    itemId: null,
+    colormap: 'viridis' as const,
+    min: 0,
+    max: 1,
+    auto: true,
+    showContour: true,
+    showValues: false,
+    precision: 2,
+    notation: 'fixed' as const,
+  };
+
+  /** Looks up the generated id of an item by dataset + item name. */
+  const itemId = (datasetName: string, name: string): string => {
+    const ds = useDataStore.getState().datasets.find((d) => d.name === datasetName);
+    const item = ds?.items.find((i) => i.name === name);
+    if (!item) throw new Error(`item ${datasetName}/${name} not found`);
+    return item.id;
+  };
+
+  beforeEach(() => {
+    useDataStore.setState({
+      datasets: [],
+      loadCount: 0,
+      pendingDatasets: null,
+      nodeDisplay: { ...defaultDisplay },
+      edgeDisplay: { ...defaultDisplay },
+    });
+    // Node values span 10..30, edge values span 100..200: deliberately disjoint
+    // so a leak from one target's range into the other is unmistakable.
+    useDataStore.getState().loadDatasetsFromObject([
+      {
+        id: 'ds-1',
+        name: 'Results',
+        includeInSave: true,
+        items: [
+          { id: 'n-1', name: 'nodeVar', target: 'node', values: [10, 20, 30] },
+          { id: 'e-1', name: 'edgeVar', target: 'edge', values: [100, 200] },
+        ],
+      },
+    ]);
+  });
+
+  it('auto-computes a node range from the node item without touching the edge display', () => {
+    useDataStore.getState().setDisplayItem('node', itemId('Results', 'nodeVar'));
+    const { nodeDisplay, edgeDisplay } = useDataStore.getState();
+    expect(nodeDisplay).toMatchObject({ min: 10, max: 30 });
+    // Edge display stays at its defaults — node selection must not affect it.
+    expect(edgeDisplay).toMatchObject({ min: 0, max: 1, itemId: null });
+  });
+
+  it('keeps node and edge ranges independent when both targets have a selection', () => {
+    useDataStore.getState().setDisplayItem('node', itemId('Results', 'nodeVar'));
+    useDataStore.getState().setDisplayItem('edge', itemId('Results', 'edgeVar'));
+    const { nodeDisplay, edgeDisplay } = useDataStore.getState();
+    expect(nodeDisplay).toMatchObject({ min: 10, max: 30 });
+    expect(edgeDisplay).toMatchObject({ min: 100, max: 200 });
+  });
+
+  it('setRange on one target leaves the other target untouched', () => {
+    useDataStore.getState().setDisplayItem('node', itemId('Results', 'nodeVar'));
+    useDataStore.getState().setDisplayItem('edge', itemId('Results', 'edgeVar'));
+    useDataStore.getState().setRange('node', 5, 50);
+    const { nodeDisplay, edgeDisplay } = useDataStore.getState();
+    expect(nodeDisplay).toMatchObject({ min: 5, max: 50, auto: false });
+    expect(edgeDisplay).toMatchObject({ min: 100, max: 200, auto: true });
+  });
+
+  it('re-enabling auto range recomputes from that target only', () => {
+    useDataStore.getState().setDisplayItem('edge', itemId('Results', 'edgeVar'));
+    useDataStore.getState().setRange('edge', 0, 1); // manual override
+    expect(useDataStore.getState().edgeDisplay).toMatchObject({ min: 0, max: 1, auto: false });
+    useDataStore.getState().setAutoRange('edge', true);
+    expect(useDataStore.getState().edgeDisplay).toMatchObject({ min: 100, max: 200, auto: true });
+    // Node display, never selected, remains at defaults throughout.
+    expect(useDataStore.getState().nodeDisplay).toMatchObject({ min: 0, max: 1, itemId: null });
+  });
+});
