@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 import type { Edge, Node } from 'reactflow';
 import { checkNetworkValidity, collectHighlightTargets } from './network-validity';
 import { buildRuntimeModel, validateModelDefinition } from '../models/model-builder';
