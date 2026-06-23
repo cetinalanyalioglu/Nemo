@@ -54,6 +54,28 @@ describe('dataStore logging', () => {
     expect(entry?.message).toContain('Imported 1 dataset');
   });
 
+  it('retains dataset description and self-describing info on import', () => {
+    useDataStore.getState().loadDatasetsFromObject([
+      {
+        id: 'ds-1',
+        name: '100 Hz',
+        includeInSave: true,
+        description: 'Forced acoustic response snapshot',
+        info: [
+          { key: 'kind', label: 'Analysis', value: 'Forced response' },
+          { key: 'frequency', label: 'Frequency', value: 100, unit: 'Hz' },
+        ],
+        items: [{ id: 'i-1', name: 'p', target: 'edge', values: [1, 2] }],
+      },
+    ]);
+    const ds = useDataStore.getState().datasets.at(-1);
+    expect(ds?.description).toBe('Forced acoustic response snapshot');
+    expect(ds?.info).toEqual([
+      { key: 'kind', label: 'Analysis', value: 'Forced response' },
+      { key: 'frequency', label: 'Frequency', value: 100, unit: 'Hz' },
+    ]);
+  });
+
   it('logs a success entry when a data file loads', async () => {
     const payload = JSON.stringify({
       name: 'Loaded',

@@ -263,6 +263,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
       id: generateId('ds'),
       name: dataset.name,
       includeInSave: dataset.includeInSave ?? true,
+      // Carry self-describing metadata through so it survives a UI re-save.
+      description: dataset.description,
+      info: dataset.info,
       items: (dataset.items ?? []).map((item) => ({
         id: generateId('item'),
         name: item.name,
