@@ -36,6 +36,25 @@ export interface DataItem {
   values: number[];
 }
 
+/**
+ * One self-describing metadata field attached to a dataset. The UI renders these
+ * generically as `label : value unit` (with `description` as a hover tooltip), so
+ * it never needs to know what any `key` means — model-specific knowledge stays in
+ * the data file, never in the code.
+ */
+export interface DatasetMetaEntry {
+  /** Stable machine key (not displayed; lets the UI track entries). */
+  key: string;
+  /** Human-readable label shown in the pane. */
+  label: string;
+  /** The value (number, boolean, or string). */
+  value: number | string | boolean;
+  /** Optional unit shown after the value. */
+  unit?: string;
+  /** Optional longer note, surfaced as a tooltip. */
+  description?: string;
+}
+
 /** A loaded dataset: the named group of items present in one file. */
 export interface Dataset {
   /** Stable id assigned on load. */
@@ -46,6 +65,10 @@ export interface Dataset {
   items: DataItem[];
   /** Whether this dataset is embedded when the case is saved. */
   includeInSave: boolean;
+  /** Optional free-form description (may contain inline `$...$` math). */
+  description?: string;
+  /** Optional self-describing metadata entries, rendered read-only. */
+  info?: DatasetMetaEntry[];
 }
 
 /**

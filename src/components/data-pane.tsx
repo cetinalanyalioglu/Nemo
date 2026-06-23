@@ -22,11 +22,22 @@ import { useDataStore, selectItemCount } from '../store/dataStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
 import { COLORMAP_OPTIONS, colormapGradient } from '../utils/colormap';
+import MathLabel from './MathLabel';
 import type { ColormapId, DataItem, DataTarget, Dataset, ValueNotation } from '../types/data';
 
 const DATA_DATASETS_GROUP = '__data_datasets__';
 const DATA_NODE_GROUP = '__data_node__';
 const DATA_EDGE_GROUP = '__data_edge__';
+
+/**
+ * Renders a dataset-metadata value for display. The UI stays agnostic to what the
+ * value means: booleans read as Yes/No, everything else prints as-is.
+ */
+const formatMetaValue = (value: number | string | boolean): string => {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '—';
+  return String(value);
+};
 
 /** Compact min–max summary for the item overview list. */
 const formatRange = (values: number[]): string => {
@@ -419,6 +430,26 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
           <IoTrashOutline />
         </button>
       </div>
+      {!collapsed && (dataset.description || (dataset.info && dataset.info.length > 0)) && (
+        <div className="data-pane-dataset-meta">
+          {dataset.description && (
+            <p className="data-pane-dataset-description">
+              <MathLabel text={dataset.description} />
+            </p>
+          )}
+          {dataset.info?.map((entry) => (
+            <div key={entry.key} className="data-pane-meta-row">
+              <span className="data-pane-meta-label" title={entry.description || undefined}>
+                <MathLabel text={entry.label} />
+              </span>
+              <span className="data-pane-meta-value">
+                {formatMetaValue(entry.value)}
+                {entry.unit ? ` ${entry.unit}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {!collapsed && (
         <ul className="data-pane-item-list">
           {dataset.items.map((item) => (
