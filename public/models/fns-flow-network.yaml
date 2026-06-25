@@ -282,6 +282,120 @@ nodes:
         description: Phase of the specific acoustic impedance, in degrees.
         visibleIf: {parameter: boundaryType, equals: impedance}
 
+  MassFlowOutlet:
+    displayName: Mass Flow Outlet
+    category: Boundary elements
+    icon: BsArrowUpCircleFill
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: MassFlowOutlet
+      massFlowRate:
+        label: Mass flow rate
+        type: float
+        defaultValue: 1.0
+        unit: kg/s
+        category: Parameters
+        step: 0.1
+        description: >-
+          Outflow mass rate drawn from the network (must be positive, leaving the
+          domain). The outflow is pinned to this value; the static pressure floats.
+          Outflow-only -- use a Mass Flow Inlet for an injecting/reversing boundary.
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: inherit
+        category: Acoustics
+        description: >-
+          Acoustic termination at this terminal. Inherit is the element's natural
+          closure -- the linearized mass-flow row, i.e. constant mass flow (mdot' = 0).
+          Rigid is an infinite impedance (a rigid wall, u' = 0); Open is an ideal
+          pressure-release end (p' = 0); Impedance sets the specific acoustic impedance.
+        options:
+          - {value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)'}
+          - {value: rigid, label: Rigid ($u' = 0$)}
+          - {value: open, label: Open ($p' = 0$)}
+          - {value: impedance, label: Impedance}
+      impedanceMagnitude:
+        label: Impedance amplitude
+        type: float
+        defaultValue: 1.0
+        category: Acoustics
+        min: 0
+        description: >-
+          Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
+          (1 = matched / non-reflecting). Advanced closures are set in Python.
+        visibleIf: {parameter: boundaryType, equals: impedance}
+      impedancePhase:
+        label: Impedance phase (deg)
+        type: float
+        defaultValue: 0.0
+        unit: deg
+        category: Acoustics
+        description: Phase of the specific acoustic impedance, in degrees.
+        visibleIf: {parameter: boundaryType, equals: impedance}
+
+  ChokedNozzleOutlet:
+    displayName: Choked Nozzle Outlet
+    category: Boundary elements
+    icon: BsFunnelFill
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: ChokedNozzleOutlet
+      throatArea:
+        label: Throat area
+        type: float
+        defaultValue: 0.01
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+        description: >-
+          Sonic-throat area A* of the compact (lumped) nozzle just downstream. The
+          outflow is the critical mass flux for the interior stagnation state; keep
+          A* smaller than the outlet area so the application plane stays subsonic.
+          A choked throat is one-way -- this is an outflow-only boundary.
+      boundaryType:
+        label: Acoustic boundary
+        type: select
+        defaultValue: inherit
+        category: Acoustics
+        description: >-
+          Acoustic termination at this terminal. Inherit is the element's natural
+          closure -- the linearized critical-mass-flux row, which is the compact
+          choked-nozzle (Marble-Candel) reflection with its entropy coupling. Rigid is
+          an infinite impedance (u' = 0); Open is a pressure-release end (p' = 0);
+          Impedance sets the specific acoustic impedance.
+        options:
+          - {value: inherit, label: Compact choked nozzle (Marble-Candel)}
+          - {value: rigid, label: Rigid ($u' = 0$)}
+          - {value: open, label: Open ($p' = 0$)}
+          - {value: impedance, label: Impedance}
+      impedanceMagnitude:
+        label: Impedance amplitude
+        type: float
+        defaultValue: 1.0
+        category: Acoustics
+        min: 0
+        description: >-
+          Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
+          (1 = matched / non-reflecting). Advanced closures are set in Python.
+        visibleIf: {parameter: boundaryType, equals: impedance}
+      impedancePhase:
+        label: Impedance phase (deg)
+        type: float
+        defaultValue: 0.0
+        unit: deg
+        category: Acoustics
+        description: Phase of the specific acoustic impedance, in degrees.
+        visibleIf: {parameter: boundaryType, equals: impedance}
+
   Wall:
     displayName: Wall
     category: Boundary elements
