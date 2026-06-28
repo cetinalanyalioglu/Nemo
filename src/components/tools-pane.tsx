@@ -33,10 +33,18 @@ const ToolsPane = React.memo(() => {
       nodeStates,
       edgeStates,
       model,
+      modelParameters,
       setHighlightedNodes,
       setHighlightedEdges,
     } = useGraphStore.getState();
-    const issues = checkNetworkValidity({ nodes, edges, nodeStates, edgeStates, model });
+    const issues = checkNetworkValidity({
+      nodes,
+      edges,
+      nodeStates,
+      edgeStates,
+      model,
+      modelParameters,
+    });
     const append = useConsoleStore.getState().append;
 
     // Surface the results: open the console so they're visible.

@@ -191,7 +191,9 @@ export const ParameterFormFields = ({
             </div>
             <div className="group-content">
               {categoryParameters.map(({ key, value, info }) => {
-                if (!isParameterVisible(info, parameters)) return null;
+                // In the model pane the element bag *is* the model bag, so pass it
+                // as both contexts: a `scope: 'model'` condition resolves the same.
+                if (!isParameterVisible(info, parameters, parameters)) return null;
 
                 const isEditable = isParameterEditable(info);
                 const tempValueKey = `${contextId}_${key}`;

@@ -958,8 +958,15 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         // Verify on save: surface any validity problems before writing the file
         // and block on hard errors (e.g. a missing required parameter the solver
         // cannot read) unless the user explicitly opts to save anyway.
-        const { nodes, edges, nodeStates, edgeStates, model } = get();
-        const issues = checkNetworkValidity({ nodes, edges, nodeStates, edgeStates, model });
+        const { nodes, edges, nodeStates, edgeStates, model, modelParameters } = get();
+        const issues = checkNetworkValidity({
+          nodes,
+          edges,
+          nodeStates,
+          edgeStates,
+          model,
+          modelParameters,
+        });
         if (issues.length > 0) {
           const { nodeIds, edgeIds } = collectHighlightTargets(issues);
           get().setHighlightedNodes(nodeIds);

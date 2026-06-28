@@ -142,6 +142,9 @@ const PropertiesPanel = React.memo(() => {
   // A locked canvas rejects port-count edits (they renumber handles and break
   // the indices loaded data maps to); the panel disables those fields to match.
   const locked = useGraphStore((s) => s.locked);
+  // Model-level parameter values, so `scope: 'model'` visibility conditions on
+  // node/edge parameters can react to a global parameter (e.g. thermoModel).
+  const modelParameters = useGraphStore((s) => s.modelParameters);
 
   const {
     propertiesPanel: { isOpen, collapsedGroups },
@@ -524,7 +527,8 @@ const PropertiesPanel = React.memo(() => {
               <div className="group-content">
                 {parameters.map(({ key, value, info }) => {
                   // Check visibility
-                  if (!isParameterVisible(info, elementState.parameters)) return null;
+                  if (!isParameterVisible(info, elementState.parameters, modelParameters))
+                    return null;
 
                   const isEditable =
                     isParameterEditable(info) && !(locked && portCountParamKeys.has(key));

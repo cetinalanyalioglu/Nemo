@@ -71,6 +71,12 @@ export type ParameterInfo = Record<string, unknown> & {
 export type VisibilityCondition =
   | {
       parameter?: string;
+      /**
+       * Which parameter bag `parameter` is resolved against. `self` (the default)
+       * reads the element's own parameters; `model` reads the model-level
+       * parameters, letting a node/edge parameter react to a global parameter.
+       */
+      scope?: 'self' | 'model';
       equals?: unknown;
       greaterThan?: number;
       lessThan?: number;

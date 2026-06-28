@@ -1,6 +1,11 @@
 import type { Edge, Node } from 'reactflow';
 import type { RuntimeModel } from '../models/model-builder';
-import type { EdgeRuntimeState, NodeRuntimeState, ParameterInfo } from '../types/flow';
+import type {
+  EdgeRuntimeState,
+  NodeRuntimeState,
+  ParameterInfo,
+  ParameterValues,
+} from '../types/flow';
 import { computePortLayout, listPorts } from './ports';
 import { isParameterVisible } from './parameter-conditions';
 
@@ -26,6 +31,12 @@ export interface ValidityInput {
   nodeStates: Record<string, NodeRuntimeState>;
   edgeStates: Record<string, EdgeRuntimeState>;
   model: RuntimeModel | null;
+  /**
+   * Model-level parameter values, so a `scope: 'model'` visibility condition on a
+   * required node/edge parameter is evaluated the same way the panel renders it: a
+   * parameter hidden by a global parameter is not "missing".
+   */
+  modelParameters?: ParameterValues;
 }
 
 /**
@@ -80,15 +91,17 @@ const collectMissingRequired = (
   parametersInfo: Record<string, ParameterInfo> | undefined,
   values: Record<string, unknown>,
   describe: (info: ParameterInfo, key: string) => string,
-  ids: { nodeId?: string; edgeId?: string } = {}
+  ids: { nodeId?: string; edgeId?: string } = {},
+  modelParameters?: ParameterValues
 ): ValidityIssue[] => {
   if (!parametersInfo) return [];
   const issues: ValidityIssue[] = [];
   for (const [key, info] of Object.entries(parametersInfo)) {
     if (!info.required) continue;
-    // A required parameter hidden by its own visibility condition is not in
-    // play, so it cannot be "missing".
-    if (!isParameterVisible(info, values)) continue;
+    // A required parameter hidden by its own visibility condition — or by a
+    // model-level (`scope: 'model'`) condition — is not in play, so it cannot
+    // be "missing".
+    if (!isParameterVisible(info, values, modelParameters)) continue;
     if (isRequiredValueMissing(values[key], info)) {
       issues.push({
         kind: 'missing-parameter',
@@ -114,6 +127,7 @@ export const checkNetworkValidity = ({
   nodeStates,
   edgeStates,
   model,
+  modelParameters,
 }: ValidityInput): ValidityIssue[] => {
   const issues: ValidityIssue[] = [];
 
@@ -176,7 +190,8 @@ export const checkNetworkValidity = ({
         parametersInfo,
         values,
         (info, key) => `Node "${label}" is missing required parameter "${info.label || key}".`,
-        { nodeId: node.id }
+        { nodeId: node.id },
+        modelParameters
       )
     );
   }
@@ -191,7 +206,8 @@ export const checkNetworkValidity = ({
         parametersInfo,
         values,
         (info, key) => `Edge "${endpoints}" is missing required parameter "${info.label || key}".`,
-        { edgeId: edge.id }
+        { edgeId: edge.id },
+        modelParameters
       )
     );
   }

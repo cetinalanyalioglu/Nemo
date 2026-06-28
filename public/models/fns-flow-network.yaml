@@ -25,8 +25,19 @@
 # length-bearing: its mean-flow face is a lossless constant-area passage, and
 # its length feeds the acoustic (perturbation) analysis.
 #
-# Model-level parameters (Model pane) hold the gas properties and the reference
-# scales used by the solver for nondimensionalization.
+# Model-level parameters (Model pane) hold the thermo model, the gas properties
+# and the reference scales used by the solver for nondimensionalization.  The
+# "Thermo model" selector switches between a calorically-perfect gas (R, gamma)
+# and the reacting equilibrium model.  For the reacting model:
+#   - set a mechanism file + species list in the Model pane;
+#   - give every inlet / mass source an explicit Composition (e.g.
+#     "O2:0.21, N2:0.79" or "CH4:1.0") on a mole or mass basis;
+#   - drop an Equilibrium Flame where the mixture ignites -- edges default to the
+#     "Auto" closure (frozen upstream of a flame, equilibrium downstream); set an
+#     edge's closure explicitly to override.
+# Composition / basis fields and the edge closure apply only to the equilibrium
+# model; they are hidden (via a model-scoped visibleIf on "Thermo model") and
+# ignored when the perfect-gas model is selected.
 
 id: fns-flow-network
 name: FNS Flow Network
@@ -34,6 +45,20 @@ description: Compressible flow-network element library for the FNS solver (mean 
 forceUniqueNodeLabels: true
 
 parameters:
+  thermoModel:
+    label: Thermo model
+    type: select
+    defaultValue: perfect_gas
+    category: Gas
+    description: >-
+      Thermodynamic model for the whole network. "Perfect gas" is a single
+      calorically-perfect gas (constant R and gamma). "Equilibrium (reacting)"
+      transports the feed-stream mixture fractions and slaves the species to
+      chemical (HP) equilibrium; it needs a mechanism file, a species list, and
+      an explicit composition on every inlet / mass source.
+    options:
+      - {value: perfect_gas, label: Perfect gas}
+      - {value: equilibrium, label: Equilibrium (reacting)}
   gasConstant:
     label: Specific gas constant R
     type: float
@@ -42,6 +67,7 @@ parameters:
     category: Gas
     min: 1
     description: Specific gas constant of the working gas
+    visibleIf: {parameter: thermoModel, equals: perfect_gas}
   heatCapacityRatio:
     label: Heat capacity ratio
     type: float
@@ -51,6 +77,46 @@ parameters:
     max: 1.999
     step: 0.01
     description: cp/cv of the working gas (calorically perfect)
+    visibleIf: {parameter: thermoModel, equals: perfect_gas}
+  mechanismFile:
+    label: Mechanism file
+    type: string
+    defaultValue: ''
+    category: Gas
+    description: >-
+      Path to the thermochemistry file for the reacting model: a thermolib native
+      mechanism (Cantera-subset YAML, e.g. h2o2.yaml) or a CEA thermo.inp. Resolved
+      relative to the case file if not absolute. Required for the equilibrium model.
+    visibleIf: {parameter: thermoModel, equals: equilibrium}
+  species:
+    label: Species
+    type: string
+    defaultValue: ''
+    category: Gas
+    description: >-
+      Comma-separated species to include from the mechanism, e.g.
+      "CH4, O2, N2, CO2, H2O, OH, H, O". Required for a CEA thermo.inp (which holds
+      thousands of species); optional for a native mechanism YAML (defaults to every
+      species in the file, or a subset if listed).
+    visibleIf: {parameter: thermoModel, equals: equilibrium}
+  equilibriumTInit:
+    label: Equilibrium T guess
+    type: float
+    defaultValue: 3000.0
+    unit: K
+    category: Gas
+    min: 1
+    description: Initial temperature guess for the HP-equilibrium (burnt) solve.
+    visibleIf: {parameter: thermoModel, equals: equilibrium}
+  frozenTInit:
+    label: Frozen T guess
+    type: float
+    defaultValue: 300.0
+    unit: K
+    category: Gas
+    min: 1
+    description: Initial temperature guess for the frozen (unburnt) solve.
+    visibleIf: {parameter: thermoModel, equals: equilibrium}
   referencePressure:
     label: Reference pressure
     type: float
@@ -94,6 +160,23 @@ edges:
         description: Cross-sectional flow area at this port surface (must be supplied)
         editable: true
         visible: true
+      thermoModel:
+        label: Closure (reacting)
+        type: select
+        defaultValue: auto
+        category: Reacting
+        description: >-
+          Per-edge thermochemistry closure for the reacting (equilibrium) model.
+          "Auto" lets the solver decide -- frozen (unburnt) upstream of an
+          Equilibrium Flame, chemical equilibrium (burnt) downstream (and
+          equilibrium everywhere if the network has no flame). "Frozen" pins the
+          unburnt feed composition on this edge; "Equilibrium" solves chemical
+          equilibrium on this edge. Ignored by the perfect-gas model.
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        options:
+          - {value: auto, label: Auto}
+          - {value: frozen, label: Frozen (unburnt)}
+          - {value: equilibrium, label: Equilibrium (burnt)}
 
 nodes:
   MassFlowInlet:
@@ -123,16 +206,39 @@ nodes:
         category: Parameters
         min: 1
         description: Total temperature of the supplied stream
+      composition:
+        label: Composition
+        type: string
+        defaultValue: ''
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Species mixture of the supplied stream for the reacting model, e.g.
+          "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
+          equilibrium model; ignored by the perfect-gas model.
+      basis:
+        label: Composition basis
+        type: select
+        defaultValue: mole
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: Whether the composition entries are mole or mass fractions.
+        options:
+          - {value: mole, label: Mole fractions}
+          - {value: mass, label: Mass fractions}
       boundaryType:
         label: Acoustic boundary
         type: select
-        defaultValue: rigid
+        defaultValue: inherit
         category: Acoustics
         description: >-
-          Acoustic termination at this terminal. Rigid is an infinite impedance
-          (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
-          reflection R = -1); Impedance sets the specific acoustic impedance below.
+          Acoustic termination at this terminal. Inherit is the element's natural
+          closure -- the linearized mass-flow row, i.e. constant mass flow
+          (mdot' = 0). Rigid is an infinite impedance (a rigid wall, u' = 0); Open
+          is an ideal pressure-release end (p' = 0, reflection R = -1); Impedance
+          sets the specific acoustic impedance below.
         options:
+          - {value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)'}
           - {value: rigid, label: Rigid ($u' = 0$)}
           - {value: open, label: Open ($p' = 0$)}
           - {value: impedance, label: Impedance}
@@ -186,16 +292,39 @@ nodes:
         category: Parameters
         min: 1
         description: Reservoir total temperature
+      composition:
+        label: Composition
+        type: string
+        defaultValue: ''
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Species mixture of the supplied stream for the reacting model, e.g.
+          "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
+          equilibrium model; ignored by the perfect-gas model.
+      basis:
+        label: Composition basis
+        type: select
+        defaultValue: mole
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: Whether the composition entries are mole or mass fractions.
+        options:
+          - {value: mole, label: Mole fractions}
+          - {value: mass, label: Mass fractions}
       boundaryType:
         label: Acoustic boundary
         type: select
-        defaultValue: open
+        defaultValue: inherit
         category: Acoustics
         description: >-
-          Acoustic termination at this terminal. Rigid is an infinite impedance
-          (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
-          reflection R = -1); Impedance sets the specific acoustic impedance below.
+          Acoustic termination at this terminal. Inherit is the element's natural
+          closure -- the linearized total-pressure row, i.e. constant total
+          pressure (p_t' = 0). Rigid is an infinite impedance (a rigid wall,
+          u' = 0); Open is an ideal pressure-release end (p' = 0, reflection
+          R = -1); Impedance sets the specific acoustic impedance below.
         options:
+          - {value: inherit, label: "Constant total pressure ($p_t' = 0$)"}
           - {value: rigid, label: Rigid ($u' = 0$)}
           - {value: open, label: Open ($p' = 0$)}
           - {value: impedance, label: Impedance}
@@ -249,6 +378,26 @@ nodes:
         category: Parameters
         min: 1
         description: Total temperature advected into the network if the flow reverses here
+      composition:
+        label: Backflow composition
+        type: string
+        defaultValue: ''
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Species mixture drawn into the network on backflow (ingestion) for the
+          reacting model, e.g. "O2:0.21, N2:0.79". Used only when the flow reverses
+          at this outlet; ignored by the perfect-gas model.
+      basis:
+        label: Composition basis
+        type: select
+        defaultValue: mole
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: Whether the backflow composition entries are mole or mass fractions.
+        options:
+          - {value: mole, label: Mole fractions}
+          - {value: mass, label: Mass fractions}
       boundaryType:
         label: Acoustic boundary
         type: select
@@ -527,6 +676,114 @@ nodes:
         description: >-
           Duct length.  Lossless constant-area passage for the mean flow; the
           length is read by the acoustic analysis for wave propagation.
+
+  HeatReleaseFlame:
+    displayName: Heat Release Flame
+    category: Two port elements
+    icon: BsBrightnessHighFill
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: HeatReleaseFlame
+      heatRelease:
+        label: Heat release rate
+        type: float
+        defaultValue: 1000000.0
+        unit: W
+        category: Parameters
+        step: 1000
+        description: >-
+          Steady heat power added across the compact flame ($>0$ heats the flow).
+          Perfect-gas flame: conserves mass and total pressure and raises the total
+          temperature by $\dot Q / (\dot m\, c_p)$. For the perfect-gas model -- use
+          an Equilibrium Flame for the reacting model.
+    # Compact constant-area heat-addition flame (perfect gas). Both edges must
+    # share one area. The mean flame is acoustically passive; an unsteady
+    # (FTF / n-tau) heat-release source is attached in Python.
+
+  EquilibriumFlame:
+    displayName: Equilibrium Flame
+    category: Two port elements
+    icon: BsFire
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: EquilibriumFlame
+    # Compact reacting flame: frozen (unburnt) inflow -> chemical-equilibrium
+    # products (conserves mass, static pressure, total enthalpy and the elemental
+    # composition). For the equilibrium thermo model. Both edges must share one
+    # area. The upstream edge is the "frozen" closure and the downstream edge
+    # "equilibrium" -- the default "Auto" edge closure sets this automatically.
+    # No numeric parameters: the temperature rise emerges from the equilibrium
+    # solve at the shared (composition, enthalpy, pressure).
+
+  MassSource:
+    displayName: Mass Source
+    category: Two port elements
+    icon: BsDropletFill
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: MassSource
+      massFlowRate:
+        label: Injected mass flow
+        type: float
+        defaultValue: 0.1
+        unit: kg/s
+        category: Parameters
+        min: 0
+        step: 0.01
+        description: Mass flow injected into the through-flow (> 0 adds mass).
+      injectionTemperature:
+        label: Injection total temperature
+        type: float
+        defaultValue: 300.0
+        unit: K
+        category: Parameters
+        min: 1
+        description: Total temperature of the injected stream (sets its enthalpy datum).
+      injectionVelocity:
+        label: Injection axial velocity
+        type: float
+        defaultValue: 0.0
+        unit: m/s
+        category: Parameters
+        description: >-
+          Axial velocity of the injected stream for the momentum source. 0 (default)
+          is normal/transverse injection -- adds mass with no axial momentum.
+      composition:
+        label: Composition
+        type: string
+        defaultValue: ''
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Species mixture of the injected stream for the reacting model, e.g.
+          "CH4:1.0" for a fuel injector. Required by the equilibrium model; ignored
+          by the perfect-gas model.
+      basis:
+        label: Composition basis
+        type: select
+        defaultValue: mole
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: Whether the composition entries are mole or mass fractions.
+        options:
+          - {value: mole, label: Mole fractions}
+          - {value: mass, label: Mass fractions}
+    # Inline mass-injection element (a fuel injector when reacting). Conserves
+    # mass / momentum / energy with the injection source terms; performs no
+    # reaction itself -- ignition is the flame's job. Constant-area (both edges
+    # must share one area).
 
   JunctionStaticP:
     displayName: Junction (static p)
