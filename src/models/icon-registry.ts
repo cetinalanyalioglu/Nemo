@@ -17,6 +17,7 @@ import {
   BsCircle,
   BsDiamond,
   BsTriangle,
+  BsGripVertical,
 } from 'react-icons/bs';
 
 /**
@@ -41,6 +42,7 @@ const iconRegistry: Record<string, IconType> = {
   BsCircle,
   BsDiamond,
   BsTriangle,
+  BsGripVertical,
 };
 
 /** Fallback icon used when a model references an unknown icon name. */

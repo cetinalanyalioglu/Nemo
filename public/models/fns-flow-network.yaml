@@ -562,6 +562,33 @@ nodes:
         description: Phase of the specific acoustic impedance, in degrees.
         visibleIf: {parameter: boundaryType, equals: impedance}
 
+  Cavity:
+    displayName: Cavity
+    category: Boundary elements
+    icon: BsCircle
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: Cavity
+      volume:
+        label: Cavity volume
+        type: float
+        defaultValue: 0.001
+        unit: m^3
+        category: Parameters
+        min: 1e-9
+        step: 0.0001
+        description: >-
+          Enclosed cavity volume V. A wall to the mean flow (mdot = 0); acoustically a
+          compliance C = V/(rho c^2) that populates the storage block M. Paired with a
+          neck (a short Duct, or a length-bearing element) off a junction it forms a
+          Helmholtz resonator with f0 = c*sqrt(A_neck/(V*l_eff))/2pi.
+    # Lumped finite-volume cavity: mean-flow-wise a wall with a volume tag, acoustically a
+    # pure compliance.  Not a boundary terminal -- its reflection is the compliance itself.
+
   IsentropicAreaChange:
     displayName: Isentropic Area Change
     category: Two port elements
@@ -573,8 +600,42 @@ nodes:
     parameters:
       label:
         defaultValue: IsentropicAreaChange
+      lengthUpstream:
+        label: Upstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Acoustic storage half-length on the upstream (port-0) side: stores l x A of gas
+          (compliance) and adds to the effective length (inertance). Default 0 is a
+          lengthless jump. Read only by the acoustic analysis; inert in the mean flow.
+      lengthDownstream:
+        label: Downstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: Acoustic storage half-length on the downstream (port-1) side.
+      endCorrection:
+        label: End correction
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Added-mass length (entrained near-field, ~0.85a for a flanged mouth) added to the
+          inertance only -- it lengthens L_eff and lowers a Helmholtz resonance.
     # Lossless nozzle/diffuser with emergent choking: conserves mass and total
     # pressure; the area change is given by the areas of the two attached edges.
+    # The optional storage lengths give a real diffuser its acoustic compliance and
+    # inertance (storage block M); leave them 0 for a lengthless jump.
 
   SuddenAreaChange:
     displayName: Sudden Area Change
@@ -601,6 +662,38 @@ nodes:
           small (downstream) side, with K = (1/Cc - 1)^2. Cc = 1 (default) is a
           loss-free contraction; ~0.62 suits a sharp-edged contraction at a small
           area ratio (Weisbach / Idelchik). Forward (expanding) flow is unaffected.
+      lengthUpstream:
+        label: Upstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Acoustic storage half-length on the upstream (port-0) side (compliance +
+          inertance, storage block M). A sudden change is geometrically thin -- usually
+          leave this 0 and set only the End correction. Inert in the mean flow.
+      lengthDownstream:
+        label: Downstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: Acoustic storage half-length on the downstream (port-1) side.
+      endCorrection:
+        label: End correction
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Added-mass length added to the inertance only -- the entrained-mass length the
+          thin step still carries.
     # Borda-Carnot momentum balance for small -> large (expansion with mixing
     # loss).  Reverse (large -> small) is a vena-contracta contraction loss set by
     # contractionCoefficient (Cc = 1 -> loss-free).  Small/large sides are
@@ -630,6 +723,95 @@ nodes:
         infoType: popover
         description: >-
           Loss always opposes the flow, and is given by $\Delta p_t = \frac{1}{2} K \varrho u_0^2$.
+      lengthUpstream:
+        label: Upstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Acoustic storage half-length on the upstream (port-0) side: an orifice's
+          thickness / backing length (compliance + inertance, storage block M). Default 0.
+          With it the loss becomes an orifice impedance Z = R(u) + i*omega*L_eff/A.
+      lengthDownstream:
+        label: Downstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: Acoustic storage half-length on the downstream (port-1) side.
+      endCorrection:
+        label: End correction
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: Added-mass (end-correction) length added to the inertance only.
+
+  LinearResistance:
+    displayName: Linear Resistance
+    category: Two port elements
+    icon: BsGripVertical
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: LinearResistance
+      resistance:
+        label: Resistance R
+        type: float
+        defaultValue: 0.0
+        unit: Pa/(kg/s)
+        category: Parameters
+        min: 0
+        step: 0.1
+        description: >-
+          Linear total-pressure drop Pt_in - Pt_out = R * mdot. Unlike the quadratic Loss
+          Element it stays active at zero mean flow -- the acoustic resistance of a screen,
+          perforate or damper. With the storage lengths below it becomes an orifice
+          impedance Z = R + i*omega*L_eff/A.
+      lengthUpstream:
+        label: Upstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Acoustic storage half-length on the upstream (port-0) side (compliance +
+          inertance, storage block M). Inert in the mean flow.
+      lengthDownstream:
+        label: Downstream storage length
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: Acoustic storage half-length on the downstream (port-1) side.
+      endCorrection:
+        label: End correction
+        type: float
+        defaultValue: 0.0
+        unit: m
+        category: Acoustics
+        min: 0
+        step: 0.001
+        description: >-
+          Added-mass (end-correction) length added to the inertance only -- the reactance
+          of a screen/perforate's effective neck.
+    # Linear flow resistance Pt_in - Pt_out = R * mdot: survives the linearization at zero
+    # mean flow (the velocity-squared Loss does not), so it is the quiescent acoustic
+    # resistance.  With storage lengths it carries both resistance and reactance.
 
   Duct:
     displayName: Duct
@@ -798,6 +980,18 @@ nodes:
         step: 1
         category: Ports
         description: Number of right (source) ports
+      volume:
+        label: Chamber volume
+        type: float
+        defaultValue: 0.0
+        unit: m^3
+        category: Acoustics
+        min: 0
+        step: 0.0001
+        description: >-
+          Plenum/chamber volume. Gives the manifold the acoustic compliance
+          C = V/(rho c^2) on its common pressure (storage block M) -- a junction with a
+          volume is a cavity with through-flow. Default 0 = no compliance. Inert in the mean flow.
     # Common static pressure on all ports; inflow enthalpies mix mass-weighted.
     # Only valid where all port Mach numbers are low -- use LosslessSplitter for
     # plenums feeding fast branches.
@@ -826,5 +1020,17 @@ nodes:
         step: 1
         category: Ports
         description: Number of output ports
+      volume:
+        label: Chamber volume
+        type: float
+        defaultValue: 0.0
+        unit: m^3
+        category: Acoustics
+        min: 0
+        step: 0.0001
+        description: >-
+          Plenum/chamber volume. Gives the splitter the acoustic compliance
+          C = V/(rho c^2) on its common pressure (storage block M). Default 0 = no
+          compliance. Inert in the mean flow.
     # Common total pressure on all ports (isentropic distribution plenum):
     # mass + energy + constant entropy into every branch.
