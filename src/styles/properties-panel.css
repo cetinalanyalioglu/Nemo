@@ -186,6 +186,8 @@
 :is(.properties-panel, .settings-pane, .tools-pane, .model-pane, .data-pane) .parameter-select-icon {
   position: absolute;
   right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 14px;
   color: var(--color-text-icon-secondary);
   pointer-events: none;

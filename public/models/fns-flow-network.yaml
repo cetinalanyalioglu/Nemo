@@ -28,10 +28,12 @@
 # Model-level parameters (Model pane) hold the thermo model, the gas properties
 # and the reference scales used by the solver for nondimensionalization.  The
 # "Thermo model" selector switches between a calorically-perfect gas (R, gamma)
-# and the reacting equilibrium model.  For the reacting model:
-#   - set a mechanism file + species list in the Model pane;
+# and the reacting equilibrium model.  The species thermochemistry comes from the
+# built-in NASA Glenn / CEA database (no file to supply).  For the reacting model:
 #   - give every inlet / mass source an explicit Composition (e.g.
 #     "O2:0.21, N2:0.79" or "CH4:1.0") on a mole or mass basis;
+#   - leave Species on "auto" to derive the product slate from those feeds, or list
+#     the species explicitly;
 #   - drop an Equilibrium Flame where the mixture ignites -- edges default to the
 #     "Auto" closure (frozen upstream of a flame, equilibrium downstream); set an
 #     edge's closure explicitly to override.
@@ -54,8 +56,8 @@ parameters:
       Thermodynamic model for the whole network. "Perfect gas" is a single
       calorically-perfect gas (constant R and gamma). "Equilibrium (reacting)"
       transports the feed-stream mixture fractions and slaves the species to
-      chemical (HP) equilibrium; it needs a mechanism file, a species list, and
-      an explicit composition on every inlet / mass source.
+      chemical (HP) equilibrium; it uses the built-in thermochemistry database and
+      needs an explicit composition on every inlet / mass source.
     options:
       - {value: perfect_gas, label: Perfect gas}
       - {value: equilibrium, label: Equilibrium (reacting)}
@@ -78,44 +80,19 @@ parameters:
     step: 0.01
     description: cp/cv of the working gas (calorically perfect)
     visibleIf: {parameter: thermoModel, equals: perfect_gas}
-  mechanismFile:
-    label: Mechanism file
-    type: string
-    defaultValue: ''
-    category: Gas
-    description: >-
-      Path to the thermochemistry file for the reacting model: a thermolib native
-      mechanism (Cantera-subset YAML, e.g. h2o2.yaml) or a CEA thermo.inp. Resolved
-      relative to the case file if not absolute. Required for the equilibrium model.
-    visibleIf: {parameter: thermoModel, equals: equilibrium}
   species:
     label: Species
     type: string
-    defaultValue: ''
+    defaultValue: auto
     category: Gas
     description: >-
-      Comma-separated species to include from the mechanism, e.g.
-      "CH4, O2, N2, CO2, H2O, OH, H, O". Required for a CEA thermo.inp (which holds
-      thousands of species); optional for a native mechanism YAML (defaults to every
-      species in the file, or a subset if listed).
-    visibleIf: {parameter: thermoModel, equals: equilibrium}
-  equilibriumTInit:
-    label: Equilibrium T guess
-    type: float
-    defaultValue: 3000.0
-    unit: K
-    category: Gas
-    min: 1
-    description: Initial temperature guess for the HP-equilibrium (burnt) solve.
-    visibleIf: {parameter: thermoModel, equals: equilibrium}
-  frozenTInit:
-    label: Frozen T guess
-    type: float
-    defaultValue: 300.0
-    unit: K
-    category: Gas
-    min: 1
-    description: Initial temperature guess for the frozen (unburnt) solve.
+      Species to model, from the built-in NASA Glenn / CEA database. Leave "auto"
+      (the default) to derive the product slate automatically from the feed
+      compositions -- every species reachable from the fed-in elements, trimmed to
+      those that are non-trace at equilibrium. Or give an explicit comma-separated
+      list, e.g. "CH4, O2, N2, CO2, H2O, OH, H, O". Condensed feeds (e.g. a liquid
+      fuel like "Jet-A(L)") are allowed in the composition and contribute their
+      enthalpy; equilibrium products are gas-phase.
     visibleIf: {parameter: thermoModel, equals: equilibrium}
   referencePressure:
     label: Reference pressure
