@@ -144,11 +144,15 @@ edges:
         category: Reacting
         description: >-
           Per-edge thermochemistry closure for the reacting (equilibrium) model.
-          "Auto" lets the solver decide -- frozen (unburnt) upstream of an
-          Equilibrium Flame, chemical equilibrium (burnt) downstream (and
-          equilibrium everywhere if the network has no flame). "Frozen" pins the
-          unburnt feed composition on this edge; "Equilibrium" solves chemical
-          equilibrium on this edge. Ignored by the perfect-gas model.
+          "Auto" (recommended) lets the solver label each edge -- frozen (unburnt)
+          upstream of an Equilibrium Flame, chemical equilibrium (burnt) downstream
+          (and equilibrium everywhere if the network has no flame). It tracks the
+          burnt state along the actual flow, so it is robust to which way the flame
+          edges happen to be drawn. "Frozen" pins the unburnt feed composition on
+          this edge; "Equilibrium" solves chemical equilibrium on this edge --
+          setting either on any edge switches the whole network to this manual
+          per-edge closure, which does expect the flame edges drawn in the flow
+          direction. Ignored by the perfect-gas model.
         visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
         options:
           - {value: auto, label: Auto}
@@ -877,8 +881,9 @@ nodes:
     # Compact reacting flame: frozen (unburnt) inflow -> chemical-equilibrium
     # products (conserves mass, static pressure, total enthalpy and the elemental
     # composition). For the equilibrium thermo model. Both edges must share one
-    # area. The upstream edge is the "frozen" closure and the downstream edge
-    # "equilibrium" -- the default "Auto" edge closure sets this automatically.
+    # area. The inflow side is the "frozen" closure and the outflow side
+    # "equilibrium" -- the default "Auto" edge closure sets this automatically from
+    # the flow direction, so the flame edges may be drawn either way round.
     # No numeric parameters: the temperature rise emerges from the equilibrium
     # solve at the shared (composition, enthalpy, pressure).
 
