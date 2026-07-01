@@ -181,12 +181,15 @@
 }
 
 .port-icon {
-  border: 1px solid var(--color-surface);
   position: relative;
   opacity: 1;
   font-size: var(--port-icon-size);
   color: var(--color-accent);
-  background: var(--color-surface);
+  /* No boxy fill: a tight halo (matching the node surface) hugs the glyph so it
+     stays legible over the node border and connected edges without a large
+     white square notching into the element. */
+  background: transparent;
+  filter: drop-shadow(0 0 1px var(--color-surface)) drop-shadow(0 0 1px var(--color-surface));
   z-index: 3;
 }
 
