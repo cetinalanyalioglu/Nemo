@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useLayoutEffect, memo } from 'react';
 import { Handle, useReactFlow, useUpdateNodeInternals, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
-import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
+import { IoChevronForward } from 'react-icons/io5';
 import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
 import { useDataStore, useElementDataView, formatDataValue } from '../../store/dataStore';
@@ -9,8 +9,15 @@ import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
-import { computePortLayout } from '../../utils/ports';
-import type { ParameterChangeHandler, ElementInfoEntry, NodePorts } from '../../types/flow';
+import { computePortLayout, groupPortsBySide } from '../../utils/ports';
+import type { PlacedPort } from '../../utils/ports';
+import type {
+  ParameterChangeHandler,
+  ElementInfoEntry,
+  NodePorts,
+  PortPlacements,
+  PortSide,
+} from '../../types/flow';
 
 type ResizeSession = {
   startX?: number;
@@ -77,7 +84,26 @@ export const baseElementInfo: ElementInfoEntry = {
   },
 };
 
-const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
+/** Maps a port's presentational side to the React Flow handle position. */
+const SIDE_POSITION: Record<PortSide, Position> = {
+  left: Position.Left,
+  right: Position.Right,
+  top: Position.Top,
+  bottom: Position.Bottom,
+};
+
+/** Sides offered as drop targets while a port is in move-mode. */
+const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
+
+/** Arrow key → destination edge, so a moving port can be sent with the keyboard. */
+const ARROW_KEY_SIDE: Record<string, PortSide> = {
+  ArrowUp: 'top',
+  ArrowDown: 'bottom',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+};
+
+const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // Per-node selectors: re-render when this node's state, editing state, or
   // incident edges change — not on unrelated edge updates or node drags.
   const nodeState = useGraphStore((s) => s.nodeStates[id]);
@@ -97,6 +123,14 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
   const contextOnKeyDown = useGraphStore((s) => s.onKeyDown);
   const contextFinishEditing = useGraphStore((s) => s.finishEditing);
   const recordHistory = useGraphStore((s) => s.recordHistory);
+  const setPortPlacement = useGraphStore((s) => s.setPortPlacement);
+  const setActivePort = useGraphStore((s) => s.setActivePort);
+  // The suffix of this node's port currently in move-mode, or null. A primitive
+  // selector so a change to the active port only re-renders the two nodes it
+  // moves between, not the whole canvas.
+  const activePortSuffix = useGraphStore((s) =>
+    s.activePort && s.activePort.nodeId === id ? s.activePort.port : null
+  );
   const { getNode, getZoom } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
@@ -137,6 +171,57 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
       nodeState?.parameters
     );
   }, [config, nodeState]);
+
+  // Per-port edge overrides live in the node's UI data. Defaults (targets left,
+  // sources right) apply to any port without an entry, so this is undefined for
+  // untouched nodes and rendering matches the pre-placement behavior exactly.
+  const portPlacements = (data as { portPlacements?: PortPlacements } | undefined)?.portPlacements;
+
+  // Buckets every port onto the edge it renders on, preserving port numbering.
+  const portBuckets = useMemo(
+    () => groupPortsBySide(calculatedPorts, portPlacements),
+    [calculatedPorts, portPlacements]
+  );
+
+  // Moving a port changes which side its handle sits on, so React Flow must
+  // re-measure the node's handle geometry for edges to re-route to the new edge.
+  const placementSignature = useMemo(() => JSON.stringify(portPlacements ?? {}), [portPlacements]);
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [placementSignature, id, updateNodeInternals]);
+
+  // The edge the port in move-mode currently sits on (null when nothing is
+  // active), so its own ghost target can be shown as the current, inert one.
+  const activePortSide = useMemo<PortSide | null>(() => {
+    if (activePortSuffix == null) return null;
+    return (
+      ALL_SIDES.find((side) => portBuckets[side].some((p) => p.suffix === activePortSuffix)) ?? null
+    );
+  }, [activePortSuffix, portBuckets]);
+
+  // While a port is in move-mode, arrow keys send it to an edge and Escape
+  // cancels. Capture phase + stopPropagation so React Flow doesn't also nudge
+  // the selected node on the same key press.
+  useEffect(() => {
+    if (activePortSuffix == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setActivePort(null);
+        return;
+      }
+      const side = ARROW_KEY_SIDE[e.key];
+      if (side) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPortPlacement(id, activePortSuffix, side);
+        setActivePort(null);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [activePortSuffix, id, setPortPlacement, setActivePort]);
 
   // When a dynamic-port count shrinks, prune any edges connected to ports that
   // no longer exist. Handle ids are positional, so no renumbering is required.
@@ -220,18 +305,15 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     return {};
   }, [nodeState]);
 
-  const portSetup = useMemo(() => {
-    const targetPorts = Array.isArray(calculatedPorts.target) ? calculatedPorts.target : [];
-    const sourcePorts = Array.isArray(calculatedPorts.source) ? calculatedPorts.source : [];
-    return {
-      targetPorts,
-      sourcePorts,
-      hasLeftPort: targetPorts.length > 0,
-      hasRightPort: sourcePorts.length > 0,
-    };
-  }, [calculatedPorts]);
-
-  const { targetPorts, sourcePorts, hasLeftPort, hasRightPort } = portSetup;
+  const { hasLeftPort, hasRightPort, hasTopPort, hasBottomPort } = useMemo(
+    () => ({
+      hasLeftPort: portBuckets.left.length > 0,
+      hasRightPort: portBuckets.right.length > 0,
+      hasTopPort: portBuckets.top.length > 0,
+      hasBottomPort: portBuckets.bottom.length > 0,
+    }),
+    [portBuckets]
+  );
 
   const nodeClasses = [
     'custom-node',
@@ -240,6 +322,9 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     isHighlighted ? 'custom-node-issue' : '',
     hasLeftPort ? 'has-left-port' : '',
     hasRightPort ? 'has-right-port' : '',
+    hasTopPort ? 'has-top-port' : '',
+    hasBottomPort ? 'has-bottom-port' : '',
+    activePortSuffix != null ? 'custom-node--port-move' : '',
     isResizing ? 'resizing' : '',
   ].join(' ');
 
@@ -357,38 +442,64 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
     });
   };
 
-  const renderTargetPorts = useMemo(() => {
-    return targetPorts.map((portId) => (
-      <div key={portId} className="port-wrapper port-wrapper-left port-wrapper-target">
-        <IoChevronForward className="port-icon port-icon-target" />
-        <span className="port-index">{portId}</span>
+  // Renders one port. The React Flow handle `type` is fixed by the port's
+  // direction (its physics role), while `position` follows its presentational
+  // side — the two are deliberately decoupled. The handle id keeps the port's
+  // positional number so connectivity survives any re-placement. Clicking the
+  // chip (not the handle dot, which still drags out edges) toggles move-mode;
+  // `nodrag` keeps that click from dragging the whole node.
+  const renderPort = (port: PlacedPort) => {
+    const isActive = activePortSuffix === port.suffix;
+    return (
+      <div
+        key={port.suffix}
+        className={`port-wrapper nodrag port-side-${port.side} port-dir-${port.direction}${
+          isActive ? ' port-wrapper--active' : ''
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setActivePort(isActive ? null : { nodeId: id, port: port.suffix });
+        }}
+      >
+        <IoChevronForward className="port-icon" />
+        <span className="port-index">{port.suffix}</span>
         <Handle
-          type="target"
-          position={Position.Left}
-          id={`${id}-port-${portId}`}
-          className="react-flow__handle custom-handle-target"
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className={`react-flow__handle custom-handle custom-handle-${port.side}`}
         />
       </div>
-    ));
-  }, [targetPorts, id]);
+    );
+  };
 
-  const renderSourcePorts = useMemo(() => {
-    return sourcePorts.map((portId, idx) => {
-      const portIndex = targetPorts.length + idx;
-      return (
-        <div key={portId} className="port-wrapper port-wrapper-right port-wrapper-source">
-          <span className="port-index">{portIndex}</span>
-          <IoChevronBack className="port-icon port-icon-source" />
-          <Handle
-            type="source"
-            position={Position.Right}
-            id={`${id}-port-${portIndex}`}
-            className="react-flow__handle custom-handle-source"
-          />
-        </div>
-      );
-    });
-  }, [sourcePorts, targetPorts.length, id]);
+  // The four drop targets shown around the node while a port is in move-mode.
+  const renderGhostTargets = () => {
+    if (activePortSuffix == null) return null;
+    return (
+      <div className="port-ghost-layer">
+        {ALL_SIDES.map((side) => {
+          const isCurrent = side === activePortSide;
+          return (
+            <button
+              key={side}
+              type="button"
+              disabled={isCurrent}
+              className={`port-ghost port-ghost-${side}${isCurrent ? ' port-ghost--current' : ''}`}
+              title={`Move port ${activePortSuffix} to ${side}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPortPlacement(id, activePortSuffix, side);
+                setActivePort(null);
+              }}
+            >
+              <IoChevronForward className={`port-ghost-icon port-ghost-icon-${side}`} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (isResizing) {
@@ -477,7 +588,14 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
           {formatDataValue(dataView.value, precision, notation, dataView.unit)}
         </span>
       )}
-      <div className="custom-port-container custom-port-left">{renderTargetPorts}</div>
+      {hasTopPort && (
+        <div className="custom-port-container custom-port-top">
+          {portBuckets.top.map(renderPort)}
+        </div>
+      )}
+      <div className="custom-port-container custom-port-left">
+        {portBuckets.left.map(renderPort)}
+      </div>
 
       <div className="middle-section">
         {TypeIcon && <TypeIcon className="node-type-icon" />}
@@ -505,7 +623,16 @@ const GenericNode = ({ id, selected, type, data: _data }: NodeProps) => {
         </div>
       </div>
 
-      <div className="custom-port-container custom-port-right">{renderSourcePorts}</div>
+      <div className="custom-port-container custom-port-right">
+        {portBuckets.right.map(renderPort)}
+      </div>
+      {hasBottomPort && (
+        <div className="custom-port-container custom-port-bottom">
+          {portBuckets.bottom.map(renderPort)}
+        </div>
+      )}
+
+      {renderGhostTargets()}
 
       {selected && (
         <div

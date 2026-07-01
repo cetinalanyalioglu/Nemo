@@ -47,6 +47,7 @@ const Canvas = () => {
   const deleteEdge = useGraphStore((s) => s.deleteEdge);
   const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
   const setSelectedEdgeId = useGraphStore((s) => s.setSelectedEdgeId);
+  const setActivePort = useGraphStore((s) => s.setActivePort);
   const isValidConnection = useGraphStore((s) => s.isValidConnection);
   const addCustomEdge = useGraphStore((s) => s.addCustomEdge);
   const recordHistory = useGraphStore((s) => s.recordHistory);
@@ -129,7 +130,8 @@ const Canvas = () => {
   const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
-  }, [setSelectedNodeId, setSelectedEdgeId]);
+    setActivePort(null);
+  }, [setSelectedNodeId, setSelectedEdgeId, setActivePort]);
 
   // Record a snapshot before a drag so the move can be undone as a single step.
   const onNodeDragStart = useCallback(() => {
@@ -205,6 +207,7 @@ const Canvas = () => {
         onNodeDragStart={onNodeDragStart}
         onPaneClick={handlePaneClick}
         onInit={onInit}
+        connectOnClick={false}
         minZoom={0.5}
         maxZoom={4}
         defaultViewport={DEFAULT_VIEWPORT}
