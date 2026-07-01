@@ -81,6 +81,67 @@ describe('graphStore logging', () => {
     });
   });
 
+  describe('setNodeRotation', () => {
+    const seedNode = (data: Record<string, unknown> = {}) => {
+      useGraphStore.setState({
+        nodes: [{ id: 'n1', type: 'pump', position: { x: 0, y: 0 }, data }],
+        past: [],
+        future: [],
+      });
+    };
+
+    it('stores the rotation in node.data (the UI section)', () => {
+      seedNode();
+      useGraphStore.getState().setNodeRotation('n1', 90);
+      expect(useGraphStore.getState().nodes[0].data?.rotation).toBe(90);
+    });
+
+    it('normalizes the angle into [0, 360)', () => {
+      seedNode();
+      useGraphStore.getState().setNodeRotation('n1', -90);
+      expect(useGraphStore.getState().nodes[0].data?.rotation).toBe(270);
+      useGraphStore.getState().setNodeRotation('n1', 405);
+      expect(useGraphStore.getState().nodes[0].data?.rotation).toBe(45);
+    });
+
+    it('is a single undoable step', () => {
+      seedNode();
+      useGraphStore.getState().setNodeRotation('n1', 45);
+      expect(useGraphStore.getState().nodes[0].data?.rotation).toBe(45);
+      useGraphStore.getState().undo();
+      expect(useGraphStore.getState().nodes[0].data?.rotation ?? 0).toBe(0);
+    });
+
+    it('does not record history when recordHistory is false', () => {
+      seedNode();
+      useGraphStore.getState().setNodeRotation('n1', 30, { recordHistory: false });
+      expect(useGraphStore.getState().nodes[0].data?.rotation).toBe(30);
+      expect(useGraphStore.getState().past).toHaveLength(0);
+    });
+
+    it('is a no-op when the angle is unchanged', () => {
+      seedNode({ rotation: 90 });
+      useGraphStore.getState().setNodeRotation('n1', 90);
+      expect(useGraphStore.getState().past).toHaveLength(0);
+    });
+
+    it('preserves other node.data fields (e.g. port placements)', () => {
+      seedNode({ portPlacements: { '0': 'top' } });
+      useGraphStore.getState().setNodeRotation('n1', 90);
+      expect(useGraphStore.getState().nodes[0].data).toMatchObject({
+        rotation: 90,
+        portPlacements: { '0': 'top' },
+      });
+    });
+
+    it('logs an error for a missing node', () => {
+      seedNode();
+      useGraphStore.getState().setNodeRotation('ghost', 90);
+      expect(lastEntry()?.level).toBe('error');
+      expect(lastEntry()?.message).toContain('node "ghost" not found');
+    });
+  });
+
   describe('updateEdgeParameter', () => {
     // The properties panel treats a falsy return as a rejected edit, so this must
     // report success — otherwise committed edge values (e.g. an edge's area) snap

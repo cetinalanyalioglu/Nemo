@@ -10,6 +10,9 @@ type CollapsedGroups = Record<string, boolean>;
 
 export type GridState = { snapToGrid: boolean; size: number };
 
+/** Rotation-snapping preferences for the on-canvas rotate gesture. */
+export type RotationState = { snap: boolean; increment: number };
+
 export type AppearanceState = {
   theme: ThemeId;
   showEdgeBadges: boolean;
@@ -29,6 +32,7 @@ type AppStateSnapshot = {
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   consolePane: { isOpen: boolean; height: number };
   grid: GridState;
+  rotation: RotationState;
   appearance: AppearanceState;
   layout: LayoutState;
 };
@@ -54,6 +58,10 @@ type AppActions = {
     toggleSnap: () => void;
     updateSize: (size: number) => void;
   };
+  rotation: {
+    toggleSnap: () => void;
+    updateIncrement: (increment: number) => void;
+  };
   appearance: {
     setTheme: (theme: ThemeId) => void;
     toggleEdgeBadges: () => void;
@@ -73,6 +81,7 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 const AppearanceContext = createContext<AppearanceState | null>(null);
 const LayoutContext = createContext<LayoutState | null>(null);
 const GridContext = createContext<GridState | null>(null);
+const RotationContext = createContext<RotationState | null>(null);
 
 export const AppStateProvider = ({ children }: { children: React.ReactNode }) => {
   const [viewportState, setViewport] = useState({ zoom: 1 });
@@ -100,6 +109,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     height: CONSOLE_DEFAULT_HEIGHT,
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
+  const [rotationState, setRotation] = useState<RotationState>({ snap: true, increment: 15 });
   const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
     theme: readStoredTheme(),
     showEdgeBadges: true,
@@ -191,6 +201,14 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setGrid((prev) => ({ ...prev, size }));
   }, []);
 
+  const rotationToggleSnap = useCallback(() => {
+    setRotation((prev) => ({ ...prev, snap: !prev.snap }));
+  }, []);
+
+  const rotationUpdateIncrement = useCallback((increment: number) => {
+    setRotation((prev) => ({ ...prev, increment }));
+  }, []);
+
   const appearanceSetTheme = useCallback((theme: ThemeId) => {
     setAppearance((prev) => ({ ...prev, theme }));
   }, []);
@@ -243,6 +261,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         toggleSnap: gridToggleSnap,
         updateSize: gridUpdateSize,
       },
+      rotation: {
+        toggleSnap: rotationToggleSnap,
+        updateIncrement: rotationUpdateIncrement,
+      },
       appearance: {
         setTheme: appearanceSetTheme,
         toggleEdgeBadges: appearanceToggleEdgeBadges,
@@ -268,6 +290,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       consolePaneSetHeight,
       gridToggleSnap,
       gridUpdateSize,
+      rotationToggleSnap,
+      rotationUpdateIncrement,
       appearanceSetTheme,
       appearanceToggleEdgeBadges,
       appearanceToggleShowIndices,
@@ -285,6 +309,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanel: propertiesPanelState,
       consolePane: consolePaneState,
       grid: gridState,
+      rotation: rotationState,
       appearance: appearanceState,
       layout: layoutState,
       actions: appActions,
@@ -295,6 +320,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       propertiesPanelState,
       consolePaneState,
       gridState,
+      rotationState,
       appearanceState,
       layoutState,
       appActions,
@@ -305,7 +331,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     <AppStateContext.Provider value={providerValue}>
       <AppearanceContext.Provider value={appearanceState}>
         <LayoutContext.Provider value={layoutState}>
-          <GridContext.Provider value={gridState}>{children}</GridContext.Provider>
+          <GridContext.Provider value={gridState}>
+            <RotationContext.Provider value={rotationState}>{children}</RotationContext.Provider>
+          </GridContext.Provider>
         </LayoutContext.Provider>
       </AppearanceContext.Provider>
     </AppStateContext.Provider>
@@ -340,6 +368,14 @@ export const useGridState = (): GridState => {
   const context = useContext(GridContext);
   if (!context) {
     throw new Error('useGridState must be used within an AppStateProvider');
+  }
+  return context;
+};
+
+export const useRotationState = (): RotationState => {
+  const context = useContext(RotationContext);
+  if (!context) {
+    throw new Error('useRotationState must be used within an AppStateProvider');
   }
   return context;
 };

@@ -6,7 +6,7 @@ import '../../styles/custom-node.css';
 import { useGraphStore } from '../../store/graphStore';
 import { useDataStore, useElementDataView, formatDataValue } from '../../store/dataStore';
 import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
-import { useAppearanceState, useGridState } from '../../context/AppStateContext';
+import { useAppearanceState, useGridState, useRotationState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
 import { computePortLayout, groupPortsBySide } from '../../utils/ports';
@@ -117,6 +117,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const incidentEdgesSignature = useMemo(() => buildIncidentEdgesSignature(edges, id), [edges, id]);
   const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
   const setNodeDimensions = useGraphStore((s) => s.setNodeDimensions);
+  const setNodeRotation = useGraphStore((s) => s.setNodeRotation);
   const updateEdges = useGraphStore((s) => s.updateEdges);
   const contextStartEditing = useGraphStore((s) => s.startEditing);
   const contextOnChange = useGraphStore((s) => s.onChange);
@@ -135,6 +136,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const updateNodeInternals = useUpdateNodeInternals();
   const { model } = useModel();
   const { snapToGrid, size: gridSize } = useGridState();
+  const { snap: rotationSnap, increment: rotationIncrement } = useRotationState();
   const { showIndices } = useAppearanceState();
 
   // Data visualization: color this node by the active node dataset (keyed on
@@ -176,6 +178,14 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // sources right) apply to any port without an entry, so this is undefined for
   // untouched nodes and rendering matches the pre-placement behavior exactly.
   const portPlacements = (data as { portPlacements?: PortPlacements } | undefined)?.portPlacements;
+
+  // On-canvas rotation is presentation-only and lives in `node.data` (the UI
+  // section), so it round-trips through save/load and history without ever
+  // reaching the solver model.
+  const rotation =
+    typeof (data as { rotation?: unknown } | undefined)?.rotation === 'number'
+      ? (data as { rotation: number }).rotation
+      : 0;
 
   // Buckets every port onto the edge it renders on, preserving port numbering.
   const portBuckets = useMemo(
@@ -291,19 +301,29 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   };
 
   const style = useMemo((): React.CSSProperties => {
-    if (!nodeState?.parameters) return {};
+    // Rotate about the element centre (the default transform-origin), keeping
+    // the node's React Flow position/anchor unchanged.
+    const base: React.CSSProperties = rotation ? { transform: `rotate(${rotation}deg)` } : {};
+    if (!nodeState?.parameters) return base;
     const width = nodeState.parameters.width;
     const height = nodeState.parameters.height;
 
     if (width || height) {
       return {
+        ...base,
         ...(width ? { width: `${width}px` } : {}),
         ...(height ? { height: `${height}px` } : {}),
         boxSizing: 'content-box',
       };
     }
-    return {};
-  }, [nodeState]);
+    return base;
+  }, [nodeState, rotation]);
+
+  // Rotation changes where the handles sit, so React Flow must re-measure this
+  // node's handle geometry for incident edges to re-route to the rotated ports.
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [rotation, id, updateNodeInternals]);
 
   const { hasLeftPort, hasRightPort, hasTopPort, hasBottomPort } = useMemo(
     () => ({
@@ -364,8 +384,17 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         hasRecorded = true;
       }
 
-      const deltaX = eMove.clientX - r.startX;
-      const deltaY = eMove.clientY - r.startY;
+      const screenDx = eMove.clientX - r.startX;
+      const screenDy = eMove.clientY - r.startY;
+
+      // Project the screen-space drag onto the node's local (possibly rotated)
+      // axes so the bottom-right grip still grows width/height along the
+      // element's own orientation after it has been rotated.
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const deltaX = screenDx * cos + screenDy * sin;
+      const deltaY = -screenDx * sin + screenDy * cos;
 
       const sw = r.startWidth ?? 0;
       const sh = r.startHeight ?? 0;
@@ -440,6 +469,74 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       updateNodeParameter(id, 'width', undefined, { recordHistory: false });
       updateNodeParameter(id, 'height', undefined, { recordHistory: false });
     });
+  };
+
+  const handleRotateStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const rect = nodeRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Rotation pivots on the node centre, which is invariant under the rotation
+    // itself, so the centre captured here stays valid for the whole gesture.
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const startPointerAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+    const startRotation = rotation;
+
+    // Record the pre-rotation state once, on the first actual movement, so the
+    // whole drag is a single undo step (and a plain click adds nothing).
+    let hasRecorded = false;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
+      const angle = Math.atan2(ev.clientY - cy, ev.clientX - cx);
+      let degrees = startRotation + ((angle - startPointerAngle) * 180) / Math.PI;
+      // The settings pane sets whether angles snap and to what increment; holding
+      // Shift inverts that choice for the duration of the drag.
+      const shouldSnap = rotationSnap !== ev.shiftKey;
+      if (shouldSnap && rotationIncrement > 0) {
+        degrees = Math.round(degrees / rotationIncrement) * rotationIncrement;
+      }
+      setNodeRotation(id, degrees, { recordHistory: false });
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  // Alt-double-clicking the corner grip restores the upright orientation.
+  const resetRotation = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setNodeRotation(id, 0);
+  };
+
+  // The single bottom-right grip drives both gestures: a plain drag resizes,
+  // while holding Alt turns the same drag into a rotate-about-centre. Reset is
+  // symmetric: plain double-click auto-fits the size, Alt double-click uprights.
+  const handleGripPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.altKey) {
+      handleRotateStart(e);
+      return;
+    }
+    handleResizeStart(e);
+  };
+
+  const handleGripDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.altKey) {
+      resetRotation(e);
+      return;
+    }
+    autoResize(e);
   };
 
   // Renders one port. The React Flow handle `type` is fixed by the port's
@@ -637,8 +734,12 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       {selected && (
         <div
           className="resize-handle"
-          onPointerDown={handleResizeStart}
-          onDoubleClick={autoResize}
+          onPointerDown={handleGripPointerDown}
+          onDoubleClick={handleGripDoubleClick}
+          title={
+            'Drag to resize • Alt-drag to rotate (Shift toggles angle snapping)\n' +
+            'Double-click resets size • Alt-double-click resets rotation'
+          }
         />
       )}
     </div>

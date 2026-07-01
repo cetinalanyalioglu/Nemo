@@ -17,6 +17,11 @@ import type { EdgePathStyle } from '../context/AppStateContext';
 
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
+const SETTINGS_ROTATION_GROUP = '__settings_rotation__';
+
+const ROTATION_INCREMENT_MIN = 1;
+const ROTATION_INCREMENT_MAX = 90;
+const ROTATION_INCREMENT_STEP = 5;
 
 const EDGE_PATH_OPTIONS: { value: EdgePathStyle; label: string }[] = [
   { value: 'bezier', label: 'Bezier' },
@@ -29,25 +34,38 @@ const LAYOUT_SEP_MIN = 20;
 const LAYOUT_SEP_MAX = 400;
 const LAYOUT_SEP_STEP = 10;
 
-const clampSep = (value: number) => Math.min(LAYOUT_SEP_MAX, Math.max(LAYOUT_SEP_MIN, value));
-
 type SettingsNumberFieldProps = {
   id: string;
   label: string;
   value: number;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
 };
 
-const SettingsNumberField = ({ id, label, value, onChange }: SettingsNumberFieldProps) => {
+const SettingsNumberField = ({
+  id,
+  label,
+  value,
+  onChange,
+  min = LAYOUT_SEP_MIN,
+  max = LAYOUT_SEP_MAX,
+  step = LAYOUT_SEP_STEP,
+  unit = 'px',
+}: SettingsNumberFieldProps) => {
+  const clamp = (candidate: number) => Math.min(max, Math.max(min, candidate));
+
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const parsed = parseInt(event.target.value, 10);
     if (!isNaN(parsed)) {
-      onChange(clampSep(parsed));
+      onChange(clamp(parsed));
     }
   };
 
-  const increment = () => onChange(clampSep(value + LAYOUT_SEP_STEP));
-  const decrement = () => onChange(clampSep(value - LAYOUT_SEP_STEP));
+  const increment = () => onChange(clamp(value + step));
+  const decrement = () => onChange(clamp(value - step));
 
   return (
     <div className="parameter-row">
@@ -60,9 +78,9 @@ const SettingsNumberField = ({ id, label, value, onChange }: SettingsNumberField
           type="number"
           className="parameter-input"
           value={value}
-          min={LAYOUT_SEP_MIN}
-          max={LAYOUT_SEP_MAX}
-          step={LAYOUT_SEP_STEP}
+          min={min}
+          max={max}
+          step={step}
           onChange={handleInputChange}
         />
         <div className="number-controls">
@@ -83,7 +101,7 @@ const SettingsNumberField = ({ id, label, value, onChange }: SettingsNumberField
             <IoRemove />
           </button>
         </div>
-        <span className="parameter-unit">px</span>
+        <span className="parameter-unit">{unit}</span>
       </div>
     </div>
   );
@@ -147,6 +165,7 @@ const SettingsPane = React.memo(() => {
   const {
     appearance: { theme, showEdgeBadges },
     layout: { edgePathStyle, nodeSep, rankSep, showMinimap },
+    rotation: { snap: rotationSnap, increment: rotationIncrement },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -169,6 +188,11 @@ const SettingsPane = React.memo(() => {
   const handleRankSepChange = useCallback(
     (value: number) => actions.layout.setRankSep(value),
     [actions.layout]
+  );
+
+  const handleRotationIncrementChange = useCallback(
+    (value: number) => actions.rotation.updateIncrement(value),
+    [actions.rotation]
   );
 
   return (
@@ -249,6 +273,39 @@ const SettingsPane = React.memo(() => {
             checked={showMinimap}
             onToggle={actions.layout.toggleMinimap}
           />
+        </div>
+      </div>
+
+      <div
+        className={`parameter-group ${collapsedGroups[SETTINGS_ROTATION_GROUP] ? 'collapsed' : ''}`}
+      >
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_ROTATION_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>ROTATION</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsBooleanField
+            label="Angle snapping"
+            checked={rotationSnap}
+            onToggle={actions.rotation.toggleSnap}
+          />
+          {rotationSnap && (
+            <SettingsNumberField
+              id="rotation-increment-input"
+              label="Snap increment"
+              value={rotationIncrement}
+              onChange={handleRotationIncrementChange}
+              min={ROTATION_INCREMENT_MIN}
+              max={ROTATION_INCREMENT_MAX}
+              step={ROTATION_INCREMENT_STEP}
+              unit="°"
+            />
+          )}
         </div>
       </div>
     </div>

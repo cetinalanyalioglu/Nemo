@@ -143,6 +143,13 @@ export interface GraphStore extends GraphData {
   ) => boolean;
   setNodeDimensions: (nodeId: string, width: number, height: number) => void;
   setPortPlacement: (nodeId: string, portNumber: string, side: PortSide) => void;
+  /**
+   * Sets a node's on-canvas rotation (degrees, normalized to [0, 360)). Purely
+   * presentational: stored in `node.data` (the UI section), never the solver
+   * model. History is recorded by default; pass `{ recordHistory: false }` for
+   * the intermediate ticks of a drag gesture that records once up front.
+   */
+  setNodeRotation: (nodeId: string, degrees: number, options?: { recordHistory?: boolean }) => void;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => boolean;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
@@ -636,6 +643,26 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           placements[portNumber] = side;
           return { ...n, data: { ...(n.data ?? {}), portPlacements: placements } };
         }),
+      }));
+    },
+
+    setNodeRotation: (nodeId, degrees, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      // Normalize into [0, 360) so persisted values stay bounded and 0/360 are
+      // treated as identical (no-op detection below).
+      const normalized = ((degrees % 360) + 360) % 360;
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot set rotation: node "${nodeId}" not found.`);
+        return;
+      }
+      const current = typeof node.data?.rotation === 'number' ? node.data.rotation : 0;
+      if (current === normalized) return;
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...(n.data ?? {}), rotation: normalized } } : n
+        ),
       }));
     },
 
