@@ -363,3 +363,60 @@ describe('graphStore saveToFile verify-on-save', () => {
     );
   });
 });
+
+describe('graphStore port placement', () => {
+  const seedNode = () =>
+    useGraphStore.setState({
+      nodes: [{ id: 'n1', type: 'JunctionStaticP', position: { x: 0, y: 0 }, data: {} }],
+      nodeStates: { n1: { parameters: { label: 'Junction' } } },
+      nodeCounters: { JunctionStaticP: 1 },
+      activePort: null,
+      past: [],
+      future: [],
+      locked: false,
+    });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('stores a placement override in the node UI data', () => {
+    seedNode();
+    useGraphStore.getState().setPortPlacement('n1', '0', 'bottom');
+    expect(useGraphStore.getState().nodes[0].data.portPlacements).toEqual({ '0': 'bottom' });
+  });
+
+  it('records one undo step so a move can be reverted', () => {
+    seedNode();
+    useGraphStore.getState().setPortPlacement('n1', '0', 'bottom');
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.portPlacements ?? {}).toEqual({});
+  });
+
+  it('is a no-op (no history) when the side is unchanged', () => {
+    seedNode();
+    useGraphStore.getState().setPortPlacement('n1', '0', 'bottom');
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().setPortPlacement('n1', '0', 'bottom');
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('is allowed while the canvas is locked (non-topological)', () => {
+    seedNode();
+    useGraphStore.setState({ locked: true });
+    useGraphStore.getState().setPortPlacement('n1', '0', 'top');
+    expect(useGraphStore.getState().nodes[0].data.portPlacements).toEqual({ '0': 'top' });
+  });
+
+  it('clears the active port when its node is deleted', () => {
+    seedNode();
+    useGraphStore.setState({ activePort: { nodeId: 'n1', port: '0' } });
+    useGraphStore.getState().deleteNode('n1');
+    expect(useGraphStore.getState().activePort).toBeNull();
+  });
+});

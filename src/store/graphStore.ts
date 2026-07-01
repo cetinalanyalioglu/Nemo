@@ -19,6 +19,8 @@ import type {
   ParameterChangeHandler,
   ParameterInfo,
   ParameterValues,
+  PortPlacements,
+  PortSide,
   SaveFilePayload,
 } from '../types/flow';
 
@@ -115,6 +117,12 @@ export interface GraphStore extends GraphData {
   setHighlightedNodes: (ids: string[]) => void;
   setHighlightedEdges: (ids: string[]) => void;
 
+  // The port currently in select-then-place "move" mode, or null. Transient UI
+  // state — not part of undo history or save files. Cleared on pane click,
+  // Escape, commit, or when its node is deleted.
+  activePort: { nodeId: string; port: string } | null;
+  setActivePort: (value: { nodeId: string; port: string } | null) => void;
+
   // Case title.
   setTitle: (title: string) => void;
 
@@ -134,6 +142,7 @@ export interface GraphStore extends GraphData {
     options?: { recordHistory?: boolean }
   ) => boolean;
   setNodeDimensions: (nodeId: string, width: number, height: number) => void;
+  setPortPlacement: (nodeId: string, portNumber: string, side: PortSide) => void;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => boolean;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
@@ -381,6 +390,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     title: DEFAULT_CASE_TITLE,
     highlightedNodeIds: [],
     highlightedEdgeIds: [],
+    activePort: null,
     locked: false,
 
     // History
@@ -394,6 +404,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     setHighlightedNodes: (ids) => set({ highlightedNodeIds: ids }),
 
     setHighlightedEdges: (ids) => set({ highlightedEdgeIds: ids }),
+
+    setActivePort: (value) => set({ activePort: value }),
 
     onNodesChange: (changes) => {
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }));
@@ -601,6 +613,32 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       });
     },
 
+    // Moves a port to a different edge of the node. This is presentation-only:
+    // the port keeps its number, direction and handle id, so edges, data-index
+    // mapping and validity are untouched. Stored in the node's UI data (persisted
+    // in the save file's uiAttributes, never the model section). Unlike a
+    // port-count change this is non-topological, so it is allowed while locked.
+    setPortPlacement: (nodeId, portNumber, side) => {
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot place port: node ${nodeId} not found.`);
+        return;
+      }
+      const current = (node.data?.portPlacements ?? {}) as PortPlacements;
+      if (current[portNumber] === side) {
+        return;
+      }
+      get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.id !== nodeId) return n;
+          const placements = { ...((n.data?.portPlacements ?? {}) as PortPlacements) };
+          placements[portNumber] = side;
+          return { ...n, data: { ...(n.data ?? {}), portPlacements: placements } };
+        }),
+      }));
+    },
+
     // Returns true once the value is applied (or already current). Callers — the
     // properties panel in particular — treat a falsy return as a rejected edit,
     // so a void return here made every edge-parameter commit look like a failure.
@@ -754,6 +792,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           nodeCounters: { ...s.nodeCounters, [type]: Math.max(0, (s.nodeCounters[type] || 0) - 1) },
           nodes: s.nodes.filter((n) => n.id !== nodeId),
           selectedNodeId: s.selectedNodeId === nodeId ? null : s.selectedNodeId,
+          activePort: s.activePort?.nodeId === nodeId ? null : s.activePort,
         };
       });
 
@@ -778,6 +817,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         ),
         selectedNodeId: null,
         selectedEdgeId: null,
+        activePort: null,
         title: DEFAULT_CASE_TITLE,
       }));
       get().clearHistory();

@@ -106,6 +106,18 @@ export interface EdgeInfoEntry {
 /** Ports a node exposes, keyed by direction. */
 export type NodePorts = { target: string[]; source: string[] };
 
+/** Which edge of a node a port renders on. Purely presentational. */
+export type PortSide = 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Per-node override mapping a port's positional number (the handle-id suffix) to
+ * the edge it renders on. Presentation-only: it never changes a port's number,
+ * direction (target/source), handle id, or connectivity — only where the handle
+ * is drawn. Absent entries fall back to the default (targets left, sources
+ * right). Stored in the node's UI data, never in the solver-facing model.
+ */
+export type PortPlacements = Record<string, PortSide>;
+
 /**
  * Describes how the number of ports on one side of a node is derived from a
  * parameter, enabling data-driven dynamic-port elements.

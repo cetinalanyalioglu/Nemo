@@ -1,4 +1,10 @@
-import type { DynamicPortConfig, DynamicPortSide, NodePorts } from '../types/flow';
+import type {
+  DynamicPortConfig,
+  DynamicPortSide,
+  NodePorts,
+  PortPlacements,
+  PortSide,
+} from '../types/flow';
 
 /**
  * Resolves the number of ports for one side of a node. When the side is driven
@@ -82,3 +88,45 @@ export const listPorts = (layout: NodePorts): PortDescriptor[] => [
   ...layout.target.map((port): PortDescriptor => ({ port, side: 'target' })),
   ...layout.source.map((port): PortDescriptor => ({ port, side: 'source' })),
 ];
+
+/** The edge a port renders on when no placement override is set. */
+export const defaultSideForDirection = (direction: 'target' | 'source'): PortSide =>
+  direction === 'target' ? 'left' : 'right';
+
+/** A single port resolved to a rendered position on the node's perimeter. */
+export interface PlacedPort {
+  /** Positional port number = handle-id suffix (`{nodeId}-port-{suffix}`). */
+  suffix: string;
+  /** Connection direction — drives the React Flow handle `type`, never the side. */
+  direction: 'target' | 'source';
+  /** Which edge this port renders on. */
+  side: PortSide;
+}
+
+/** Ports bucketed by the edge they render on, in ascending port-number order. */
+export type SideBuckets = Record<PortSide, PlacedPort[]>;
+
+/**
+ * Buckets a node's ports by the edge they render on. Port numbering is preserved
+ * exactly — targets keep their positional suffix, sources are numbered
+ * `targetCount + idx` — so handle ids, connectivity and data-index mapping are
+ * untouched; `placements` only redirects where each handle is drawn. Ports keep
+ * ascending numeric order within a bucket.
+ */
+export const groupPortsBySide = (
+  layout: NodePorts,
+  placements: PortPlacements | undefined
+): SideBuckets => {
+  const buckets: SideBuckets = { left: [], right: [], top: [], bottom: [] };
+  const targetCount = layout.target.length;
+
+  const place = (suffix: string, direction: 'target' | 'source') => {
+    const side = placements?.[suffix] ?? defaultSideForDirection(direction);
+    buckets[side].push({ suffix, direction, side });
+  };
+
+  layout.target.forEach((portId) => place(portId, 'target'));
+  layout.source.forEach((_portId, idx) => place(String(targetCount + idx), 'source'));
+
+  return buckets;
+};

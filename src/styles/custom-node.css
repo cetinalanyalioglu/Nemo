@@ -108,6 +108,50 @@
   margin-left: calc(-0.5 * var(--port-icon-size));
 }
 
+/* Top/bottom rails are absolutely-positioned strips straddling the node's top
+   and bottom edges, distributing their ports horizontally (mirroring how the
+   left/right rails distribute vertically). They overlay the node body, so the
+   container ignores pointer events and each port re-enables them — clicks that
+   land between ports fall through to the node. */
+.custom-port-container.custom-port-top,
+.custom-port-container.custom-port-bottom {
+  outline: calc(var(--debug) * 1px) solid red;
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0 var(--port-gap);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: var(--port-gap);
+  pointer-events: none;
+}
+
+.custom-port-container.custom-port-top {
+  top: 0;
+  transform: translateY(-50%);
+}
+
+.custom-port-container.custom-port-bottom {
+  bottom: 0;
+  transform: translateY(50%);
+}
+
+.custom-port-top .port-wrapper,
+.custom-port-bottom .port-wrapper {
+  pointer-events: auto;
+}
+
+/* Reserve room so top/bottom ports don't overlap the node's label/icon. */
+.custom-node.has-top-port .middle-section {
+  padding-top: calc(var(--content-vertical-padding) + var(--port-icon-size) / 2);
+}
+
+.custom-node.has-bottom-port .middle-section {
+  padding-bottom: calc(var(--content-vertical-padding) + var(--port-icon-size) / 2);
+}
+
 .port-wrapper {
   outline: calc(var(--debug) * 1px) solid blue;
   display: flex;
@@ -115,6 +159,25 @@
   align-items: center;
   position: relative;
   box-sizing: content-box;
+}
+
+/* The chevron sits on the outer (edge) side, the index toward the node body.
+   Flipping the flex direction per side keeps that arrangement on every edge
+   without changing the DOM order (icon first, then index). */
+.port-wrapper.port-side-left {
+  flex-direction: row;
+}
+
+.port-wrapper.port-side-right {
+  flex-direction: row-reverse;
+}
+
+.port-wrapper.port-side-top {
+  flex-direction: column;
+}
+
+.port-wrapper.port-side-bottom {
+  flex-direction: column-reverse;
 }
 
 .port-icon {
@@ -125,7 +188,6 @@
   color: var(--color-accent);
   background: var(--color-surface);
   z-index: 3;
-  top: 50%;
 }
 
 .port-wrapper:hover .port-icon {
@@ -246,30 +308,185 @@
   z-index: 100;
 }
 
-.react-flow__handle.custom-handle-source {
+/* The (invisible) handle hit-area sits over the chevron on the port's own edge.
+   Position follows the side, not the direction, so a source moved to the top is
+   still hit-tested at the top. */
+.react-flow__handle.custom-handle {
   width: var(--port-icon-size);
   height: var(--port-icon-size);
-  right: 0;
 }
 
-.react-flow__handle.custom-handle-target {
-  width: var(--port-icon-size);
-  height: var(--port-icon-size);
+.react-flow__handle.custom-handle-left {
   left: 0;
 }
 
-.custom-port-left .port-icon-source {
-  transform: translateY(-50%) rotate(180deg);
+.react-flow__handle.custom-handle-right {
+  right: 0;
 }
 
-.custom-port-left .port-icon-target {
-  transform: translateY(-50%) rotate(0deg);
+.react-flow__handle.custom-handle-top {
+  top: 0;
 }
 
-.custom-port-right .port-icon-source {
-  transform: translateY(-50%) rotate(180deg);
+.react-flow__handle.custom-handle-bottom {
+  bottom: 0;
 }
 
-.custom-port-right .port-icon-target {
-  transform: translateY(-50%) rotate(0deg);
+/* Chevron direction encodes flow relative to the node: an input (target) points
+   INTO the body, an output (source) points AWAY from it. With the base icon
+   pointing right, that resolves to a rotation per (side, direction) — and for
+   the default left-input/right-output layout both come out pointing right, so
+   the familiar left-to-right look is preserved. */
+.port-side-left.port-dir-target .port-icon {
+  transform: rotate(0deg);
+}
+
+.port-side-left.port-dir-source .port-icon {
+  transform: rotate(180deg);
+}
+
+.port-side-right.port-dir-target .port-icon {
+  transform: rotate(180deg);
+}
+
+.port-side-right.port-dir-source .port-icon {
+  transform: rotate(0deg);
+}
+
+.port-side-top.port-dir-target .port-icon {
+  transform: rotate(90deg);
+}
+
+.port-side-top.port-dir-source .port-icon {
+  transform: rotate(-90deg);
+}
+
+.port-side-bottom.port-dir-target .port-icon {
+  transform: rotate(-90deg);
+}
+
+.port-side-bottom.port-dir-source .port-icon {
+  transform: rotate(90deg);
+}
+
+/* ---- Select-then-place: moving a port to another edge ---- */
+
+/* The chip reads as clickable; clicking it toggles the port into move-mode. */
+.port-wrapper {
+  cursor: pointer;
+}
+
+/* The port currently in move-mode: invert its chevron so it stands out. */
+.port-wrapper--active .port-icon {
+  color: var(--color-surface);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.port-wrapper--active .port-index {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+/* Ring the node while one of its ports is being moved. */
+.custom-node--port-move {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: 4px;
+}
+
+/* Four drop targets floated just outside the node's edges. The layer itself is
+   inert; only the buttons take pointer events. */
+.port-ghost-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.port-ghost {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px dashed var(--color-accent);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.85;
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.port-ghost:hover {
+  background: var(--color-accent);
+  color: var(--color-surface);
+  border-style: solid;
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* The edge the port already sits on — shown for orientation, not actionable. */
+.port-ghost--current {
+  opacity: 0.3;
+  cursor: default;
+  border-style: dotted;
+}
+
+.port-ghost-icon {
+  font-size: 12px;
+}
+
+/* Positioned with margins (not transform) so the hover `scale` is free to use
+   the transform channel. -44px = -11 (half the ghost) - 33 (float clear of the
+   edge). */
+.port-ghost-top {
+  top: 0;
+  left: 50%;
+  margin-left: -11px;
+  margin-top: -44px;
+}
+
+.port-ghost-bottom {
+  bottom: 0;
+  left: 50%;
+  margin-left: -11px;
+  margin-bottom: -44px;
+}
+
+.port-ghost-left {
+  left: 0;
+  top: 50%;
+  margin-top: -11px;
+  margin-left: -44px;
+}
+
+.port-ghost-right {
+  right: 0;
+  top: 50%;
+  margin-top: -11px;
+  margin-right: -44px;
+}
+
+/* Ghost arrows point outward, toward the edge they send the port to. */
+.port-ghost-icon-top {
+  transform: rotate(-90deg);
+}
+
+.port-ghost-icon-bottom {
+  transform: rotate(90deg);
+}
+
+.port-ghost-icon-left {
+  transform: rotate(180deg);
+}
+
+.port-ghost-icon-right {
+  transform: rotate(0deg);
 }
