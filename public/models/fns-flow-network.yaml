@@ -177,8 +177,13 @@ nodes:
         defaultValue: 1.0
         unit: kg/s
         category: Parameters
+        min: 0
         step: 0.1
-        description: Mass flow delivered into the network (negative = suction)
+        description: >-
+          Mass flow delivered into the network. This is an inflow boundary, so it must be
+          non-negative (0 is a closed/quiescent inlet). Suction/reverse flow is not
+          modelled here -- use a Pressure Outlet (which handles ingestion/backflow) for a
+          boundary that may reverse.
       totalTemperature:
         label: Total temperature
         type: float
@@ -207,6 +212,18 @@ nodes:
         options:
           - {value: mole, label: Mole fractions}
           - {value: mass, label: Mass fractions}
+      marker:
+        label: Feed is burnt gas
+        type: boolean
+        defaultValue: false
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Whether the supplied stream is already-burnt gas rather than fresh reactant. Off
+          (default) feeds fresh reactant; On feeds fully-burnt gas (e.g. exhaust-gas
+          recirculation as a feed), which forces the chemical-equilibrium closure
+          downstream. Only used on an all-"Auto" (marker-gated) reacting network; ignored by
+          the perfect-gas model.
       boundaryType:
         label: Acoustic boundary
         type: select
@@ -293,6 +310,18 @@ nodes:
         options:
           - {value: mole, label: Mole fractions}
           - {value: mass, label: Mass fractions}
+      marker:
+        label: Feed is burnt gas
+        type: boolean
+        defaultValue: false
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Whether the supplied stream is already-burnt gas rather than fresh reactant. Off
+          (default) feeds fresh reactant; On feeds fully-burnt gas (e.g. exhaust-gas
+          recirculation as a feed), which forces the chemical-equilibrium closure
+          downstream. Only used on an all-"Auto" (marker-gated) reacting network; ignored by
+          the perfect-gas model.
       boundaryType:
         label: Acoustic boundary
         type: select
@@ -379,6 +408,17 @@ nodes:
         options:
           - {value: mole, label: Mole fractions}
           - {value: mass, label: Mass fractions}
+      marker:
+        label: Backflow is burnt gas
+        type: boolean
+        defaultValue: false
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Whether the backflow drawn in on ingestion is already-burnt gas rather than fresh
+          reactant. Off (default) is fresh reactant; On is fully-burnt gas. Used only when
+          the flow reverses at this outlet, on an all-"Auto" (marker-gated) reacting
+          network; ignored by the perfect-gas model.
       boundaryType:
         label: Acoustic boundary
         type: select
@@ -840,6 +880,55 @@ nodes:
           Duct length.  Lossless constant-area passage for the mean flow; the
           length is read by the acoustic analysis for wave propagation.
 
+  Pipe:
+    displayName: Pipe
+    category: Two port elements
+    icon: BsBezier2
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: Pipe
+      length:
+        label: Length
+        type: float
+        defaultValue: 1.0
+        unit: m
+        category: Parameters
+        min: 0.000001
+        step: 0.01
+        description: >-
+          Pipe length L. Sets both the Darcy-Weisbach friction (K = f L / D on the mean
+          flow) and the acoustic propagation length (waves propagate like a duct).
+      diameter:
+        label: Hydraulic diameter
+        type: float
+        defaultValue: 0.05
+        unit: m
+        category: Parameters
+        min: 0.000001
+        step: 0.001
+        description: >-
+          Hydraulic diameter D used in the friction term K = f L / D. For a circular pipe
+          the flow area on the edges is pi D^2 / 4; a non-circular passage passes its
+          hydraulic diameter and matching edge area.
+      frictionFactor:
+        label: Darcy friction factor
+        type: float
+        defaultValue: 0.02
+        category: Parameters
+        min: 0
+        step: 0.001
+        description: >-
+          Darcy friction factor f (e.g. 64/Re laminar, Haaland/Colebrook turbulent). Drops
+          total pressure by K = f L / D dynamic heads, with the drop reversing with the flow.
+    # Length-bearing pipe: Darcy-Weisbach wall friction on the mean flow plus the duct
+    # acoustic phase (DUCT + LOSS unification, Greyvenstein-Laurie). Constant area -- both
+    # edges must share one flow area. Exact in the low-Mach limit; for a long/fast pipe that
+    # develops Fanno gradients toward choke, chain several (a distributed pipe, set in Python).
+
   HeatReleaseFlame:
     displayName: Heat Release Flame
     category: Two port elements
@@ -944,6 +1033,17 @@ nodes:
         options:
           - {value: mole, label: Mole fractions}
           - {value: mass, label: Mass fractions}
+      marker:
+        label: Injectant is burnt gas
+        type: boolean
+        defaultValue: false
+        category: Reacting
+        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        description: >-
+          Whether the injected stream is already-burnt gas rather than fresh reactant. Off
+          (default) injects fresh reactant (the normal case for an injector); On injects
+          fully-burnt gas. Only used on an all-"Auto" (marker-gated) reacting network;
+          ignored by the perfect-gas model.
     # Inline mass-injection element (a fuel injector when reacting). Conserves
     # mass / momentum / energy with the injection source terms; performs no
     # reaction itself -- ignition is the flame's job. Constant-area (both edges
@@ -998,6 +1098,8 @@ nodes:
           C = V/(rho c^2) on its common pressure (storage block M) -- a junction with a
           volume is a cavity with through-flow. Default 0 = no compliance. Inert in the mean flow.
     # Common static pressure on all ports; inflow enthalpies mix mass-weighted.
+    # A branch neck inertance is modeled as an explicit neck Duct off the manifold (as in a
+    # Helmholtz resonator), not a manifold parameter.
     # Only valid where all port Mach numbers are low -- use LosslessSplitter for
     # plenums feeding fast branches.
 
