@@ -632,8 +632,11 @@
   pointer-events: auto;
 }
 
-/* Caption text is small, gray and light — subordinate to the element itself. */
-.circular-node-caption .custom-node-label {
+/* Caption text is small, gray and light — subordinate to the element itself.
+   The edit input matches the label exactly so double-clicking to rename doesn't
+   jump to the larger/bolder/darker default input style. */
+.circular-node-caption .custom-node-label,
+.circular-node-caption .custom-node-input {
   font-size: 10px;
   font-weight: 400;
   color: var(--color-text-secondary);

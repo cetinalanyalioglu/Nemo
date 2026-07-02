@@ -367,6 +367,8 @@ nodes:
     displayName: Pressure Outlet
     category: Boundary elements
     icon: BsArrowUpCircle
+    shape: circle
+    glyph: p
     dynamicPorts: false
     ports:
       target: ['0']

@@ -1,5 +1,6 @@
 import type { GlyphAsset } from './types';
 import { mdotGlyph } from './mdot';
+import { pGlyph } from './p';
 
 /**
  * Registry of symbol glyphs referenceable from a model's node definition via the
@@ -8,6 +9,7 @@ import { mdotGlyph } from './mdot';
  */
 const glyphRegistry: Record<string, GlyphAsset> = {
   mdot: mdotGlyph,
+  p: pGlyph,
 };
 
 /** Resolves a glyph key to its asset, or undefined when missing/unregistered. */

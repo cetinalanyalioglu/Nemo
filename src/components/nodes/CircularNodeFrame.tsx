@@ -21,10 +21,10 @@ const C = FRAME_BOX / 2;
 /** Outer radius of the border. Inset from the box edge so the (taller) port
     tips still fit inside the 100×100 box. */
 const R = 41;
-/** Ratios lifted from the reference artwork (relative to the outer radius R). */
-const T = 0.076 * R; // border thickness (t/D = 0.038)
-const BASE = 0.46 * R; // port-triangle base
-const H = 0.22 * R; // port-triangle height
+/** Ratios (relative to the outer radius R), tuned against the reference artwork. */
+const T = 0.085 * R; // border thickness
+const BASE = 0.6 * R; // port-triangle base
+const H = 0.285 * R; // port-triangle height
 const GLYPH_W = 1.08 * R; // glyph ink width
 /** Ring centreline: port bases sit here so the stroke covers them symmetrically. */
 const RC = R - T / 2;
@@ -56,14 +56,23 @@ export const portHandlePoint = (angleDeg: number) => {
   return { xPct: C + R * ux, yPct: C + R * uy };
 };
 
+/** Inner edge of the border stroke — the interior rim. */
+const R_INNER = R - T;
+
 /** Three-vertex `points` string for one port triangle. */
 const trianglePoints = (angleDeg: number, direction: PortDirection): string => {
   const { ux, uy } = outward(angleDeg);
   const px = -uy;
   const py = ux; // tangent
-  const bx = C + RC * ux;
-  const by = C + RC * uy; // base centre on the ring centreline
-  const tipR = direction === 'source' ? RC + H : RC - H;
+  // Base radius by direction. A source (outward) keeps its base on the ring
+  // centreline, so the ring hides it and the tip emerges from the OUTER edge. A
+  // target (inward) drops its base onto the interior rim, so the whole triangle
+  // sits inside the disc pointing in, its base cut by the INNER edge of the
+  // border — the base corners fall just inside the stroke and stay hidden.
+  const baseR = direction === 'source' ? RC : R_INNER;
+  const bx = C + baseR * ux;
+  const by = C + baseR * uy;
+  const tipR = direction === 'source' ? baseR + H : baseR - H;
   const tx = C + tipR * ux;
   const ty = C + tipR * uy;
   const b1x = bx + (BASE / 2) * px;
