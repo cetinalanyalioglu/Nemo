@@ -1,28 +1,9 @@
-import type { ReactNode } from 'react';
-import type { GlyphAsset } from './types';
+import raw from '../../../assets/glyphs/p.svg?raw';
+import { svgGlyph } from './load-glyph';
 
 /**
- * p (pressure) glyph. Derived verbatim from a TeXtext `\bm{p}` export
- * (scratch/glyph_p.svg): the single outline path inside the export's transform
- * chain, recolored to `currentColor`. The glyph fills its viewBox tightly.
- * `opticalCenterY` centres the bowl (the visual mass) rather than the ink box,
- * so the descender hangs below centre instead of dragging the bowl up.
+ * p (pressure) glyph, from a TeXtext `\bm{p}` export normalized to a 100-wide
+ * viewBox (src/assets/glyphs/p.svg). `opticalCenterY` centres the bowl (0.42
+ * down) so the descender hangs below centre.
  */
-const render = (): ReactNode => (
-  <g transform="translate(-14.089429,-14.348699)">
-    <g transform="matrix(0.352778,0,0,0.352778,14.089517,14.348699)">
-      <g fill="currentColor" transform="translate(-148.556,-130.265)">
-        <g transform="translate(148.712,134.765)">
-          <path d="M 0.515625,1.28125 C 0.484375,1.421875 0.46875,1.4375 0.453125,1.453125 0.40625,1.46875 0.296875,1.46875 0.203125,1.46875 c -0.171875,0 -0.359375,0 -0.359375,0.28125 0,0.109375 0.09375,0.1875 0.203125,0.1875 0.28125,0 0.609375,-0.03125 0.90625,-0.03125 0.359375,0 0.734375,0.03125 1.078125,0.03125 0.0625,0 0.25,0 0.25,-0.296875 0,-0.171875 -0.15625,-0.171875 -0.25,-0.171875 -0.140625,0 -0.3125,0 -0.4375,-0.015625 l 0.4375,-1.734375 c 0.140625,0.140625 0.46875,0.359375 1,0.359375 1.734375,0 2.8125,-1.578125 2.8125,-2.9375 C 5.84375,-4.09375 4.921875,-4.5 4.09375,-4.5 3.390625,-4.5 2.875,-4.109375 2.71875,-3.96875 2.328125,-4.5 1.671875,-4.5 1.5625,-4.5 1.203125,-4.5 0.90625,-4.296875 0.703125,-3.9375 0.453125,-3.53125 0.3125,-3 0.3125,-2.953125 c 0,0.140625 0.15625,0.140625 0.25,0.140625 0.109375,0 0.140625,0 0.1875,-0.046875 C 0.78125,-2.875 0.78125,-2.90625 0.84375,-3.15625 c 0.1875,-0.796875 0.421875,-0.984375 0.671875,-0.984375 0.109375,0 0.234375,0.03125 0.234375,0.359375 0,0.15625 -0.03125,0.296875 -0.0625,0.4375 z M 2.8125,-3.5 c 0.28125,-0.34375 0.75,-0.640625 1.234375,-0.640625 0.625,0 0.671875,0.53125 0.671875,0.75 0,0.515625 -0.34375,1.75 -0.5,2.140625 -0.3125,0.71875 -0.796875,0.96875 -1.203125,0.96875 C 2.421875,-0.28125 2.1875,-0.75 2.1875,-0.859375 L 2.203125,-1 Z m 0,0" />
-        </g>
-      </g>
-    </g>
-  </g>
-);
-
-export const pGlyph: GlyphAsset = {
-  viewBox: '0 0 2.116668 2.2710085',
-  aspect: 0.932,
-  opticalCenterY: 0.42,
-  render,
-};
+export const pGlyph = svgGlyph(raw, 0.42);

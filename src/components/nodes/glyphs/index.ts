@@ -1,15 +1,17 @@
 import type { GlyphAsset } from './types';
 import { mdotGlyph } from './mdot';
 import { pGlyph } from './p';
+import { suddenAreaChangeGlyph } from './sudden-area-change';
 
 /**
- * Registry of symbol glyphs referenceable from a model's node definition via the
- * `glyph` field (circular elements only). Add new glyphs here to make them
- * available to models.
+ * Registry of symbol/schematic glyphs referenceable from a model's node
+ * definition via the `glyph` field (framed circle/box elements). Add new glyphs
+ * here to make them available to models.
  */
 const glyphRegistry: Record<string, GlyphAsset> = {
   mdot: mdotGlyph,
   p: pGlyph,
+  'sudden-area-change': suddenAreaChangeGlyph,
 };
 
 /** Resolves a glyph key to its asset, or undefined when missing/unregistered. */

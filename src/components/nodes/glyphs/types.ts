@@ -17,6 +17,11 @@ export interface GlyphAsset {
    * glyph whose ink box is already optically centred.
    */
   opticalCenterY: number;
-  /** Renders the glyph paths in its own viewBox coords, filled `currentColor`. */
-  render: () => ReactNode;
+  /**
+   * Renders the glyph in its own viewBox coords, filled `currentColor`. Glyphs
+   * that carry internal ids (e.g. `<marker>` defs) receive a per-node-instance
+   * `idPrefix` to namespace them so they don't collide across nodes; simple
+   * path glyphs ignore it.
+   */
+  render: (idPrefix?: string) => ReactNode;
 }
