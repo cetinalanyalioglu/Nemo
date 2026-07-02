@@ -788,7 +788,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           <span className="element-index-label port-index">{elementIndexLabel}</span>
         )}
 
-        <CircularNodeFrame glyphKey={config.glyph} ports={framePorts} />
+        <CircularNodeFrame
+          glyphKey={config.glyph}
+          glyphScale={config.glyphScale}
+          ports={framePorts}
+        />
         {radialPorts.map(renderRadialPort)}
 
         <div className="circular-node-caption">

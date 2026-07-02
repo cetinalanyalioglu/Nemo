@@ -162,6 +162,12 @@ export interface NodeConfigEntry {
   shape: NodeShape;
   /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
   glyph?: string;
+  /**
+   * For `circle` shapes: multiplier on the centred glyph's size, so each element
+   * type can size its glyph to look right in the circle (e.g. a tall glyph vs a
+   * wide one). Defaults to 1.
+   */
+  glyphScale?: number;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   /**
@@ -192,6 +198,8 @@ export interface ModelNodeDefinition {
   shape?: NodeShape;
   /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
   glyph?: string;
+  /** For `circle` shapes: multiplier on the centred glyph's size. Defaults to 1. */
+  glyphScale?: number;
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;

@@ -86,15 +86,17 @@ const trianglePoints = (angleDeg: number, direction: PortDirection): string => {
 interface CircularNodeFrameProps {
   /** Glyph registry key drawn at the optical centre (e.g. `mdot`). */
   glyphKey?: string;
+  /** Per-element multiplier on the glyph size (from the model config). Default 1. */
+  glyphScale?: number;
   ports: FramePort[];
 }
 
-const CircularNodeFrame = ({ glyphKey, ports }: CircularNodeFrameProps) => {
+const CircularNodeFrame = ({ glyphKey, glyphScale = 1, ports }: CircularNodeFrameProps) => {
   const glyph = resolveGlyph(glyphKey);
 
   let glyphEl = null;
   if (glyph) {
-    const gw = GLYPH_W;
+    const gw = GLYPH_W * glyphScale;
     const gh = gw / glyph.aspect;
     const gx = C - gw / 2;
     // Align the glyph's optical centre (not its ink-box centre) to the frame centre.
