@@ -5,13 +5,22 @@
   --type-icon-size: 20px;
   --port-icon-size: 16px;
   --content-vertical-padding: 8px;
-  /* Circular elements (mass-flow inlet, pressure outlet, …). The border/glyph
-     ink is bold near-black per the element artwork; the port triangles are
-     orange (distinct from the amber app accent). */
+  /* Circular elements (mass-flow inlet, pressure outlet, …). Border + glyph
+     render in the canvas ink family (a gray in the spirit of `--color-edge`);
+     the interior is the surface. The ink is kept OPAQUE — the border ring is
+     drawn on top of the port triangles to hide their bases, so any alpha would
+     let the orange bleed through and break the seamless clip. Ports are orange
+     (distinct from the amber app accent). */
   --circular-node-size: 72px;
-  --circular-node-fill: #f0f0f0;
-  --circular-node-ink: #141414;
+  --circular-node-fill: var(--color-surface);
+  --circular-node-ink: #5a5a5a;
   --circular-node-port: #f5821f;
+}
+
+/* Dark theme: lift the ink to a light gray that reads on the dark surface,
+   mirroring how `--color-edge` lightens between themes. */
+[data-theme='dark'] {
+  --circular-node-ink: #a6a6ae;
 }
 
 .custom-node {
