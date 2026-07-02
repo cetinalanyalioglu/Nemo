@@ -19,6 +19,7 @@ import type {
   ParameterChangeHandler,
   ParameterInfo,
   ParameterValues,
+  PortAngles,
   PortPlacements,
   PortSide,
   SaveFilePayload,
@@ -150,6 +151,19 @@ export interface GraphStore extends GraphData {
    * the intermediate ticks of a drag gesture that records once up front.
    */
   setNodeRotation: (nodeId: string, degrees: number, options?: { recordHistory?: boolean }) => void;
+  /**
+   * Sets a per-instance manual angle (degrees) for a circular element's perimeter
+   * port, or clears the override when `angle` is undefined. Presentation-only:
+   * stored in `node.data`. History is recorded by default; pass
+   * `{ recordHistory: false }` for the intermediate ticks of a drag that records
+   * once up front.
+   */
+  setPortAngle: (
+    nodeId: string,
+    portNumber: string,
+    angle: number | undefined,
+    options?: { recordHistory?: boolean }
+  ) => void;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => boolean;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
@@ -663,6 +677,36 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         nodes: s.nodes.map((n) =>
           n.id === nodeId ? { ...n, data: { ...(n.data ?? {}), rotation: normalized } } : n
         ),
+      }));
+    },
+
+    setPortAngle: (nodeId, portNumber, angle, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot set port angle: node "${nodeId}" not found.`);
+        return;
+      }
+      const current = (node.data?.portAngles ?? {}) as PortAngles;
+      const normalized = angle == null ? undefined : ((angle % 360) + 360) % 360;
+      // No-op when nothing changes (same angle, or clearing an unset override).
+      if (
+        normalized === undefined ? !(portNumber in current) : current[portNumber] === normalized
+      ) {
+        return;
+      }
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.id !== nodeId) return n;
+          const angles = { ...((n.data?.portAngles ?? {}) as PortAngles) };
+          if (normalized === undefined) {
+            delete angles[portNumber];
+          } else {
+            angles[portNumber] = normalized;
+          }
+          return { ...n, data: { ...(n.data ?? {}), portAngles: angles } };
+        }),
       }));
     },
 

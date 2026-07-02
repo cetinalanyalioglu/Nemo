@@ -9,12 +9,16 @@ import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState, useRotationState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
-import { computePortLayout, groupPortsBySide } from '../../utils/ports';
-import type { PlacedPort } from '../../utils/ports';
+import { computePortLayout, groupPortsBySide, computeRadialPorts } from '../../utils/ports';
+import type { PlacedPort, RadialPort } from '../../utils/ports';
+import CircularNodeFrame, { portHandlePoint } from './CircularNodeFrame';
+import type { FramePort } from './CircularNodeFrame';
 import type {
   ParameterChangeHandler,
   ElementInfoEntry,
   NodePorts,
+  NodeShape,
+  PortAngles,
   PortPlacements,
   PortSide,
 } from '../../types/flow';
@@ -125,6 +129,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const contextFinishEditing = useGraphStore((s) => s.finishEditing);
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const setPortPlacement = useGraphStore((s) => s.setPortPlacement);
+  const setPortAngle = useGraphStore((s) => s.setPortAngle);
   const setActivePort = useGraphStore((s) => s.setActivePort);
   // The suffix of this node's port currently in move-mode, or null. A primitive
   // selector so a change to the active port only re-renders the two nodes it
@@ -192,6 +197,29 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     () => groupPortsBySide(calculatedPorts, portPlacements),
     [calculatedPorts, portPlacements]
   );
+
+  // Frame shape: `rect` keeps the four-edge rails; `circle` draws a bordered disc
+  // with a centred glyph and ports distributed radially on the border.
+  const shape: NodeShape = config?.shape ?? 'rect';
+  const isCircle = shape === 'circle';
+
+  // Per-instance manual port angles (circle only) live in the node's UI data, so
+  // rotating a port around the border round-trips through save/load and history.
+  const portAngles = (data as { portAngles?: PortAngles } | undefined)?.portAngles;
+
+  // Circle ports resolved to outward angles on the border: manual angle wins,
+  // else automatic radial distribution. Only computed for circular frames.
+  const radialPorts = useMemo(
+    () => (isCircle ? computeRadialPorts(calculatedPorts, portAngles) : []),
+    [isCircle, calculatedPorts, portAngles]
+  );
+
+  // Rotating a port to a new angle moves its handle, so React Flow must re-measure
+  // this node's handle geometry for incident edges to re-route.
+  const anglesSignature = useMemo(() => JSON.stringify(portAngles ?? {}), [portAngles]);
+  useEffect(() => {
+    if (isCircle) updateNodeInternals(id);
+  }, [anglesSignature, isCircle, id, updateNodeInternals]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -338,6 +366,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const nodeClasses = [
     'custom-node',
     type,
+    `shape-${shape}`,
     selected ? 'custom-node-selected' : '',
     isHighlighted ? 'custom-node-issue' : '',
     hasLeftPort ? 'has-left-port' : '',
@@ -539,6 +568,75 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     autoResize(e);
   };
 
+  // Alt-drag a circular element's port to move it around the border; Alt-click
+  // (no drag) clears the manual angle, restoring the automatic placement. Runs on
+  // mousedown-capture with a modifier so a plain press still falls through to the
+  // React Flow handle (which starts an edge on `onMouseDown`). Angle snapping
+  // reuses the rotation-snap settings, with Shift inverting the choice.
+  const handlePortAngleMouseDown = (e: React.MouseEvent<HTMLDivElement>, suffix: string) => {
+    if (!e.altKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = nodeRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    let moved = false;
+    let hasRecorded = false;
+
+    const onMove = (ev: MouseEvent) => {
+      moved = true;
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
+      // Math convention: 0° = right, 90° = up; screen y grows down, so negate.
+      let deg = (Math.atan2(-(ev.clientY - cy), ev.clientX - cx) * 180) / Math.PI;
+      const shouldSnap = rotationSnap !== ev.shiftKey;
+      if (shouldSnap && rotationIncrement > 0) {
+        deg = Math.round(deg / rotationIncrement) * rotationIncrement;
+      }
+      setPortAngle(id, suffix, deg, { recordHistory: false });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (!moved) setPortAngle(id, suffix, undefined);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Renders one circular-element port: an absolutely-positioned hit area on the
+  // border (at the port's angle) carrying the invisible React Flow handle. The
+  // visible triangle is drawn by CircularNodeFrame; this only handles connection
+  // and Alt-drag rotation. `position` follows the nearest cardinal so the edge
+  // exit vector stays clean.
+  const renderRadialPort = (port: RadialPort) => {
+    const { xPct, yPct } = portHandlePoint(port.exitAngle);
+    return (
+      <div
+        key={port.suffix}
+        className={`circular-port nodrag port-dir-${port.direction}`}
+        style={{ left: `${xPct}%`, top: `${yPct}%` }}
+        title="Alt-drag to move this port around the border; Alt-click to reset (Shift toggles snapping)"
+        onMouseDownCapture={(e) => handlePortAngleMouseDown(e, port.suffix)}
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle circular-handle"
+        />
+        <span className="port-index">{port.suffix}</span>
+      </div>
+    );
+  };
+
   // Renders one port. The React Flow handle `type` is fixed by the port's
   // direction (its physics role), while `position` follows its presentational
   // side — the two are deliberately decoupled. The handle id keeps the port's
@@ -667,6 +765,70 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const elementIndex = nodeState.parameters.index;
   const elementIndexLabel =
     showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
+
+  // Circular elements render as a single SVG frame (disc + glyph + clipped port
+  // triangles + border) with radial handles overlaid, and the label as a caption
+  // beneath the disc. The four-edge rect layout below is bypassed entirely.
+  if (isCircle) {
+    const framePorts: FramePort[] = radialPorts.map((p) => ({
+      suffix: p.suffix,
+      angleDeg: p.exitAngle,
+      direction: p.direction,
+    }));
+    return (
+      <div className={nodeClasses} ref={nodeRef} style={style}>
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <CircularNodeFrame glyphKey={config.glyph} ports={framePorts} />
+        {radialPorts.map(renderRadialPort)}
+
+        <div className="circular-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
+
+        {selected && (
+          <div
+            className="resize-handle"
+            onPointerDown={handleGripPointerDown}
+            onDoubleClick={handleGripDoubleClick}
+            title={
+              'Drag to resize • Alt-drag to rotate (Shift toggles angle snapping)\n' +
+              'Double-click resets size • Alt-double-click resets rotation'
+            }
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={nodeClasses} ref={nodeRef} style={style}>

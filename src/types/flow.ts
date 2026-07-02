@@ -110,6 +110,21 @@ export type NodePorts = { target: string[]; source: string[] };
 export type PortSide = 'left' | 'right' | 'top' | 'bottom';
 
 /**
+ * Frame an element is drawn in. `rect` is the default boxed node (ports on the
+ * four edges); `circle` is a round frame with a border, a centred glyph, and
+ * ports distributed radially on the border. Purely presentational.
+ */
+export type NodeShape = 'rect' | 'circle';
+
+/**
+ * Per-*instance* manual angular overrides for a circular element's perimeter
+ * ports, in degrees (math convention, 0° = right, 90° = up). Keyed by the port's
+ * positional suffix and stored in the node's UI data, so they round-trip through
+ * save/load and history and take precedence over the automatic distribution.
+ */
+export type PortAngles = Record<string, number>;
+
+/**
  * Per-node override mapping a port's positional number (the handle-id suffix) to
  * the edge it renders on. Presentation-only: it never changes a port's number,
  * direction (target/source), handle id, or connectivity — only where the handle
@@ -143,6 +158,10 @@ export interface NodeConfigEntry {
   icon: IconType;
   displayName: string;
   category: string;
+  /** Frame the element is drawn in. Defaults to `rect`. */
+  shape: NodeShape;
+  /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
+  glyph?: string;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   /**
@@ -169,6 +188,10 @@ export interface ModelNodeDefinition {
   displayName: string;
   category: string;
   icon?: string;
+  /** Frame the element is drawn in (`rect` | `circle`). Defaults to `rect`. */
+  shape?: NodeShape;
+  /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
+  glyph?: string;
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;

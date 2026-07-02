@@ -481,3 +481,51 @@ describe('graphStore port placement', () => {
     expect(useGraphStore.getState().activePort).toBeNull();
   });
 });
+
+describe('graphStore setPortAngle', () => {
+  const seedNode = () =>
+    useGraphStore.setState({
+      nodes: [{ id: 'n1', type: 'MassFlowInlet', position: { x: 0, y: 0 }, data: {} }],
+      nodeStates: { n1: { parameters: { label: 'Inlet' } } },
+      nodeCounters: { MassFlowInlet: 1 },
+      past: [],
+      future: [],
+      locked: false,
+    });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('stores a normalized manual angle in the node UI data', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 450);
+    expect(useGraphStore.getState().nodes[0].data.portAngles).toEqual({ '0': 90 });
+  });
+
+  it('clears the override when the angle is undefined', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    useGraphStore.getState().setPortAngle('n1', '0', undefined);
+    expect(useGraphStore.getState().nodes[0].data.portAngles).toEqual({});
+  });
+
+  it('is a no-op (no history) when the angle is unchanged', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('records one undo step so a rotation can be reverted', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.portAngles ?? {}).toEqual({});
+  });
+});

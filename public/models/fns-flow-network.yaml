@@ -164,6 +164,8 @@ nodes:
     displayName: Mass Flow Inlet
     category: Boundary elements
     icon: BsArrowDownCircle
+    shape: circle
+    glyph: mdot
     dynamicPorts: false
     ports:
       target: []

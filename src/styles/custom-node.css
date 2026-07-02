@@ -5,6 +5,13 @@
   --type-icon-size: 20px;
   --port-icon-size: 16px;
   --content-vertical-padding: 8px;
+  /* Circular elements (mass-flow inlet, pressure outlet, …). The border/glyph
+     ink is bold near-black per the element artwork; the port triangles are
+     orange (distinct from the amber app accent). */
+  --circular-node-size: 72px;
+  --circular-node-fill: #f0f0f0;
+  --circular-node-ink: #141414;
+  --circular-node-port: #f5821f;
 }
 
 .custom-node {
@@ -492,4 +499,135 @@
 
 .port-ghost-icon-right {
   transform: rotate(0deg);
+}
+
+/* ---------------------------------------------------------------------------
+   Circular elements
+   The whole frame (disc, glyph, port triangles, border) is one SVG so the
+   border ring can be drawn on top of the triangles, clipping their bases
+   seamlessly. The node box is a bare, borderless square that the SVG fills;
+   ports and caption are overlaid absolutely, so they don't affect its size.
+   --------------------------------------------------------------------------- */
+.custom-node.shape-circle {
+  display: block;
+  grid-template-columns: none;
+  width: var(--circular-node-size);
+  height: var(--circular-node-size);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.custom-node.shape-circle:hover {
+  box-shadow: none;
+}
+
+/* Selection / validity feedback recolors the ring instead of drawing a box. */
+.custom-node.shape-circle.custom-node-selected,
+.custom-node.shape-circle.selected,
+.custom-node.shape-circle.custom-node-issue {
+  border: none;
+  box-shadow: none;
+}
+
+.custom-node.shape-circle.custom-node-selected .circular-node-ring,
+.custom-node.shape-circle.selected .circular-node-ring {
+  stroke: var(--color-accent);
+}
+
+.custom-node.shape-circle.custom-node-issue .circular-node-ring {
+  stroke: var(--color-error-strong, #d23);
+}
+
+.circular-node-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  /* Decorative: let clicks fall through to the node div (which drives dragging).
+     The port hit-areas and caption re-enable pointer events themselves. */
+  pointer-events: none;
+}
+
+.circular-node-disc {
+  fill: var(--circular-node-fill);
+}
+
+.circular-node-ring {
+  stroke: var(--circular-node-ink);
+  transition: stroke 0.2s ease;
+}
+
+.circular-node-port {
+  fill: var(--circular-node-port);
+}
+
+/* The glyph paths are authored with `fill: currentColor`. */
+.circular-node-glyph {
+  color: var(--circular-node-ink);
+}
+
+/* One port: a hit-area centred on its point on the border, carrying the
+   invisible React Flow handle. The visible triangle is drawn in the SVG. */
+.circular-port {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: var(--port-icon-size);
+  height: var(--port-icon-size);
+  display: grid;
+  place-items: center;
+  z-index: 5;
+}
+
+/* Center the handle on the port point regardless of its `position` side (which
+   we keep only for a clean edge-exit vector). High specificity beats React
+   Flow's own `.react-flow__handle-{side}` offset rules. */
+.circular-port .react-flow__handle.circular-handle {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 70%;
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+}
+
+/* Port numbers stay hidden on circular frames — the triangle is the indicator. */
+.circular-port .port-index {
+  display: none;
+}
+
+/* Upright caption beneath the disc (name + optional data value). */
+.circular-node-caption {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.circular-node-caption .custom-node-label,
+.circular-node-caption .custom-node-input {
+  pointer-events: auto;
+}
+
+/* Reset the absolute positioning the data-value uses inside rect nodes so it
+   flows below the label within the caption stack. */
+.circular-node-caption .custom-node-data-value {
+  position: static;
+  transform: none;
 }

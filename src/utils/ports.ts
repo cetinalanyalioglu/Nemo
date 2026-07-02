@@ -2,6 +2,7 @@ import type {
   DynamicPortConfig,
   DynamicPortSide,
   NodePorts,
+  PortAngles,
   PortPlacements,
   PortSide,
 } from '../types/flow';
@@ -129,4 +130,65 @@ export const groupPortsBySide = (
   layout.source.forEach((_portId, idx) => place(String(targetCount + idx), 'source'));
 
   return buckets;
+};
+
+/**
+ * A circular element's port resolved to an outward angle on its border. `suffix`
+ * and `direction` match every other layout (targets keep their suffix, sources
+ * are `targetCount + idx`) so handle ids and connectivity are untouched;
+ * `exitAngle` is the outward direction in math convention (0° = right, 90° = up)
+ * and `side` is the nearest cardinal, used only to pick the React Flow handle
+ * `position` (which drives the edge-exit vector).
+ */
+export interface RadialPort {
+  suffix: string;
+  direction: 'target' | 'source';
+  exitAngle: number;
+  side: PortSide;
+}
+
+/**
+ * Half-angle (degrees) of the arc each side's ports fan across, centred on that
+ * side's cardinal direction. Kept ≤ 45° so every port's nearest cardinal stays
+ * the side it belongs to — targets read as `left`, sources as `right` — which
+ * keeps React Flow's edge-exit vectors clean.
+ */
+const RADIAL_HALF_ARC = 45;
+
+/** Nearest cardinal side for an outward angle (math convention, degrees). */
+export const nearestSide = (angleDeg: number): PortSide => {
+  const a = ((angleDeg % 360) + 360) % 360;
+  if (a >= 315 || a < 45) return 'right';
+  if (a < 135) return 'top';
+  if (a < 225) return 'left';
+  return 'bottom';
+};
+
+/**
+ * Places a circular element's ports on its border. A per-instance manual `angle`
+ * (from the node's UI data) wins; otherwise ports distribute automatically —
+ * targets across the left arc, sources across the right, evenly spaced within
+ * ±`RADIAL_HALF_ARC` of their cardinal (a lone port lands on the cardinal
+ * itself). Port numbering is unchanged, so only the rendered angle differs.
+ */
+export const computeRadialPorts = (layout: NodePorts, angles?: PortAngles): RadialPort[] => {
+  const targetCount = layout.target.length;
+
+  const arc = (
+    ids: string[],
+    direction: 'target' | 'source',
+    centerAngle: number,
+    offset: number
+  ) =>
+    ids.map((_id, i): RadialPort => {
+      const suffix = String(offset + i);
+      const manual = angles?.[suffix];
+      const exitAngle =
+        manual != null
+          ? manual
+          : centerAngle + RADIAL_HALF_ARC * (ids.length === 1 ? 0 : (2 * i + 1) / ids.length - 1);
+      return { suffix, direction, exitAngle, side: nearestSide(exitAngle) };
+    });
+
+  return [...arc(layout.target, 'target', 180, 0), ...arc(layout.source, 'source', 0, targetCount)];
 };

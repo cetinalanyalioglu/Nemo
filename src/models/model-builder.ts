@@ -196,6 +196,8 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
       icon: resolveIcon(node.icon),
       displayName: node.displayName ?? type,
       category: node.category ?? 'Elements',
+      shape: node.shape ?? 'rect',
+      glyph: node.glyph,
       dynamicPorts: node.dynamicPorts ?? false,
       dynamicPortConfig: node.dynamicPortConfig,
       allowedConnections,
