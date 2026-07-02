@@ -18,12 +18,13 @@ import { resolveGlyph } from './glyphs';
 export const FRAME_BOX = 100;
 const C = FRAME_BOX / 2;
 
-/** Outer radius of the border. Inset from the box edge so port tips have room. */
-const R = 43;
+/** Outer radius of the border. Inset from the box edge so the (taller) port
+    tips still fit inside the 100×100 box. */
+const R = 41;
 /** Ratios lifted from the reference artwork (relative to the outer radius R). */
 const T = 0.076 * R; // border thickness (t/D = 0.038)
-const BASE = 0.34 * R; // port-triangle base
-const H = 0.19 * R; // port-triangle height
+const BASE = 0.46 * R; // port-triangle base
+const H = 0.22 * R; // port-triangle height
 const GLYPH_W = 1.08 * R; // glyph ink width
 /** Ring centreline: port bases sit here so the stroke covers them symmetrically. */
 const RC = R - T / 2;

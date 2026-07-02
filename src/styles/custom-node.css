@@ -5,22 +5,17 @@
   --type-icon-size: 20px;
   --port-icon-size: 16px;
   --content-vertical-padding: 8px;
-  /* Circular elements (mass-flow inlet, pressure outlet, …). Border + glyph
-     render in the canvas ink family (a gray in the spirit of `--color-edge`);
-     the interior is the surface. The ink is kept OPAQUE — the border ring is
-     drawn on top of the port triangles to hide their bases, so any alpha would
-     let the orange bleed through and break the seamless clip. Ports are orange
-     (distinct from the amber app accent). */
-  --circular-node-size: 72px;
+  /* Circular elements (mass-flow inlet, pressure outlet, …). Border + glyph use
+     the theme's secondary-text gray; the interior is the surface; ports use the
+     theme accent. All three are theme tokens, so light/dark follow
+     automatically. The ink MUST stay opaque — the border ring is drawn on top
+     of the port triangles to hide their bases, so any alpha would let the
+     accent bleed through and break the seamless clip (--color-text-secondary is
+     opaque in both themes). */
+  --circular-node-size: 40px;
   --circular-node-fill: var(--color-surface);
-  --circular-node-ink: #5a5a5a;
-  --circular-node-port: #f5821f;
-}
-
-/* Dark theme: lift the ink to a light gray that reads on the dark surface,
-   mirroring how `--color-edge` lightens between themes. */
-[data-theme='dark'] {
-  --circular-node-ink: #a6a6ae;
+  --circular-node-ink: var(--color-text-secondary);
+  --circular-node-port: var(--color-accent);
 }
 
 .custom-node {
@@ -558,6 +553,9 @@
   width: 100%;
   height: 100%;
   overflow: visible;
+  /* Soft drop shadow so the disc lifts off the canvas. drop-shadow follows the
+     rendered (circular) silhouette, unlike a box-shadow on the square node box. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
   /* Decorative: let clicks fall through to the node div (which drives dragging).
      The port hit-areas and caption re-enable pointer events themselves. */
   pointer-events: none;
@@ -632,6 +630,13 @@
 .circular-node-caption .custom-node-label,
 .circular-node-caption .custom-node-input {
   pointer-events: auto;
+}
+
+/* Caption text is small, gray and light — subordinate to the element itself. */
+.circular-node-caption .custom-node-label {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
 }
 
 /* Reset the absolute positioning the data-value uses inside rect nodes so it
