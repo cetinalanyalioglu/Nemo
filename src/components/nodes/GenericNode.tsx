@@ -13,6 +13,9 @@ import { computePortLayout, groupPortsBySide, computeRadialPorts } from '../../u
 import type { PlacedPort, RadialPort } from '../../utils/ports';
 import CircularNodeFrame, { portHandlePoint } from './CircularNodeFrame';
 import type { FramePort } from './CircularNodeFrame';
+import RectNodeFrame, { boxLayout } from './RectNodeFrame';
+import type { BoxPort } from './RectNodeFrame';
+import { resolveGlyph } from './glyphs';
 import type {
   ParameterChangeHandler,
   ElementInfoEntry,
@@ -98,6 +101,9 @@ const SIDE_POSITION: Record<PortSide, Position> = {
 
 /** Sides offered as drop targets while a port is in move-mode. */
 const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
+
+/** Default on-canvas width (px) of a `box` element before any resize. */
+const DEFAULT_BOX_WIDTH = 84;
 
 /** Arrow key → destination edge, so a moving port can be sent with the keyboard. */
 const ARROW_KEY_SIDE: Record<string, PortSide> = {
@@ -199,9 +205,12 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   );
 
   // Frame shape: `rect` keeps the four-edge rails; `circle` draws a bordered disc
-  // with a centred glyph and ports distributed radially on the border.
+  // with radial ports; `box` draws a bordered rectangle with a schematic glyph
+  // and triangle ports on the four edges.
   const shape: NodeShape = config?.shape ?? 'rect';
   const isCircle = shape === 'circle';
+  const isBox = shape === 'box';
+  const portsLocked = config?.lockPorts ?? false;
 
   // Per-instance manual port angles (circle only) live in the node's UI data, so
   // rotating a port around the border round-trips through save/load and history.
@@ -220,6 +229,33 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   useEffect(() => {
     if (isCircle) updateNodeInternals(id);
   }, [anglesSignature, isCircle, id, updateNodeInternals]);
+
+  // Box frame: ports keep their edge buckets (respecting any placement overrides)
+  // and are distributed evenly along each edge; the glyph aspect + whitespace
+  // insets fix the frame geometry (and the node's locked aspect).
+  const boxInsetX = config?.glyphInsetX ?? 0;
+  const boxInsetY = config?.glyphInsetY ?? 0;
+  const boxGlyphAspect = resolveGlyph(config?.glyph)?.aspect ?? 1.6;
+  const boxL = useMemo(
+    () => (isBox ? boxLayout(boxGlyphAspect, boxInsetX, boxInsetY) : null),
+    [isBox, boxGlyphAspect, boxInsetX, boxInsetY]
+  );
+  const boxPorts = useMemo<BoxPort[]>(() => {
+    if (!isBox) return [];
+    const out: BoxPort[] = [];
+    ALL_SIDES.forEach((side) => {
+      const bucket = portBuckets[side];
+      bucket.forEach((p, i) => {
+        out.push({
+          suffix: p.suffix,
+          side,
+          offset: (i + 1) / (bucket.length + 1),
+          direction: p.direction,
+        });
+      });
+    });
+    return out;
+  }, [isBox, portBuckets]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -336,6 +372,13 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     const width = nodeState.parameters.width;
     const height = nodeState.parameters.height;
 
+    // Box frames are aspect-locked: width drives, height follows the frame aspect
+    // (glyph aspect + insets), so the SVG never letterboxes and resize stays true.
+    if (isBox && boxL) {
+      const w = typeof width === 'number' ? width : DEFAULT_BOX_WIDTH;
+      return { ...base, width: `${w}px`, height: `${w / boxL.aspect}px`, boxSizing: 'border-box' };
+    }
+
     if (width || height) {
       return {
         ...base,
@@ -345,7 +388,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       };
     }
     return base;
-  }, [nodeState, rotation]);
+  }, [nodeState, rotation, isBox, boxL]);
 
   // Rotation changes where the handles sit, so React Flow must re-measure this
   // node's handle geometry for incident edges to re-route to the rotated ports.
@@ -637,6 +680,40 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     );
   };
 
+  // Renders one box-element port: an absolutely-positioned hit area on the border
+  // edge carrying the invisible handle (the visible triangle is drawn by
+  // RectNodeFrame). Unless the element locks its ports, clicking the port toggles
+  // move-mode so it can be re-homed to another edge via the ghost targets.
+  const renderBoxPort = (port: BoxPort) => {
+    if (!boxL) return null;
+    const a = boxL.portAnchor(port.side, port.offset);
+    const isActive = activePortSuffix === port.suffix;
+    return (
+      <div
+        key={port.suffix}
+        className={`box-port nodrag port-side-${port.side}${
+          isActive ? ' port-wrapper--active' : ''
+        }`}
+        style={{ left: `${(a.x / boxL.vw) * 100}%`, top: `${(a.y / boxL.vh) * 100}%` }}
+        onClick={
+          portsLocked
+            ? undefined
+            : (e) => {
+                e.stopPropagation();
+                setActivePort(isActive ? null : { nodeId: id, port: port.suffix });
+              }
+        }
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle box-handle"
+        />
+      </div>
+    );
+  };
+
   // Renders one port. The React Flow handle `type` is fixed by the port's
   // direction (its physics role), while `position` follows its presentational
   // side — the two are deliberately decoupled. The handle id keeps the port's
@@ -796,6 +873,72 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         {radialPorts.map(renderRadialPort)}
 
         <div className="circular-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
+
+        {selected && (
+          <div
+            className="resize-handle"
+            onPointerDown={handleGripPointerDown}
+            onDoubleClick={handleGripDoubleClick}
+            title={
+              'Drag to resize • Alt-drag to rotate (Shift toggles angle snapping)\n' +
+              'Double-click resets size • Alt-double-click resets rotation'
+            }
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Rectangular ("box") elements: a single SVG frame (gray fill + schematic glyph
+  // + clipped triangle edge-ports + border) with radial handles overlaid and the
+  // label beneath. Ports re-home via move-mode unless the element locks them.
+  if (isBox) {
+    return (
+      <div className={nodeClasses} ref={nodeRef} style={style}>
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <RectNodeFrame
+          glyphKey={config.glyph}
+          idPrefix={id}
+          insetX={boxInsetX}
+          insetY={boxInsetY}
+          ports={boxPorts}
+        />
+        {boxPorts.map(renderBoxPort)}
+        {!portsLocked && renderGhostTargets()}
+
+        <div className="box-node-caption">
           {editingStateValue.isEditing ? (
             <input
               value={editingStateValue.tempLabel}

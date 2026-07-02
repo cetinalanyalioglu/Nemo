@@ -369,6 +369,7 @@ nodes:
     icon: BsArrowUpCircle
     shape: circle
     glyph: p
+    glyphScale: 0.85
     dynamicPorts: false
     ports:
       target: ['0']
@@ -689,6 +690,11 @@ nodes:
     displayName: Sudden Area Change
     category: Two port elements
     icon: BsArrowsExpand
+    shape: box
+    glyph: sudden-area-change
+    glyphInsetX: -0.02
+    glyphInsetY: 0.18
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']

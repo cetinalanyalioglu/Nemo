@@ -16,6 +16,17 @@
   --circular-node-fill: var(--color-surface);
   --circular-node-ink: var(--color-text-secondary);
   --circular-node-port: var(--color-accent);
+  /* Box (rectangular schematic) elements. Border + glyph ink reuse the circular
+     ink; the flow passage is the surface; the empty zone is a medium gray fill;
+     ports reuse the circular (accent) port color. The fill is opaque so the
+     border cleanly covers port bases and any glyph running under it. */
+  --box-node-ink: var(--color-text-secondary);
+  --box-node-fill: #cfcfcf;
+  --box-node-port: var(--circular-node-port);
+}
+
+[data-theme='dark'] {
+  --box-node-fill: #3a3a42;
 }
 
 .custom-node {
@@ -645,6 +656,125 @@
 /* Reset the absolute positioning the data-value uses inside rect nodes so it
    flows below the label within the caption stack. */
 .circular-node-caption .custom-node-data-value {
+  position: static;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Box (rectangular schematic) elements
+   Same single-SVG approach as circular, but a rectangle: gray interior fill,
+   a schematic glyph (its flow passage is the surface color), triangle edge
+   ports, and the border stroke on top. The node box is a bare, aspect-locked
+   rectangle the SVG fills; ports and caption are overlaid absolutely.
+   --------------------------------------------------------------------------- */
+.custom-node.shape-box {
+  display: block;
+  grid-template-columns: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.custom-node.shape-box:hover {
+  box-shadow: none;
+}
+
+.custom-node.shape-box.custom-node-selected,
+.custom-node.shape-box.selected,
+.custom-node.shape-box.custom-node-issue {
+  border: none;
+  box-shadow: none;
+}
+
+.custom-node.shape-box.custom-node-selected .box-node-ring,
+.custom-node.shape-box.selected .box-node-ring {
+  stroke: var(--color-accent);
+}
+
+.custom-node.shape-box.custom-node-issue .box-node-ring {
+  stroke: var(--color-error-strong, #d23);
+}
+
+.box-node-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
+  pointer-events: none;
+}
+
+.box-node-fill {
+  fill: var(--box-node-fill);
+}
+
+.box-node-ring {
+  stroke: var(--box-node-ink);
+  transition: stroke 0.2s ease;
+}
+
+.box-node-port {
+  fill: var(--box-node-port);
+}
+
+/* The glyph strokes are authored with `stroke: currentColor`. */
+.box-node-glyph {
+  color: var(--box-node-ink);
+}
+
+/* One box port: a hit-area centred on its point on the border edge, carrying the
+   invisible React Flow handle. The visible triangle is drawn in the SVG. */
+.box-port {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: var(--port-icon-size);
+  height: var(--port-icon-size);
+  display: grid;
+  place-items: center;
+  z-index: 5;
+}
+
+.box-port .react-flow__handle.box-handle {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 70%;
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+}
+
+.box-node-caption {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.box-node-caption .custom-node-label,
+.box-node-caption .custom-node-input {
+  pointer-events: auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.box-node-caption .custom-node-data-value {
   position: static;
   transform: none;
 }

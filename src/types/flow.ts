@@ -110,11 +110,12 @@ export type NodePorts = { target: string[]; source: string[] };
 export type PortSide = 'left' | 'right' | 'top' | 'bottom';
 
 /**
- * Frame an element is drawn in. `rect` is the default boxed node (ports on the
- * four edges); `circle` is a round frame with a border, a centred glyph, and
- * ports distributed radially on the border. Purely presentational.
+ * Frame an element is drawn in. `rect` is the default boxed node (HTML, ports on
+ * the four edges); `circle` is a round SVG frame with a border, a centred glyph
+ * and radial ports; `box` is a rectangular SVG frame with a gray interior, a
+ * schematic glyph and triangle ports on its edges. Purely presentational.
  */
-export type NodeShape = 'rect' | 'circle';
+export type NodeShape = 'rect' | 'circle' | 'box';
 
 /**
  * Per-*instance* manual angular overrides for a circular element's perimeter
@@ -160,7 +161,7 @@ export interface NodeConfigEntry {
   category: string;
   /** Frame the element is drawn in. Defaults to `rect`. */
   shape: NodeShape;
-  /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
+  /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
   glyph?: string;
   /**
    * For `circle` shapes: multiplier on the centred glyph's size, so each element
@@ -168,6 +169,16 @@ export interface NodeConfigEntry {
    * wide one). Defaults to 1.
    */
   glyphScale?: number;
+  /**
+   * For `box` shapes: gray whitespace around the glyph as a fraction of the
+   * glyph's own width/height, on each side. Aspect-preserving. `glyphInsetX` may
+   * be 0 or negative to run the passage under the side borders to the ports.
+   * Both default to 0.
+   */
+  glyphInsetX?: number;
+  glyphInsetY?: number;
+  /** When true, the element's ports cannot be repositioned by the user. */
+  lockPorts?: boolean;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   /**
@@ -196,10 +207,15 @@ export interface ModelNodeDefinition {
   icon?: string;
   /** Frame the element is drawn in (`rect` | `circle`). Defaults to `rect`. */
   shape?: NodeShape;
-  /** For `circle` shapes: registry key of the symbol glyph drawn at the centre. */
+  /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
   glyph?: string;
   /** For `circle` shapes: multiplier on the centred glyph's size. Defaults to 1. */
   glyphScale?: number;
+  /** For `box` shapes: gray whitespace around the glyph (fraction of glyph size). */
+  glyphInsetX?: number;
+  glyphInsetY?: number;
+  /** When true, the element's ports cannot be repositioned by the user. */
+  lockPorts?: boolean;
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;
