@@ -269,6 +269,8 @@ nodes:
     displayName: Total Pressure Inlet
     category: Boundary elements
     icon: BsArrowDownCircle
+    shape: circle
+    glyph: pt
     dynamicPorts: false
     ports:
       target: []
@@ -461,6 +463,8 @@ nodes:
     displayName: Mass Flow Outlet
     category: Boundary elements
     icon: BsArrowUpCircleFill
+    shape: circle
+    glyph: mdot
     dynamicPorts: false
     ports:
       target: ['0']
@@ -517,6 +521,11 @@ nodes:
     displayName: Choked Nozzle Outlet
     category: Boundary elements
     icon: BsFunnelFill
+    shape: box
+    glyph: choked-nozzle
+    glyphInsetX: 0.0
+    glyphInsetY: 0.12
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -575,6 +584,8 @@ nodes:
     displayName: Wall
     category: Boundary elements
     icon: BsSlashLg
+    shape: circle
+    glyph: wall
     dynamicPorts: false
     ports:
       target: ['0']
@@ -615,6 +626,8 @@ nodes:
     displayName: Cavity
     category: Boundary elements
     icon: BsCircle
+    shape: circle
+    glyph: cavity
     dynamicPorts: false
     ports:
       target: ['0']

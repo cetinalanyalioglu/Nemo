@@ -1,6 +1,10 @@
 import type { GlyphAsset } from './types';
 import { mdotGlyph } from './mdot';
 import { pGlyph } from './p';
+import { ptGlyph } from './pt';
+import { cavityGlyph } from './cavity';
+import { wallGlyph } from './wall';
+import { chokedNozzleGlyph } from './choked-nozzle';
 import { suddenAreaChangeGlyph } from './sudden-area-change';
 
 /**
@@ -11,6 +15,10 @@ import { suddenAreaChangeGlyph } from './sudden-area-change';
 const glyphRegistry: Record<string, GlyphAsset> = {
   mdot: mdotGlyph,
   p: pGlyph,
+  pt: ptGlyph,
+  cavity: cavityGlyph,
+  wall: wallGlyph,
+  'choked-nozzle': chokedNozzleGlyph,
   'sudden-area-change': suddenAreaChangeGlyph,
 };
 
