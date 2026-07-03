@@ -115,7 +115,7 @@ export type PortSide = 'left' | 'right' | 'top' | 'bottom';
  * and radial ports; `box` is a rectangular SVG frame with a gray interior, a
  * schematic glyph and triangle ports on its edges. Purely presentational.
  */
-export type NodeShape = 'rect' | 'circle' | 'box';
+export type NodeShape = 'rect' | 'circle' | 'box' | 'rail';
 
 /**
  * Per-*instance* manual angular overrides for a circular element's perimeter

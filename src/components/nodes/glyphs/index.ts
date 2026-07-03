@@ -6,6 +6,8 @@ import { cavityGlyph } from './cavity';
 import { wallGlyph } from './wall';
 import { chokedNozzleGlyph } from './choked-nozzle';
 import { suddenAreaChangeGlyph } from './sudden-area-change';
+import { junctionGlyph } from './junction';
+import { losslessSplitterGlyph } from './lossless-splitter';
 
 /**
  * Registry of symbol/schematic glyphs referenceable from a model's node
@@ -20,6 +22,8 @@ const glyphRegistry: Record<string, GlyphAsset> = {
   wall: wallGlyph,
   'choked-nozzle': chokedNozzleGlyph,
   'sudden-area-change': suddenAreaChangeGlyph,
+  junction: junctionGlyph,
+  'lossless-splitter': losslessSplitterGlyph,
 };
 
 /** Resolves a glyph key to its asset, or undefined when missing/unregistered. */

@@ -59,8 +59,15 @@ export const portHandlePoint = (angleDeg: number) => {
 /** Inner edge of the border stroke — the interior rim. */
 const R_INNER = R - T;
 
-/** Three-vertex `points` string for one port triangle. */
-const trianglePoints = (angleDeg: number, direction: PortDirection): string => {
+/** Three-vertex `points` string for one port triangle. `base`/`h` are the
+    triangle's base and height (defaulting to the module constants), so a caller
+    can shrink ports to keep them from overlapping when many fan around the disc. */
+const trianglePoints = (
+  angleDeg: number,
+  direction: PortDirection,
+  base: number = BASE,
+  h: number = H
+): string => {
   const { ux, uy } = outward(angleDeg);
   const px = -uy;
   const py = ux; // tangent
@@ -72,13 +79,13 @@ const trianglePoints = (angleDeg: number, direction: PortDirection): string => {
   const baseR = direction === 'source' ? RC : R_INNER;
   const bx = C + baseR * ux;
   const by = C + baseR * uy;
-  const tipR = direction === 'source' ? baseR + H : baseR - H;
+  const tipR = direction === 'source' ? baseR + h : baseR - h;
   const tx = C + tipR * ux;
   const ty = C + tipR * uy;
-  const b1x = bx + (BASE / 2) * px;
-  const b1y = by + (BASE / 2) * py;
-  const b2x = bx - (BASE / 2) * px;
-  const b2y = by - (BASE / 2) * py;
+  const b1x = bx + (base / 2) * px;
+  const b1y = by + (base / 2) * py;
+  const b2x = bx - (base / 2) * px;
+  const b2y = by - (base / 2) * py;
   const f = (n: number) => n.toFixed(3);
   return `${f(b1x)},${f(b1y)} ${f(tx)},${f(ty)} ${f(b2x)},${f(b2y)}`;
 };
@@ -88,10 +95,18 @@ interface CircularNodeFrameProps {
   glyphKey?: string;
   /** Per-element multiplier on the glyph size (from the model config). Default 1. */
   glyphScale?: number;
+  /** Multiplier on the port-triangle size, so many-port (dynamic) discs can
+      shrink their ports to avoid overlap. Default 1. */
+  portScale?: number;
   ports: FramePort[];
 }
 
-const CircularNodeFrame = ({ glyphKey, glyphScale = 1, ports }: CircularNodeFrameProps) => {
+const CircularNodeFrame = ({
+  glyphKey,
+  glyphScale = 1,
+  portScale = 1,
+  ports,
+}: CircularNodeFrameProps) => {
   const glyph = resolveGlyph(glyphKey);
 
   let glyphEl = null;
@@ -124,7 +139,7 @@ const CircularNodeFrame = ({ glyphKey, glyphScale = 1, ports }: CircularNodeFram
         <polygon
           key={p.suffix}
           className="circular-node-port"
-          points={trianglePoints(p.angleDeg, p.direction)}
+          points={trianglePoints(p.angleDeg, p.direction, BASE * portScale, H * portScale)}
         />
       ))}
       <circle className="circular-node-ring" cx={C} cy={C} r={RC} strokeWidth={T} fill="none" />

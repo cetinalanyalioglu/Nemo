@@ -778,3 +778,122 @@
   position: static;
   transform: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Manifold-rail elements (dynamic-port splitter/junction family)
+   A tall rounded bar whose height is driven by the port count, drawn as one SVG
+   (fill → fixed-size label → port triangles → border on top). The node box locks
+   to the frame's computed px dimensions, so the label never distorts and nothing
+   is freely resized; ports and caption are overlaid absolutely.
+   --------------------------------------------------------------------------- */
+.custom-node.shape-rail {
+  display: block;
+  grid-template-columns: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.custom-node.shape-rail:hover {
+  box-shadow: none;
+}
+
+.custom-node.shape-rail.custom-node-selected,
+.custom-node.shape-rail.selected,
+.custom-node.shape-rail.custom-node-issue {
+  border: none;
+  box-shadow: none;
+}
+
+.custom-node.shape-rail.custom-node-selected .rail-node-ring,
+.custom-node.shape-rail.selected .rail-node-ring {
+  stroke: var(--color-accent);
+}
+
+.custom-node.shape-rail.custom-node-issue .rail-node-ring {
+  stroke: var(--color-error-strong, #d23);
+}
+
+.rail-node-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
+  pointer-events: none;
+}
+
+.rail-node-fill {
+  fill: var(--circular-node-fill);
+}
+
+.rail-node-ring {
+  stroke: var(--circular-node-ink);
+  transition: stroke 0.2s ease;
+}
+
+.rail-node-port {
+  fill: var(--circular-node-port);
+}
+
+/* The label glyph paths are authored with `fill: currentColor`. */
+.rail-node-label {
+  color: var(--circular-node-ink);
+}
+
+/* One rail port: a hit-area centred on its point on the border, carrying the
+   invisible React Flow handle. The visible triangle is drawn in the SVG. */
+.rail-port {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: var(--port-icon-size);
+  height: var(--port-icon-size);
+  display: grid;
+  place-items: center;
+  z-index: 5;
+}
+
+.rail-port .react-flow__handle.rail-handle {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 70%;
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+}
+
+.rail-node-caption {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rail-node-caption .custom-node-label,
+.rail-node-caption .custom-node-input {
+  pointer-events: auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.rail-node-caption .custom-node-data-value {
+  position: static;
+  transform: none;
+}

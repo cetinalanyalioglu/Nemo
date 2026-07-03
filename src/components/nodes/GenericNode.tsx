@@ -15,6 +15,8 @@ import CircularNodeFrame, { portHandlePoint } from './CircularNodeFrame';
 import type { FramePort } from './CircularNodeFrame';
 import RectNodeFrame, { boxLayout } from './RectNodeFrame';
 import type { BoxPort } from './RectNodeFrame';
+import RailNodeFrame, { railLayout } from './RailNodeFrame';
+import type { RailPort } from './RailNodeFrame';
 import { resolveGlyph } from './glyphs';
 import type {
   ParameterChangeHandler,
@@ -97,6 +99,21 @@ const SIDE_POSITION: Record<PortSide, Position> = {
   right: Position.Right,
   top: Position.Top,
   bottom: Position.Bottom,
+};
+
+/**
+ * Inline transform that anchors a framed-node handle by its OUTER edge instead of
+ * its centre. React Flow connects an edge to the handle's edge in the port's
+ * direction (`getHandlePosition`: right→`x+width`, left→`x`, …), so a handle
+ * centred on the port point puts that edge half a handle-width past the border,
+ * leaving a visible gap. Anchoring the outward edge on the port point makes the
+ * edge meet the element flush — independent of the handle's size.
+ */
+const HANDLE_ANCHOR: Record<PortSide, string> = {
+  left: 'translate(0, -50%)',
+  right: 'translate(-100%, -50%)',
+  top: 'translate(-50%, 0)',
+  bottom: 'translate(-50%, -100%)',
 };
 
 /** Sides offered as drop targets while a port is in move-mode. */
@@ -210,6 +227,14 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const shape: NodeShape = config?.shape ?? 'rect';
   const isCircle = shape === 'circle';
   const isBox = shape === 'box';
+  const isRail = shape === 'rail';
+  // Dynamic-port circular elements (the junction node-dot) fan their ports evenly
+  // around the full circle rather than clustering them on the left/right arcs.
+  const isDynamicCircle = isCircle && !!config?.dynamicPorts;
+  // Rail and dynamic-circle elements derive their on-canvas size from the port
+  // count instead of being freely resized, so they skip the resize grip and the
+  // auto-measure pass.
+  const isAutoSized = isRail || isDynamicCircle;
   const portsLocked = config?.lockPorts ?? false;
 
   // Per-instance manual port angles (circle only) live in the node's UI data, so
@@ -219,9 +244,32 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // Circle ports resolved to outward angles on the border: manual angle wins,
   // else automatic radial distribution. Only computed for circular frames.
   const radialPorts = useMemo(
-    () => (isCircle ? computeRadialPorts(calculatedPorts, portAngles) : []),
-    [isCircle, calculatedPorts, portAngles]
+    () =>
+      isCircle ? computeRadialPorts(calculatedPorts, portAngles, { even: isDynamicCircle }) : [],
+    [isCircle, isDynamicCircle, calculatedPorts, portAngles]
   );
+
+  // With many ports fanning evenly around the disc, the (radius-proportional)
+  // port triangles would eventually overlap. Shrink them once the chord spacing
+  // between neighbours drops below the triangle base. Static circles keep 1.
+  const circlePortScale = useMemo(() => {
+    if (!isDynamicCircle) return 1;
+    const n = radialPorts.length;
+    if (n < 2) return 1;
+    const RC = 41 - (0.085 * 41) / 2; // frame ring centreline (see CircularNodeFrame)
+    const base = 0.6 * 41; // frame port base
+    const spacing = 2 * RC * Math.sin(Math.PI / n);
+    return Math.min(1, spacing / (base * 1.06));
+  }, [isDynamicCircle, radialPorts.length]);
+
+  // Auto-sized elements grow with their port count. The junction disc grows a
+  // little per extra port for visual weight and handle room; the rail's height
+  // is driven entirely by its port stack (see railLayout).
+  const circleSizePx = useMemo(() => {
+    if (!isDynamicCircle) return null;
+    const n = radialPorts.length;
+    return Math.min(96, 40 + Math.max(0, n - 3) * 7);
+  }, [isDynamicCircle, radialPorts.length]);
 
   // Rotating a port to a new angle moves its handle, so React Flow must re-measure
   // this node's handle geometry for incident edges to re-route.
@@ -256,6 +304,40 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     });
     return out;
   }, [isBox, portBuckets]);
+
+  // Rail frame: targets stack on the left, sources on the right, each side
+  // vertically centred. Height follows the busier side; the label is fixed-size.
+  const railGlyphAspect = resolveGlyph(isRail ? config?.glyph : undefined)?.aspect ?? 0.25;
+  const maxSidePorts = Math.max(calculatedPorts.target.length, calculatedPorts.source.length);
+  const railL = useMemo(
+    () => (isRail ? railLayout(maxSidePorts, railGlyphAspect) : null),
+    [isRail, maxSidePorts, railGlyphAspect]
+  );
+  const railPorts = useMemo<RailPort[]>(() => {
+    if (!isRail) return [];
+    const targetCount = calculatedPorts.target.length;
+    const sourceCount = calculatedPorts.source.length;
+    return [
+      ...calculatedPorts.target.map(
+        (suffix, i): RailPort => ({
+          suffix,
+          side: 'left',
+          index: i,
+          count: targetCount,
+          direction: 'target',
+        })
+      ),
+      ...calculatedPorts.source.map(
+        (suffix, i): RailPort => ({
+          suffix,
+          side: 'right',
+          index: i,
+          count: sourceCount,
+          direction: 'source',
+        })
+      ),
+    ];
+  }, [isRail, calculatedPorts]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -372,6 +454,23 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     const width = nodeState.parameters.width;
     const height = nodeState.parameters.height;
 
+    // Rail frames lock to their computed geometry (width fixed, height from the
+    // port count), so the label never stretches and nothing distorts.
+    if (isRail && railL) {
+      return { ...base, width: `${railL.vw}px`, height: `${railL.vh}px`, boxSizing: 'border-box' };
+    }
+
+    // Dynamic-port discs (junction) size from their port count, ignoring any
+    // stored width/height — they are auto-sized, not user-resized.
+    if (isDynamicCircle && circleSizePx != null) {
+      return {
+        ...base,
+        width: `${circleSizePx}px`,
+        height: `${circleSizePx}px`,
+        boxSizing: 'border-box',
+      };
+    }
+
     // Box frames are aspect-locked: width drives, height follows the frame aspect
     // (glyph aspect + insets), so the SVG never letterboxes and resize stays true.
     if (isBox && boxL) {
@@ -388,7 +487,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       };
     }
     return base;
-  }, [nodeState, rotation, isBox, boxL]);
+  }, [nodeState, rotation, isBox, boxL, isRail, railL, isDynamicCircle, circleSizePx]);
 
   // Rotation changes where the handles sit, so React Flow must re-measure this
   // node's handle geometry for incident edges to re-route to the rotated ports.
@@ -674,6 +773,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           position={SIDE_POSITION[port.side]}
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle circular-handle"
+          style={{ transform: HANDLE_ANCHOR[port.side] }}
         />
         <span className="port-index">{port.suffix}</span>
       </div>
@@ -709,6 +809,30 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           position={SIDE_POSITION[port.side]}
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle box-handle"
+          style={{ transform: HANDLE_ANCHOR[port.side] }}
+        />
+      </div>
+    );
+  };
+
+  // Renders one rail-element port: an absolutely-positioned hit area on the left
+  // or right border, stacked at its index (the visible triangle is drawn by
+  // RailNodeFrame). Rail ports are fixed to their side, so there is no move-mode.
+  const renderRailPort = (port: RailPort) => {
+    if (!railL) return null;
+    const a = railL.portAnchor(port.side, port.index, port.count);
+    return (
+      <div
+        key={port.suffix}
+        className={`rail-port nodrag port-side-${port.side}`}
+        style={{ left: `${(a.x / railL.vw) * 100}%`, top: `${(a.y / railL.vh) * 100}%` }}
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle rail-handle"
+          style={{ transform: HANDLE_ANCHOR[port.side] }}
         />
       </div>
     );
@@ -784,6 +908,9 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   }, [isResizing]);
 
   useEffect(() => {
+    // Auto-sized elements (rail, dynamic disc) derive their size from the port
+    // count via `style`; never overwrite that with a DOM measurement.
+    if (isAutoSized) return;
     if (nodeRef.current && (!nodeState?.parameters?.width || !nodeState?.parameters?.height)) {
       const computedStyle = window.getComputedStyle(nodeRef.current);
       const rect = nodeRef.current.getBoundingClientRect();
@@ -827,7 +954,18 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         console.error('Error calculating node dimensions:', error);
       }
     }
-  }, [nodeState, id, setNodeDimensions, getZoom]);
+  }, [nodeState, id, setNodeDimensions, getZoom, isAutoSized]);
+
+  // Auto-sized elements change dimensions when their port count changes, so React
+  // Flow must re-measure the handle geometry for incident edges to re-route.
+  const autoSizeSignature = isRail
+    ? `rail:${railL?.vw ?? 0}x${railL?.vh ?? 0}`
+    : isDynamicCircle
+      ? `disc:${circleSizePx ?? 0}`
+      : '';
+  useEffect(() => {
+    if (autoSizeSignature) updateNodeInternals(id);
+  }, [autoSizeSignature, id, updateNodeInternals]);
 
   if (!config) {
     console.error(`No configuration found for node type: ${type}`);
@@ -868,6 +1006,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         <CircularNodeFrame
           glyphKey={config.glyph}
           glyphScale={config.glyphScale}
+          portScale={circlePortScale}
           ports={framePorts}
         />
         {radialPorts.map(renderRadialPort)}
@@ -896,7 +1035,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           )}
         </div>
 
-        {selected && (
+        {selected && !isAutoSized && (
           <div
             className="resize-handle"
             onPointerDown={handleGripPointerDown}
@@ -907,6 +1046,59 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
             }
           />
         )}
+      </div>
+    );
+  }
+
+  // Manifold-rail elements (dynamic-port splitter/junction family): a tall
+  // rounded bar whose height follows the busier port side, with a fixed-size
+  // vertical label. Ports are fixed to their side (no move-mode) and the element
+  // is auto-sized (no resize grip).
+  if (isRail) {
+    return (
+      <div className={nodeClasses} ref={nodeRef} style={style}>
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <RailNodeFrame
+          glyphKey={config.glyph}
+          idPrefix={id}
+          maxPorts={maxSidePorts}
+          ports={railPorts}
+        />
+        {railPorts.map(renderRailPort)}
+
+        <div className="rail-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
       </div>
     );
   }

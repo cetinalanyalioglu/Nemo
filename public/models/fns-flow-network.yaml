@@ -1077,12 +1077,14 @@ nodes:
     displayName: Junction (static p)
     category: Multi port elements
     icon: BsLightningFill
+    shape: circle
+    glyph: junction
     dynamicPorts: true
     dynamicPortConfig:
       target:
         countParameter: leftPorts
         default: 2
-        min: 1
+        min: 2
       source:
         countParameter: rightPorts
         default: 1
@@ -1097,7 +1099,7 @@ nodes:
         label: Left ports
         type: number
         defaultValue: 2
-        min: 1
+        min: 2
         step: 1
         category: Ports
         description: Number of left (target) ports
@@ -1131,12 +1133,14 @@ nodes:
     displayName: Lossless Splitter
     category: Multi port elements
     icon: BsDiagram2
+    shape: rail
+    glyph: lossless-splitter
     dynamicPorts: true
     dynamicPortConfig:
       source:
         countParameter: rightPorts
         default: 2
-        min: 1
+        min: 2
     ports:
       target: ['0']
       source: []
@@ -1147,7 +1151,7 @@ nodes:
         label: Output ports
         type: number
         defaultValue: 2
-        min: 1
+        min: 2
         step: 1
         category: Ports
         description: Number of output ports

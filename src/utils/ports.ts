@@ -166,13 +166,30 @@ export const nearestSide = (angleDeg: number): PortSide => {
 
 /**
  * Places a circular element's ports on its border. A per-instance manual `angle`
- * (from the node's UI data) wins; otherwise ports distribute automatically —
- * targets across the left arc, sources across the right, evenly spaced within
- * ±`RADIAL_HALF_ARC` of their cardinal (a lone port lands on the cardinal
- * itself). Port numbering is unchanged, so only the rendered angle differs.
+ * (from the node's UI data) always wins. Otherwise placement follows one of two
+ * automatic schemes:
+ *
+ * - Default (static-port elements): targets across the left arc, sources across
+ *   the right, evenly spaced within ±`RADIAL_HALF_ARC` of their cardinal (a lone
+ *   port lands on the cardinal itself).
+ * - `even` (dynamic-port elements, e.g. the junction node-dot): ALL ports fan
+ *   evenly around the full circle at a uniform `360/n` pitch — the target block
+ *   centred on the left (180°), the source block on the right (0°) — so the two
+ *   blocks meet with the same pitch and the element reads as a graph node where
+ *   flows converge. Direction (target/source) is preserved, so edge validity and
+ *   connectivity are untouched; only the rendered angle differs.
+ *
+ * Port numbering is unchanged in either scheme.
  */
-export const computeRadialPorts = (layout: NodePorts, angles?: PortAngles): RadialPort[] => {
+export const computeRadialPorts = (
+  layout: NodePorts,
+  angles?: PortAngles,
+  options?: { even?: boolean }
+): RadialPort[] => {
   const targetCount = layout.target.length;
+  const total = targetCount + layout.source.length;
+  const even = options?.even ?? false;
+  const pitch = total > 0 ? 360 / total : 0;
 
   const arc = (
     ids: string[],
@@ -183,10 +200,16 @@ export const computeRadialPorts = (layout: NodePorts, angles?: PortAngles): Radi
     ids.map((_id, i): RadialPort => {
       const suffix = String(offset + i);
       const manual = angles?.[suffix];
-      const exitAngle =
-        manual != null
-          ? manual
-          : centerAngle + RADIAL_HALF_ARC * (ids.length === 1 ? 0 : (2 * i + 1) / ids.length - 1);
+      let exitAngle: number;
+      if (manual != null) {
+        exitAngle = manual;
+      } else if (even) {
+        // Uniform pitch around the whole circle, this group centred on its side.
+        exitAngle = centerAngle + pitch * (i - (ids.length - 1) / 2);
+      } else {
+        exitAngle =
+          centerAngle + RADIAL_HALF_ARC * (ids.length === 1 ? 0 : (2 * i + 1) / ids.length - 1);
+      }
       return { suffix, direction, exitAngle, side: nearestSide(exitAngle) };
     });
 
