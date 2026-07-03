@@ -18,7 +18,7 @@ import type { PortSide } from '../../types/flow';
 
 /** All constants below are in viewBox units; the glyph is a nominal 100 wide. */
 const GW = 100;
-const T = 4; // border thickness
+const T = 2; // border thickness (tuned to match the circular border's weight)
 const H = 9; // port-triangle height (radial extent past the border)
 const BASE = 20; // port-triangle base
 const PM = H + 1; // margin around the frame so outward port tips fit the viewBox

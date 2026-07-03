@@ -21,7 +21,7 @@
      ports reuse the circular (accent) port color. The fill is opaque so the
      border cleanly covers port bases and any glyph running under it. */
   --box-node-ink: var(--color-text-secondary);
-  --box-node-fill: #cfcfcf;
+  --box-node-fill: #e6e6e6;
   --box-node-port: var(--circular-node-port);
 }
 
