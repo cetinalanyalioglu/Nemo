@@ -101,21 +101,6 @@ const SIDE_POSITION: Record<PortSide, Position> = {
   bottom: Position.Bottom,
 };
 
-/**
- * Inline transform that anchors a framed-node handle by its OUTER edge instead of
- * its centre. React Flow connects an edge to the handle's edge in the port's
- * direction (`getHandlePosition`: right→`x+width`, left→`x`, …), so a handle
- * centred on the port point puts that edge half a handle-width past the border,
- * leaving a visible gap. Anchoring the outward edge on the port point makes the
- * edge meet the element flush — independent of the handle's size.
- */
-const HANDLE_ANCHOR: Record<PortSide, string> = {
-  left: 'translate(0, -50%)',
-  right: 'translate(-100%, -50%)',
-  top: 'translate(-50%, 0)',
-  bottom: 'translate(-50%, -100%)',
-};
-
 /** Sides offered as drop targets while a port is in move-mode. */
 const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
 
@@ -773,7 +758,6 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           position={SIDE_POSITION[port.side]}
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle circular-handle"
-          style={{ transform: HANDLE_ANCHOR[port.side] }}
         />
         <span className="port-index">{port.suffix}</span>
       </div>
@@ -809,7 +793,6 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           position={SIDE_POSITION[port.side]}
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle box-handle"
-          style={{ transform: HANDLE_ANCHOR[port.side] }}
         />
       </div>
     );
@@ -832,7 +815,6 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           position={SIDE_POSITION[port.side]}
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle rail-handle"
-          style={{ transform: HANDLE_ANCHOR[port.side] }}
         />
       </div>
     );
