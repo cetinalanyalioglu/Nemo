@@ -586,6 +586,7 @@ nodes:
     icon: BsSlashLg
     shape: circle
     glyph: wall
+    glyphScale: 1.77
     dynamicPorts: false
     ports:
       target: ['0']
