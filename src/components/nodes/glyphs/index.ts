@@ -6,6 +6,9 @@ import { cavityGlyph } from './cavity';
 import { wallGlyph } from './wall';
 import { chokedNozzleGlyph } from './choked-nozzle';
 import { suddenAreaChangeGlyph } from './sudden-area-change';
+import { isentropicAreaChangeGlyph } from './isentropic-area-change';
+import { ductGlyph } from './duct';
+import { pipeGlyph } from './pipe';
 import { junctionGlyph } from './junction';
 import { losslessSplitterGlyph } from './lossless-splitter';
 
@@ -22,6 +25,9 @@ const glyphRegistry: Record<string, GlyphAsset> = {
   wall: wallGlyph,
   'choked-nozzle': chokedNozzleGlyph,
   'sudden-area-change': suddenAreaChangeGlyph,
+  'isentropic-area-change': isentropicAreaChangeGlyph,
+  duct: ductGlyph,
+  pipe: pipeGlyph,
   junction: junctionGlyph,
   'lossless-splitter': losslessSplitterGlyph,
 };

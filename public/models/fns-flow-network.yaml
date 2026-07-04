@@ -656,6 +656,11 @@ nodes:
     displayName: Isentropic Area Change
     category: Two port elements
     icon: BsArrowLeftRight
+    shape: box
+    glyph: isentropic-area-change
+    glyphInsetX: -0.02
+    glyphInsetY: 0.15
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -885,6 +890,11 @@ nodes:
     displayName: Duct
     category: Two port elements
     icon: BsArrowBarRight
+    shape: box
+    glyph: duct
+    glyphInsetX: -0.02
+    glyphInsetY: -0.02
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -908,6 +918,11 @@ nodes:
     displayName: Pipe
     category: Two port elements
     icon: BsBezier2
+    shape: box
+    glyph: pipe
+    glyphInsetX: -0.02
+    glyphInsetY: -0.02
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
