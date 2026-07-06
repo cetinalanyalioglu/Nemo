@@ -22,13 +22,22 @@ The glyph therefore draws on gray, and the visual language is:
 
 ## Strokes
 
+Widths are in viewBox units (the viewBox is 100 wide, see below).
+The thick width matches the hand-drawn Sudden Area Change exactly: its Inkscape source strokes at 0.132292 under a ×19.9398 transform, i.e. 2.64 effective.
+
 | Use                                   | Width | Style                                                      |
 | ------------------------------------- | ----- | ---------------------------------------------------------- |
-| Walls, primary features               | 3     | solid, `stroke-linecap="square"`                           |
-| Secondary marks (ticks, arrows)       | 2–2.5 | solid                                                      |
-| Centerlines, stations, vena contracta | 1.5   | `stroke-dasharray="2 5"` (sparse; never denser than `2 4`) |
+| Walls, primary features               | 2.64  | solid, `stroke-linecap="square"`                           |
+| Secondary marks (ticks, arrows)       | 2     | solid                                                      |
+| Centerlines, stations, vena contracta | 1.3   | `stroke-dasharray="2 5"` (sparse; never denser than `2 4`) |
 
 Filled marks (arrowheads, matrix dots, the equilibrium flame body) use `fill="currentColor"`; a cut-out inside a filled mark uses `fill="var(--color-surface)"`.
+
+## Editing in Inkscape
+
+Every glyph is a plain standalone SVG (`xmlns` + `viewBox`), so the files open directly in Inkscape.
+Two conventions survive a round trip but render unstyled there: `var(--color-surface)` fills (the app resolves them to the theme surface color) and `currentColor` strokes (resolved to the node ink).
+Hand-drawn glyphs may keep their Inkscape structure (layers, transforms, markers); authored geometric glyphs write coordinates directly in the 100-wide viewBox.
 
 ## Internal ids
 

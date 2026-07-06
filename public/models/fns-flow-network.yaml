@@ -1210,17 +1210,9 @@ nodes:
           Jet-to-downstream area ratio A_j / A_2 in [A_T/A_2, 1]. It knobs the loss
           between the two physical limits: A_T/A_2 recovers the orifice (maximum loss)
           and 1 the lossless isentropic nozzle.
-      downstreamArea:
-        label: Downstream area
-        type: float
-        defaultValue: 0.01
-        unit: m^2
-        category: Parameters
-        min: 0.000001
-        description: >-
-          Downstream area A_2; must equal the area of the attached outflow edge.
     # Composite: A1 ->isen-> AT ->isen-> Aj ->Borda-> A2 (general lossy nozzle,
-    # De Domenico). Two internal edges at AT and Aj = beta * A2.
+    # De Domenico). Two internal edges at AT and Aj = beta * A2, where A2 is read
+    # off the attached outflow edge at build time (areas live on edges).
 
   SuddenContraction:
     displayName: Sudden Contraction
@@ -1238,16 +1230,6 @@ nodes:
     parameters:
       label:
         defaultValue: SuddenContraction
-      downstreamArea:
-        label: Downstream area
-        type: float
-        defaultValue: 0.01
-        unit: m^2
-        category: Parameters
-        min: 0.000001
-        description: >-
-          Downstream (small pipe) area A_2; must equal the area of the attached
-          outflow edge.
       contractionCoefficient:
         label: Contraction coefficient $C_c$
         type: float
@@ -1260,10 +1242,10 @@ nodes:
           Vena-contracta coefficient: the flow necks to C_c * A_2 just past the
           contraction plane before re-expanding to fill the pipe. 0.62 suits a
           sharp-edged contraction; 1 is the loss-free limit.
-    # Composite: isentropic acceleration to the vena contracta (cc * A2) followed by a
-    # Borda-Carnot re-expansion -- the compressible upgrade to SuddenAreaChange's
-    # cc-loss, exact at higher Mach. Vena-contracta state via
-    # solution.composite(<label>).throat_state.
+    # Composite: isentropic acceleration to the vena contracta (cc * A2, where A2 is
+    # read off the attached outflow edge at build time) followed by a Borda-Carnot
+    # re-expansion -- the compressible upgrade to SuddenAreaChange's cc-loss, exact at
+    # higher Mach. Vena-contracta state via solution.composite(<label>).throat_state.
 
   HelmholtzResonator:
     displayName: Helmholtz Resonator
