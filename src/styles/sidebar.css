@@ -164,6 +164,32 @@
   flex-shrink: 0;
 }
 
+/* Palette glyph chip: the node's own schematic artwork on a miniature of its
+   frame. Box/rail glyphs sit on the gray box fill (the flow passage is authored
+   `var(--color-surface)`, exactly as on the canvas); circular glyphs sit on a
+   bordered disc drawn in the SVG itself. */
+.element-glyph {
+  width: 30px;
+  height: 20px;
+  flex-shrink: 0;
+  background: var(--box-node-fill);
+  border-radius: 2px;
+  color: var(--box-node-ink);
+}
+
+.element-glyph-circle {
+  width: 20px;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--circular-node-ink);
+}
+
+.element-glyph-disc {
+  fill: var(--circular-node-fill);
+  stroke: var(--circular-node-ink);
+  stroke-width: 2;
+}
+
 .element-label {
   font-size: 12px;
   white-space: nowrap;
@@ -552,4 +578,3 @@
   font-size: 12px;
   color: var(--color-text-muted);
 }
-

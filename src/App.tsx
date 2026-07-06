@@ -13,6 +13,7 @@ import ConsolePane from './components/console-pane';
 import PropertiesPanel from './components/PropertiesPanel';
 import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
+import GlyphGallery from './components/GlyphGallery';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 import { AppStateProvider, useAppState } from './context/AppStateContext';
@@ -54,6 +55,11 @@ function App() {
       installDiagnosticsBridge();
     }
   }, []);
+
+  // Dev-only design-review sheet for the glyph set (light + dark, all sizes).
+  if (new URLSearchParams(window.location.search).has('glyphs')) {
+    return <GlyphGallery />;
+  }
 
   return (
     <ReactFlowProvider>

@@ -1,0 +1,85 @@
+.glyph-gallery {
+  min-height: 100vh;
+  padding: 24px 32px;
+  background: var(--color-surface);
+  color: var(--color-text-primary, #222);
+  font-family: inherit;
+}
+
+.glyph-gallery h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.glyph-gallery > p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--color-text-muted, #777);
+}
+
+.glyph-sheets {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.glyph-sheet {
+  flex: 1 1 420px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-text-muted, #999);
+  color: var(--color-text-primary, #222);
+}
+
+.glyph-sheet h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted, #777);
+}
+
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.glyph-cell {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.glyph-tiles {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/* The same rendering context a box node provides on the canvas. */
+.glyph-tile {
+  background: var(--box-node-fill);
+  border-radius: 3px;
+  color: var(--box-node-ink);
+}
+
+.glyph-tile-large {
+  width: 96px;
+  height: 64px;
+}
+
+.glyph-tile-small {
+  width: 42px;
+  height: 28px;
+}
+
+.glyph-cell figcaption {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--color-text-muted, #777);
+}

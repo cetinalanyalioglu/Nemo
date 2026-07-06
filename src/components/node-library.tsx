@@ -9,7 +9,46 @@ import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { useGraphStore } from '../store/graphStore';
-import type { ElementInfoEntry } from '../types/flow';
+import { resolveGlyph } from './nodes/glyphs';
+import type { ElementInfoEntry, NodeConfigEntry } from '../types/flow';
+
+/**
+ * Palette preview for an element that has a schematic glyph: the same artwork
+ * the node draws on the canvas, on a miniature of its frame (gray box tile, or
+ * a bordered disc for circular elements), so palette and canvas match 1:1.
+ * Elements without a glyph fall back to their badge icon.
+ */
+const GlyphChip = ({ config, type }: { config: NodeConfigEntry; type: string }) => {
+  const glyph = resolveGlyph(config.glyph);
+  if (!glyph) return null;
+  if (config.shape === 'circle') {
+    return (
+      <svg className="element-glyph element-glyph-circle" viewBox="0 0 40 40" aria-hidden>
+        <circle className="element-glyph-disc" cx="20" cy="20" r="18.5" />
+        <svg
+          x="10"
+          y="10"
+          width="20"
+          height="20"
+          viewBox={glyph.viewBox}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {glyph.render(`lib-${type}`)}
+        </svg>
+      </svg>
+    );
+  }
+  return (
+    <svg
+      className="element-glyph"
+      viewBox={glyph.viewBox}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden
+    >
+      {glyph.render(`lib-${type}`)}
+    </svg>
+  );
+};
 
 const formatCategoryName = (category: string) => {
   return category.toUpperCase().replace(/I/g, 'I');
@@ -79,6 +118,7 @@ const NodeLibrary = React.memo(() => {
           <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>
             {elements.map(({ type, info }) => {
               const Icon = info.icon;
+              const config = model?.nodeConfig[type];
               return (
                 <div
                   key={type}
@@ -87,7 +127,11 @@ const NodeLibrary = React.memo(() => {
                   onDragStart={locked ? undefined : (e) => onDragStart(e, type)}
                   title={locked ? 'Canvas is locked — unlock it to add nodes' : undefined}
                 >
-                  {Icon && <Icon className="element-icon" />}
+                  {config?.glyph ? (
+                    <GlyphChip config={config} type={type} />
+                  ) : (
+                    Icon && <Icon className="element-icon" />
+                  )}
                   <span className="element-label">{info.displayName || type}</span>
                 </div>
               );

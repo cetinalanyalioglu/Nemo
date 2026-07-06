@@ -1,36 +1,42 @@
+import { svgGlyph } from './load-glyph';
 import type { GlyphAsset } from './types';
-import { mdotGlyph } from './mdot';
-import { pGlyph } from './p';
-import { ptGlyph } from './pt';
-import { cavityGlyph } from './cavity';
-import { wallGlyph } from './wall';
-import { chokedNozzleGlyph } from './choked-nozzle';
-import { suddenAreaChangeGlyph } from './sudden-area-change';
-import { isentropicAreaChangeGlyph } from './isentropic-area-change';
-import { ductGlyph } from './duct';
-import { pipeGlyph } from './pipe';
-import { junctionGlyph } from './junction';
-import { losslessSplitterGlyph } from './lossless-splitter';
 
 /**
  * Registry of symbol/schematic glyphs referenceable from a model's node
- * definition via the `glyph` field (framed circle/box elements). Add new glyphs
- * here to make them available to models.
+ * definition via the `glyph` field (framed circle/box/rail elements).
+ *
+ * The registry is built from the SVG assets themselves: every file in
+ * `src/assets/glyphs/*.svg` registers under its basename (e.g.
+ * `helmholtz-resonator.svg` → key `helmholtz-resonator`), so adding a glyph is
+ * dropping an SVG in that folder — no wrapper module needed. Authoring rules
+ * live in `docs/glyphs.md`.
  */
-const glyphRegistry: Record<string, GlyphAsset> = {
-  mdot: mdotGlyph,
-  p: pGlyph,
-  pt: ptGlyph,
-  cavity: cavityGlyph,
-  wall: wallGlyph,
-  'choked-nozzle': chokedNozzleGlyph,
-  'sudden-area-change': suddenAreaChangeGlyph,
-  'isentropic-area-change': isentropicAreaChangeGlyph,
-  duct: ductGlyph,
-  pipe: pipeGlyph,
-  junction: junctionGlyph,
-  'lossless-splitter': losslessSplitterGlyph,
+
+/**
+ * Per-glyph optical-centre overrides: fraction down the ink box where the
+ * glyph's optical centre sits (see {@link GlyphAsset.opticalCenterY}). Only
+ * read by the circular frame; glyphs not listed centre at 0.5.
+ */
+const OPTICAL_CENTER_Y: Record<string, number> = {
+  mdot: 0.673, // centre on the m-body so the overdot floats above centre
+  p: 0.42,
+  pt: 0.44,
+  cavity: 0.46,
+  'helmholtz-resonator': 0.65,
 };
+
+const RAW_GLYPHS = import.meta.glob('../../../assets/glyphs/*.svg', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+const glyphRegistry: Record<string, GlyphAsset> = Object.fromEntries(
+  Object.entries(RAW_GLYPHS).map(([path, raw]) => {
+    const key = path.slice(path.lastIndexOf('/') + 1).replace(/\.svg$/, '');
+    return [key, svgGlyph(raw, OPTICAL_CENTER_Y[key] ?? 0.5)];
+  })
+);
 
 /** Resolves a glyph key to its asset, or undefined when missing/unregistered. */
 export const resolveGlyph = (key?: string): GlyphAsset | undefined => {
