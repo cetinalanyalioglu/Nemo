@@ -619,9 +619,46 @@
   border-radius: 50%;
 }
 
-/* Port numbers stay hidden on circular frames — the triangle is the indicator. */
-.circular-port .port-index {
-  display: none;
+/* ---- Port numbers ----
+   Each port carries its number in a small pill. Hidden at rest, it appears when
+   the node is hovered, while its port is in move-mode, or globally when the
+   "Port numbers" setting puts .show-port-numbers on the canvas wrapper. */
+.port-wrapper .port-index,
+.framed-port .port-index {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.custom-node:hover .port-wrapper .port-index,
+.custom-node:hover .framed-port .port-index,
+.port-wrapper--active .port-index,
+.show-port-numbers .port-wrapper .port-index,
+.show-port-numbers .framed-port .port-index {
+  opacity: 1;
+}
+
+/* On framed ports (circular / box / rail) the pill floats beside the triangle,
+   clear of the edge path: above a left/right port, right of a top/bottom port. */
+.framed-port .port-index {
+  position: absolute;
+  padding: 0 2px;
+  border-radius: 2px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.framed-port.port-side-left .port-index,
+.framed-port.port-side-right .port-index {
+  left: 50%;
+  bottom: calc(100% - 2px);
+  transform: translateX(-50%);
+}
+
+.framed-port.port-side-top .port-index,
+.framed-port.port-side-bottom .port-index {
+  left: calc(100% - 2px);
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Upright caption beneath the disc (name + optional data value). */

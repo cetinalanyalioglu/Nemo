@@ -748,7 +748,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     return (
       <div
         key={port.suffix}
-        className={`circular-port nodrag port-dir-${port.direction}`}
+        className={`circular-port framed-port nodrag port-side-${port.side} port-dir-${port.direction}`}
         style={{ left: `${xPct}%`, top: `${yPct}%` }}
         title="Alt-drag to move this port around the border; Alt-click to reset (Shift toggles snapping)"
         onMouseDownCapture={(e) => handlePortAngleMouseDown(e, port.suffix)}
@@ -775,7 +775,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     return (
       <div
         key={port.suffix}
-        className={`box-port nodrag port-side-${port.side}${
+        className={`box-port framed-port nodrag port-side-${port.side}${
           isActive ? ' port-wrapper--active' : ''
         }`}
         style={{ left: `${(a.x / boxL.vw) * 100}%`, top: `${(a.y / boxL.vh) * 100}%` }}
@@ -794,6 +794,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle box-handle"
         />
+        <span className="port-index">{port.suffix}</span>
       </div>
     );
   };
@@ -807,7 +808,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     return (
       <div
         key={port.suffix}
-        className={`rail-port nodrag port-side-${port.side}`}
+        className={`rail-port framed-port nodrag port-side-${port.side}`}
         style={{ left: `${(a.x / railL.vw) * 100}%`, top: `${(a.y / railL.vh) * 100}%` }}
       >
         <Handle
@@ -816,6 +817,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           id={`${id}-port-${port.suffix}`}
           className="react-flow__handle custom-handle rail-handle"
         />
+        <span className="port-index">{port.suffix}</span>
       </div>
     );
   };

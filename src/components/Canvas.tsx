@@ -20,7 +20,7 @@ import CanvasTitle from './CanvasTitle';
 import DataLegend from './DataLegend';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
-import { useGridState, useLayoutState } from '../context/AppStateContext';
+import { useAppearanceState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 
 // Stable fallbacks so ReactFlow never receives undefined type maps while a
@@ -56,6 +56,7 @@ const Canvas = () => {
 
   const { snapToGrid, size: gridSize } = useGridState();
   const { showMinimap } = useLayoutState();
+  const { showPortNumbers } = useAppearanceState();
 
   const snapGrid = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize]);
 
@@ -194,7 +195,12 @@ const Canvas = () => {
   }, [handleKeyDown]);
 
   return (
-    <div className="canvas-wrapper" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
+    <div
+      className={`canvas-wrapper${showPortNumbers ? ' show-port-numbers' : ''}`}
+      ref={reactFlowWrapper}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
