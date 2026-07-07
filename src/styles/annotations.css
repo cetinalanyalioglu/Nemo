@@ -1,6 +1,7 @@
 /* Canvas text annotations (presentation layer) and their floating style toolbar. */
 
 .annotation-node {
+  box-sizing: border-box;
   min-width: 40px;
   max-width: 420px;
   padding: 6px 10px;
@@ -8,6 +9,37 @@
   color: var(--color-text-body);
   line-height: 1.45;
   cursor: grab;
+}
+
+/* Image annotations: no padding or text metrics — the picture IS the node, so
+   transparent regions (e.g. PNG alpha) show the canvas through. */
+.annotation-node--image {
+  position: relative;
+  max-width: none;
+  min-width: 0;
+  padding: 0;
+  line-height: 0;
+}
+
+.annotation-image {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Corner scale grip of a selected image annotation (same look as the element
+   resize grip). */
+.annotation-node--image .resize-handle {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: se-resize;
+  pointer-events: all;
 }
 
 .annotation-node--border {
@@ -87,10 +119,13 @@
   color: var(--color-accent);
 }
 
-/* Inline Markdown-source editor (double-click). */
+/* Inline Markdown-source editor (double-click). The note div freezes at its
+   rendered size while editing, and the editor simply fills it. */
 .annotation-editor {
   display: block;
+  box-sizing: border-box;
   width: 100%;
+  height: 100%;
   min-width: 200px;
   min-height: 52px;
   padding: 4px 6px;
@@ -154,33 +189,93 @@ select.annotation-tool-font {
   height: 24px;
   font-size: 12px;
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-control);
-}
-
-.annotation-tool-number {
-  width: 46px;
-  height: 24px;
-  padding: 0 4px;
-  border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-surface);
   color: var(--color-text-control);
+}
+
+/* Numeric field with explicit +/- steppers, mirroring the properties panel's
+   number inputs (buttons appear on hover, one step per click). */
+.annotation-stepper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 56px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.annotation-stepper:focus-within {
+  border-color: var(--color-accent);
+}
+
+.annotation-stepper-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 18px 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-control);
   font-size: 12px;
+  outline: none;
 }
 
-.annotation-tool-width {
-  width: 54px;
+.annotation-stepper-input::placeholder {
+  color: var(--color-text-muted);
 }
 
-.annotation-tool-color {
-  gap: 3px;
+.annotation-stepper-controls {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.annotation-stepper:hover .annotation-stepper-controls,
+.annotation-stepper:focus-within .annotation-stepper-controls {
+  opacity: 1;
+}
+
+.annotation-stepper-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: 9px;
+  line-height: 1;
   cursor: pointer;
 }
 
+.annotation-tool-color {
+  height: 24px;
+  padding: 0 5px;
+  gap: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.annotation-tool-color:hover {
+  border-color: var(--color-accent);
+}
+
 .annotation-tool-color input[type='color'] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 1px solid var(--color-border);
   border-radius: 3px;

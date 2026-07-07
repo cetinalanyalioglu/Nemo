@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoChevronDown,
+  IoImageOutline,
   IoPencilOutline,
   IoTextOutline,
   IoTrashOutline,
@@ -11,6 +12,8 @@ import '../styles/annotations.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
+import { ANNOTATION_IMAGE_ACCEPT, readAnnotationImage } from '../utils/annotation-images';
+import { logger } from '../utils/logger';
 import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 import type { AnnotationData } from '../types/annotations';
 
@@ -49,20 +52,35 @@ const AnnotationsPane = React.memo(() => {
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
 
   const annotations = useMemo(() => nodes.filter((n) => n.type === ANNOTATION_NODE_TYPE), [nodes]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const onDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData(ANNOTATION_DRAG_MIME, 'text');
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const addAtViewportCenter = () => {
-    const position = reactFlowInstance
+  const viewportCenter = () =>
+    reactFlowInstance
       ? reactFlowInstance.screenToFlowPosition({
           x: window.innerWidth / 2,
           y: window.innerHeight / 2,
         })
       : { x: 0, y: 0 };
-    addAnnotation({ position });
+
+  const addAtViewportCenter = () => {
+    addAnnotation({ position: viewportCenter() });
+  };
+
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const { src, width } = await readAnnotationImage(file);
+      addAnnotation({ position: viewportCenter(), kind: 'image', src, style: { width } });
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const focusAnnotation = (id: string) => {
@@ -108,9 +126,26 @@ const AnnotationsPane = React.memo(() => {
             <IoTextOutline className="annotation-add-chip-icon" />
             <span>Text</span>
           </div>
+          <input
+            type="file"
+            ref={imageInputRef}
+            accept={ANNOTATION_IMAGE_ACCEPT}
+            onChange={handleImageSelect}
+            className="file-input-hidden"
+          />
+          <div
+            className="annotation-add-chip"
+            onClick={() => imageInputRef.current?.click()}
+            title="Upload an image (PNG, JPEG, GIF, WebP, SVG); you can also drop an image file onto the canvas"
+          >
+            <IoImageOutline className="annotation-add-chip-icon" />
+            <span>Image</span>
+          </div>
           <p className="annotation-pane-hint">
             Notes support Markdown. Double-click a note to edit it; select it to style it from the
-            toolbar. Annotations are independent of the model and are saved with the document.
+            toolbar. Images (PNG with transparency, JPEG, GIF, WebP, SVG) can also be dropped onto
+            the canvas straight from your file manager. Annotations are independent of the model and
+            are saved with the document.
           </p>
         </div>
       </div>
@@ -132,6 +167,7 @@ const AnnotationsPane = React.memo(() => {
                   text: '',
                   style: {},
                 }) as AnnotationData;
+                const isImage = annotation.kind === 'image';
                 return (
                   <li
                     key={node.id}
@@ -139,8 +175,14 @@ const AnnotationsPane = React.memo(() => {
                     onClick={() => focusAnnotation(node.id)}
                     title="Click to select and centre this note"
                   >
-                    <IoTextOutline className="annotation-list-icon" />
-                    <span className="annotation-list-text">{previewText(annotation.text)}</span>
+                    {isImage ? (
+                      <IoImageOutline className="annotation-list-icon" />
+                    ) : (
+                      <IoTextOutline className="annotation-list-icon" />
+                    )}
+                    <span className="annotation-list-text">
+                      {isImage ? '(image)' : previewText(annotation.text)}
+                    </span>
                     <button
                       type="button"
                       className="annotation-list-delete"

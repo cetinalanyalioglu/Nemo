@@ -14,6 +14,18 @@ import type { XYPosition } from 'reactflow';
 /** Reserved React Flow node type for annotation nodes. */
 export const ANNOTATION_NODE_TYPE = 'annotation';
 
+/** What an annotation shows: a Markdown text note or an uploaded image. */
+export type AnnotationKind = 'text' | 'image';
+
+/**
+ * Where the annotation sits relative to the model layer: `front` draws over the
+ * network, `back` behind it (e.g. a background image or a region label).
+ */
+export type AnnotationLayer = 'front' | 'back';
+
+/** Node `zIndex` for each annotation layer; model elements sit at 0. */
+export const ANNOTATION_LAYER_Z: Record<AnnotationLayer, number> = { front: 1, back: -1 };
+
 export type AnnotationAlign = 'left' | 'center' | 'right';
 
 /** Named font choices offered by the annotation toolbar, resolved via
@@ -44,9 +56,15 @@ export interface AnnotationStyle {
 
 /** Runtime payload stored in an annotation node's `data.annotation`. */
 export interface AnnotationData {
-  /** Markdown source of the note. */
+  /** What the annotation shows. Defaults to `text` when absent. */
+  kind?: AnnotationKind;
+  /** Markdown source of the note (`text` kind). */
   text: string;
   style: AnnotationStyle;
+  /** Image content as a data URI (`image` kind). */
+  src?: string;
+  /** Stacking relative to the model layer. Defaults to `front`. */
+  layer?: AnnotationLayer;
 }
 
 /** Defaults applied wherever a style field is unset. */
@@ -70,10 +88,14 @@ export const ANNOTATION_FONT_STACKS: Record<AnnotationFont, string> = {
 /** An annotation as stored in the save file's top-level `annotations` section. */
 export interface SaveFileAnnotation {
   id: string;
-  kind: 'text';
+  kind: AnnotationKind;
   position: XYPosition;
-  /** Markdown source of the note. */
-  text: string;
+  /** Markdown source of the note (`text` kind). */
+  text?: string;
+  /** Image content as a data URI (`image` kind). */
+  src?: string;
+  /** Stacking relative to the model layer; omitted when `front` (the default). */
+  layer?: AnnotationLayer;
   /** Only explicitly-set style fields; omitted entirely when all are default. */
   style?: AnnotationStyle;
 }

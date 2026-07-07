@@ -25,6 +25,8 @@ import { useModel } from '../context/ModelContext';
 import AnnotationNode from './nodes/AnnotationNode';
 import { ANNOTATION_DRAG_MIME } from './annotations-pane';
 import { ANNOTATION_NODE_TYPE } from '../types/annotations';
+import { readAnnotationImage } from '../utils/annotation-images';
+import { logger } from '../utils/logger';
 
 // Stable fallbacks so ReactFlow never receives undefined type maps while a
 // model is loading.
@@ -107,6 +109,19 @@ const Canvas = () => {
       // layer, never through the model's addNode path.
       if (event.dataTransfer.getData(ANNOTATION_DRAG_MIME)) {
         addAnnotation({ position });
+        return;
+      }
+
+      // An image file dropped straight from the OS becomes an image annotation.
+      const file = event.dataTransfer.files?.[0];
+      if (file && file.type.startsWith('image/')) {
+        readAnnotationImage(file)
+          .then(({ src, width }) =>
+            addAnnotation({ position, kind: 'image', src, style: { width } })
+          )
+          .catch((error: unknown) =>
+            logger.error(error instanceof Error ? error.message : String(error))
+          );
         return;
       }
 

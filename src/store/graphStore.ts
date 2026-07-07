@@ -9,8 +9,14 @@ import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/
 import { isPortCountParameter } from '../utils/ports';
 import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 import { useDataStore } from './dataStore';
-import { ANNOTATION_NODE_TYPE } from '../types/annotations';
-import type { AnnotationData, AnnotationStyle, SaveFileAnnotation } from '../types/annotations';
+import { ANNOTATION_LAYER_Z, ANNOTATION_NODE_TYPE } from '../types/annotations';
+import type {
+  AnnotationData,
+  AnnotationKind,
+  AnnotationLayer,
+  AnnotationStyle,
+  SaveFileAnnotation,
+} from '../types/annotations';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -176,18 +182,22 @@ export interface GraphStore extends GraphData {
    */
   addAnnotation: (payload?: {
     position?: XYPosition;
+    kind?: AnnotationKind;
     text?: string;
+    src?: string;
     style?: AnnotationStyle;
+    layer?: AnnotationLayer;
   }) => Node | undefined;
   /**
-   * Merges a patch into an annotation's text and/or style. Style fields set to
-   * `undefined` are removed (reset to the default). History is recorded by
-   * default; pass `{ recordHistory: false }` for continuous gestures (e.g. a
-   * color-picker drag) that record once up front.
+   * Merges a patch into an annotation's text, style, and/or layer. Style fields
+   * set to `undefined` are removed (reset to the default); a layer change also
+   * restacks the node relative to the model. History is recorded by default;
+   * pass `{ recordHistory: false }` for continuous gestures (e.g. a color-picker
+   * drag or a resize) that record once up front.
    */
   updateAnnotation: (
     annotationId: string,
-    patch: { text?: string; style?: AnnotationStyle },
+    patch: { text?: string; style?: AnnotationStyle; layer?: AnnotationLayer },
     options?: { recordHistory?: boolean }
   ) => void;
   /** Deletes an annotation. Allowed on a locked canvas. */
@@ -260,9 +270,10 @@ const captureFrom = (s: GraphData): CanvasSnapshot => ({
     type: node.type,
     position: { ...node.position },
     data: { ...(node.data ?? {}) },
-    // Annotations carry an explicit draggable flag (movable on a locked canvas);
-    // preserve it across undo/redo.
+    // Annotations carry an explicit draggable flag (movable on a locked canvas)
+    // and a layer zIndex; preserve both across undo/redo.
     ...(node.draggable !== undefined ? { draggable: node.draggable } : {}),
+    ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
   })),
   edges: s.edges.map((edge) => ({
     id: edge.id,
@@ -770,7 +781,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     // Annotation mutations bypass the canvas lock deliberately: annotations are
     // presentation-only, so adding/editing/deleting them can never renumber the
     // indices loaded data maps to.
-    addAnnotation: ({ position = { x: 0, y: 0 }, text = '', style = {} } = {}) => {
+    addAnnotation: ({
+      position = { x: 0, y: 0 },
+      kind = 'text',
+      text = '',
+      src,
+      style = {},
+      layer = 'front',
+    } = {}) => {
       get().recordHistory();
 
       const takenIds = new Set(get().nodes.map((n) => n.id));
@@ -779,13 +797,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         id = `annotation-${generateRandomSuffix(6)}`;
       }
 
-      const annotation: AnnotationData = { text, style };
+      const annotation: AnnotationData = { kind, text, style, ...(src ? { src } : {}), layer };
       const newNode: Node = {
         id,
         type: ANNOTATION_NODE_TYPE,
         position,
         data: { annotation },
         selected: true,
+        zIndex: ANNOTATION_LAYER_Z[layer],
         // Explicit so notes stay movable on a locked canvas (the lock only
         // guards the model graph).
         draggable: true,
@@ -814,10 +833,12 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       (Object.keys(style) as Array<keyof AnnotationStyle>).forEach((key) => {
         if (style[key] === undefined) delete style[key];
       });
-      const next: AnnotationData = { text: patch.text ?? current.text, style };
+      const layer = patch.layer ?? current.layer ?? 'front';
+      const next: AnnotationData = { ...current, text: patch.text ?? current.text, style, layer };
 
       if (
         next.text === current.text &&
+        layer === (current.layer ?? 'front') &&
         JSON.stringify(next.style) === JSON.stringify(current.style)
       ) {
         return;
@@ -826,7 +847,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       if (shouldRecord) get().recordHistory();
       set((s) => ({
         nodes: s.nodes.map((n) =>
-          n.id === annotationId ? { ...n, data: { ...(n.data ?? {}), annotation: next } } : n
+          n.id === annotationId
+            ? {
+                ...n,
+                data: { ...(n.data ?? {}), annotation: next },
+                zIndex: ANNOTATION_LAYER_Z[layer],
+              }
+            : n
         ),
       }));
     },
@@ -1138,11 +1165,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const modelNodes = state.nodes.filter((node) => !isAnnotationNode(node));
       const annotations: SaveFileAnnotation[] = state.nodes.filter(isAnnotationNode).map((node) => {
         const annotation = (node.data?.annotation ?? { text: '', style: {} }) as AnnotationData;
+        const kind = annotation.kind ?? 'text';
         return {
           id: node.id,
-          kind: 'text',
+          kind,
           position: node.position,
-          text: annotation.text,
+          ...(kind === 'text' ? { text: annotation.text } : {}),
+          ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
+          ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
           ...(Object.keys(annotation.style).length > 0 ? { style: annotation.style } : {}),
         };
       });
@@ -1315,13 +1345,25 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
       // Annotations restore onto the presentation layer; they have no
       // model/nodeStates entries.
-      const annotationNodes: Node[] = (saveData.annotations ?? []).map((a) => ({
-        id: a.id,
-        type: ANNOTATION_NODE_TYPE,
-        position: a.position ?? { x: 0, y: 0 },
-        data: { annotation: { text: a.text ?? '', style: a.style ?? {} } },
-        draggable: true,
-      }));
+      const annotationNodes: Node[] = (saveData.annotations ?? []).map((a) => {
+        const layer: AnnotationLayer = a.layer === 'back' ? 'back' : 'front';
+        return {
+          id: a.id,
+          type: ANNOTATION_NODE_TYPE,
+          position: a.position ?? { x: 0, y: 0 },
+          data: {
+            annotation: {
+              kind: a.kind ?? 'text',
+              text: a.text ?? '',
+              style: a.style ?? {},
+              ...(a.src ? { src: a.src } : {}),
+              layer,
+            },
+          },
+          zIndex: ANNOTATION_LAYER_Z[layer],
+          draggable: true,
+        };
+      });
 
       set({
         modelParameters: mergeModelParameters(get().model, saveData.model.globalAttributes),

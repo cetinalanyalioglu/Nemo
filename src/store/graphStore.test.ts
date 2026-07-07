@@ -555,7 +555,7 @@ describe('graphStore annotations', () => {
     expect(node.selected).toBe(true);
     expect(node.draggable).toBe(true);
     expect(useGraphStore.getState().nodeStates[node.id]).toBeUndefined();
-    expect(useGraphStore.getState().nodes[0].data.annotation).toEqual({
+    expect(useGraphStore.getState().nodes[0].data.annotation).toMatchObject({
       text: 'hello',
       style: {},
     });
@@ -617,7 +617,7 @@ describe('graphStore annotations', () => {
     expect(nodes).toHaveLength(1);
     expect(nodes[0].type).toBe('annotation');
     expect(nodes[0].draggable).toBe(true);
-    expect(nodes[0].data.annotation).toEqual({ text: 'roundtrip', style: { italic: true } });
+    expect(nodes[0].data.annotation).toMatchObject({ text: 'roundtrip', style: { italic: true } });
   });
 
   it('never assigns a model index to an annotation', () => {
@@ -649,5 +649,79 @@ describe('graphStore annotations', () => {
     expect(useGraphStore.getState().nodes).toHaveLength(0);
     useGraphStore.getState().undo();
     expect(useGraphStore.getState().nodes[0].data.annotation.text).toBe('keep me');
+  });
+});
+
+describe('graphStore image and layered annotations', () => {
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  const SRC = 'data:image/png;base64,AAAA';
+
+  it('adds an image annotation with kind, src and a front zIndex', () => {
+    const node = useGraphStore.getState().addAnnotation({
+      position: { x: 1, y: 2 },
+      kind: 'image',
+      src: SRC,
+      style: { width: 320 },
+    })!;
+    expect(node.zIndex).toBe(1);
+    expect(useGraphStore.getState().nodes[0].data.annotation).toMatchObject({
+      kind: 'image',
+      src: SRC,
+      style: { width: 320 },
+    });
+  });
+
+  it('moves an annotation behind the model and back, restacking the node', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(-1);
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'front' });
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
+  });
+
+  it('saves image annotations with src (no text) and a back layer marker', () => {
+    const node = useGraphStore.getState().addAnnotation({
+      kind: 'image',
+      src: SRC,
+      style: { width: 100 },
+    })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations).toHaveLength(1);
+    const saved = save.annotations![0];
+    expect(saved).toMatchObject({ kind: 'image', src: SRC, layer: 'back' });
+    expect(saved.text).toBeUndefined();
+  });
+
+  it('round-trips an image annotation through applySaveData with its layer', () => {
+    const node = useGraphStore.getState().addAnnotation({ kind: 'image', src: SRC })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    const save = useGraphStore.getState().generateSaveData();
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const restored = useGraphStore.getState().nodes[0];
+    expect(restored.zIndex).toBe(-1);
+    expect(restored.data.annotation).toMatchObject({ kind: 'image', src: SRC, layer: 'back' });
+  });
+
+  it('undo restores the previous layer and zIndex', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
   });
 });
