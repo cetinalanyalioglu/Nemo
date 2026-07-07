@@ -318,21 +318,21 @@ nodes:
       label:
         defaultValue: Junction
       leftPorts:
-        label: Left ports
+        label: Target ports
         type: number
         defaultValue: 2
         min: 1
         step: 1
         category: Ports
-        description: Number of left (target) ports
+        description: Number of target (incoming) ports
       rightPorts:
-        label: Right ports
+        label: Source ports
         type: number
         defaultValue: 1
         min: 1
         step: 1
         category: Ports
-        description: Number of right (source) ports
+        description: Number of source (outgoing) ports
     # Common static pressure on all ports; inflow enthalpies mix
     # mass-weighted. Only valid where all port Mach numbers are low --
     # use LosslessSplitter for plenums feeding fast branches.

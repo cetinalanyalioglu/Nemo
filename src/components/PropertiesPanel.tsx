@@ -505,22 +505,24 @@ const PropertiesPanel = React.memo(() => {
       <div className="properties-panel">
         {/* Panel header */}
         <div className="panel-header">
-          {isEdge ? (
-            <IoGitBranch className="panel-icon" />
-          ) : (
-            <IoSettingsOutline className="panel-icon" />
-          )}
-          <span className="panel-title">
-            {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
-          </span>
+          <div className="panel-header-row">
+            {isEdge ? (
+              <IoGitBranch className="panel-icon" />
+            ) : (
+              <IoSettingsOutline className="panel-icon" />
+            )}
+            <span className="panel-title">
+              {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
+            </span>
+          </div>
           {/* Element type of the selection: the schematic alone may not make it
               obvious which library element this is. */}
           {elementType && (
-            <span className="panel-element-type" title={`Element type: ${elementType}`}>
+            <div className="panel-element-type" title={`Element type: ${elementType}`}>
               {(isEdge
                 ? edgeInfo[elementType]?.displayName
                 : elementInfo[elementType]?.displayName) ?? elementType}
-            </span>
+            </div>
           )}
         </div>
 
