@@ -2,7 +2,7 @@
   "models": [
     {
       "id": "fns-flow-network",
-      "name": "FNS Flow Network",
+      "name": "Nefes Flow Network",
       "file": "fns-flow-network.yaml"
     },
     {

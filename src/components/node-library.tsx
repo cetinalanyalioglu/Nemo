@@ -9,7 +9,29 @@ import '../styles/sidebar.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { useGraphStore } from '../store/graphStore';
-import type { ElementInfoEntry } from '../types/flow';
+import { resolveGlyph } from './nodes/glyphs';
+import type { ElementInfoEntry, NodeConfigEntry } from '../types/flow';
+
+/**
+ * Palette preview for an element that has a schematic glyph: the element's own
+ * artwork as plain line art — no frame, tile, or disc — so the palette reads as
+ * an orderly icon column. Elements without a glyph fall back to their badge
+ * icon; both sit in a fixed-size chip slot so the name labels line up.
+ */
+const GlyphChip = ({ config, type }: { config: NodeConfigEntry; type: string }) => {
+  const glyph = resolveGlyph(config.glyph);
+  if (!glyph) return null;
+  return (
+    <svg
+      className={`element-glyph${config.shape === 'circle' ? ' element-glyph-circle' : ''}`}
+      viewBox={glyph.viewBox}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden
+    >
+      {glyph.render(`lib-${type}`)}
+    </svg>
+  );
+};
 
 const formatCategoryName = (category: string) => {
   return category.toUpperCase().replace(/I/g, 'I');
@@ -79,6 +101,7 @@ const NodeLibrary = React.memo(() => {
           <div className={`group-content ${collapsedGroups[category] ? 'collapsed' : ''}`}>
             {elements.map(({ type, info }) => {
               const Icon = info.icon;
+              const config = model?.nodeConfig[type];
               return (
                 <div
                   key={type}
@@ -87,7 +110,13 @@ const NodeLibrary = React.memo(() => {
                   onDragStart={locked ? undefined : (e) => onDragStart(e, type)}
                   title={locked ? 'Canvas is locked — unlock it to add nodes' : undefined}
                 >
-                  {Icon && <Icon className="element-icon" />}
+                  <span className="element-chip" aria-hidden>
+                    {config?.glyph ? (
+                      <GlyphChip config={config} type={type} />
+                    ) : (
+                      Icon && <Icon className="element-icon" />
+                    )}
+                  </span>
                   <span className="element-label">{info.displayName || type}</span>
                 </div>
               );

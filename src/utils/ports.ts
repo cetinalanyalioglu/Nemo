@@ -2,6 +2,7 @@ import type {
   DynamicPortConfig,
   DynamicPortSide,
   NodePorts,
+  PortAngles,
   PortPlacements,
   PortSide,
 } from '../types/flow';
@@ -129,4 +130,88 @@ export const groupPortsBySide = (
   layout.source.forEach((_portId, idx) => place(String(targetCount + idx), 'source'));
 
   return buckets;
+};
+
+/**
+ * A circular element's port resolved to an outward angle on its border. `suffix`
+ * and `direction` match every other layout (targets keep their suffix, sources
+ * are `targetCount + idx`) so handle ids and connectivity are untouched;
+ * `exitAngle` is the outward direction in math convention (0° = right, 90° = up)
+ * and `side` is the nearest cardinal, used only to pick the React Flow handle
+ * `position` (which drives the edge-exit vector).
+ */
+export interface RadialPort {
+  suffix: string;
+  direction: 'target' | 'source';
+  exitAngle: number;
+  side: PortSide;
+}
+
+/**
+ * Half-angle (degrees) of the arc each side's ports fan across, centred on that
+ * side's cardinal direction. Kept ≤ 45° so every port's nearest cardinal stays
+ * the side it belongs to — targets read as `left`, sources as `right` — which
+ * keeps React Flow's edge-exit vectors clean.
+ */
+const RADIAL_HALF_ARC = 45;
+
+/** Nearest cardinal side for an outward angle (math convention, degrees). */
+export const nearestSide = (angleDeg: number): PortSide => {
+  const a = ((angleDeg % 360) + 360) % 360;
+  if (a >= 315 || a < 45) return 'right';
+  if (a < 135) return 'top';
+  if (a < 225) return 'left';
+  return 'bottom';
+};
+
+/**
+ * Places a circular element's ports on its border. A per-instance manual `angle`
+ * (from the node's UI data) always wins. Otherwise placement follows one of two
+ * automatic schemes:
+ *
+ * - Default (static-port elements): targets across the left arc, sources across
+ *   the right, evenly spaced within ±`RADIAL_HALF_ARC` of their cardinal (a lone
+ *   port lands on the cardinal itself).
+ * - `even` (dynamic-port elements, e.g. the junction node-dot): ALL ports fan
+ *   evenly around the full circle at a uniform `360/n` pitch — the target block
+ *   centred on the left (180°), the source block on the right (0°) — so the two
+ *   blocks meet with the same pitch and the element reads as a graph node where
+ *   flows converge. Direction (target/source) is preserved, so edge validity and
+ *   connectivity are untouched; only the rendered angle differs.
+ *
+ * Port numbering is unchanged in either scheme.
+ */
+export const computeRadialPorts = (
+  layout: NodePorts,
+  angles?: PortAngles,
+  options?: { even?: boolean }
+): RadialPort[] => {
+  const targetCount = layout.target.length;
+  const total = targetCount + layout.source.length;
+  const even = options?.even ?? false;
+  const pitch = total > 0 ? 360 / total : 0;
+
+  const arc = (
+    ids: string[],
+    direction: 'target' | 'source',
+    centerAngle: number,
+    offset: number
+  ) =>
+    ids.map((_id, i): RadialPort => {
+      const suffix = String(offset + i);
+      const manual = angles?.[suffix];
+      let exitAngle: number;
+      if (manual != null) {
+        exitAngle = manual;
+      } else if (even) {
+        // Uniform pitch around the whole circle, this group centred on its side.
+        exitAngle = centerAngle + pitch * (i - (ids.length - 1) / 2);
+      } else {
+        exitAngle =
+          centerAngle + RADIAL_HALF_ARC * (ids.length === 1 ? 0 : (2 * i + 1) / ids.length - 1);
+      }
+      return { suffix, direction, exitAngle, side: nearestSide(exitAngle) };
+    });
+
+  return [...arc(layout.target, 'target', 180, 0), ...arc(layout.source, 'source', 0, targetCount)];
 };

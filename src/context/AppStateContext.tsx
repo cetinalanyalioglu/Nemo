@@ -1,9 +1,17 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
+import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 import { CONSOLE_DEFAULT_HEIGHT } from '../types/console';
 
-export type SidebarPane = 'library' | 'document' | 'model' | 'tools' | 'settings' | 'data';
+export type SidebarPane =
+  | 'library'
+  | 'document'
+  | 'model'
+  | 'tools'
+  | 'settings'
+  | 'data'
+  | 'annotations';
 export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier';
 
 type CollapsedGroups = Record<string, boolean>;
@@ -17,10 +25,13 @@ export type AppearanceState = {
   theme: ThemeId;
   showEdgeBadges: boolean;
   showIndices: boolean;
+  showPortNumbers: boolean;
 };
 
 export type LayoutState = {
   edgePathStyle: EdgePathStyle;
+  layoutEngine: LayoutEngine;
+  layoutDirection: LayoutDirection;
   nodeSep: number;
   rankSep: number;
   showMinimap: boolean;
@@ -66,9 +77,12 @@ type AppActions = {
     setTheme: (theme: ThemeId) => void;
     toggleEdgeBadges: () => void;
     toggleShowIndices: () => void;
+    togglePortNumbers: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
+    setLayoutEngine: (engine: LayoutEngine) => void;
+    setLayoutDirection: (direction: LayoutDirection) => void;
     setNodeSep: (value: number) => void;
     setRankSep: (value: number) => void;
     toggleMinimap: () => void;
@@ -114,14 +128,12 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     theme: readStoredTheme(),
     showEdgeBadges: true,
     showIndices: false,
+    showPortNumbers: false,
   }));
-  const [layoutState, setLayout] = useState<{
-    edgePathStyle: EdgePathStyle;
-    nodeSep: number;
-    rankSep: number;
-    showMinimap: boolean;
-  }>({
+  const [layoutState, setLayout] = useState<LayoutState>({
     edgePathStyle: 'bezier',
+    layoutEngine: 'elk',
+    layoutDirection: 'RIGHT',
     nodeSep: 80,
     rankSep: 100,
     showMinimap: true,
@@ -221,8 +233,20 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance((prev) => ({ ...prev, showIndices: !prev.showIndices }));
   }, []);
 
+  const appearanceTogglePortNumbers = useCallback(() => {
+    setAppearance((prev) => ({ ...prev, showPortNumbers: !prev.showPortNumbers }));
+  }, []);
+
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
     setLayout((prev) => ({ ...prev, edgePathStyle: style }));
+  }, []);
+
+  const layoutSetLayoutEngine = useCallback((engine: LayoutEngine) => {
+    setLayout((prev) => ({ ...prev, layoutEngine: engine }));
+  }, []);
+
+  const layoutSetLayoutDirection = useCallback((direction: LayoutDirection) => {
+    setLayout((prev) => ({ ...prev, layoutDirection: direction }));
   }, []);
 
   const layoutSetNodeSep = useCallback((value: number) => {
@@ -269,9 +293,12 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         setTheme: appearanceSetTheme,
         toggleEdgeBadges: appearanceToggleEdgeBadges,
         toggleShowIndices: appearanceToggleShowIndices,
+        togglePortNumbers: appearanceTogglePortNumbers,
       },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
+        setLayoutEngine: layoutSetLayoutEngine,
+        setLayoutDirection: layoutSetLayoutDirection,
         setNodeSep: layoutSetNodeSep,
         setRankSep: layoutSetRankSep,
         toggleMinimap: layoutToggleMinimap,
@@ -295,7 +322,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearanceSetTheme,
       appearanceToggleEdgeBadges,
       appearanceToggleShowIndices,
+      appearanceTogglePortNumbers,
       layoutSetEdgePathStyle,
+      layoutSetLayoutEngine,
+      layoutSetLayoutDirection,
       layoutSetNodeSep,
       layoutSetRankSep,
       layoutToggleMinimap,

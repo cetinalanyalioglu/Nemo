@@ -14,6 +14,7 @@ import { useAppState } from '../context/AppStateContext';
 import { THEME_OPTIONS } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { EdgePathStyle } from '../context/AppStateContext';
+import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
@@ -28,6 +29,18 @@ const EDGE_PATH_OPTIONS: { value: EdgePathStyle; label: string }[] = [
   { value: 'simplebezier', label: 'Simple Bezier' },
   { value: 'smoothstep', label: 'Smooth Step' },
   { value: 'straight', label: 'Straight' },
+];
+
+const LAYOUT_ENGINE_OPTIONS: { value: LayoutEngine; label: string }[] = [
+  { value: 'elk', label: 'ELK (port-aware)' },
+  { value: 'dagre', label: 'Dagre' },
+];
+
+const LAYOUT_DIRECTION_OPTIONS: { value: LayoutDirection; label: string }[] = [
+  { value: 'RIGHT', label: 'Left to right' },
+  { value: 'DOWN', label: 'Top to bottom' },
+  { value: 'LEFT', label: 'Right to left' },
+  { value: 'UP', label: 'Bottom to top' },
 ];
 
 const LAYOUT_SEP_MIN = 20;
@@ -163,8 +176,8 @@ const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSe
 
 const SettingsPane = React.memo(() => {
   const {
-    appearance: { theme, showEdgeBadges },
-    layout: { edgePathStyle, nodeSep, rankSep, showMinimap },
+    appearance: { theme, showEdgeBadges, showPortNumbers },
+    layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
     sidebar: { isOpen, collapsedGroups },
     actions,
@@ -177,6 +190,16 @@ const SettingsPane = React.memo(() => {
 
   const handleEdgePathStyleChange = useCallback(
     (value: string) => actions.layout.setEdgePathStyle(value as EdgePathStyle),
+    [actions.layout]
+  );
+
+  const handleLayoutEngineChange = useCallback(
+    (value: string) => actions.layout.setLayoutEngine(value as LayoutEngine),
+    [actions.layout]
+  );
+
+  const handleLayoutDirectionChange = useCallback(
+    (value: string) => actions.layout.setLayoutDirection(value as LayoutDirection),
     [actions.layout]
   );
 
@@ -233,6 +256,11 @@ const SettingsPane = React.memo(() => {
             checked={showEdgeBadges}
             onToggle={actions.appearance.toggleEdgeBadges}
           />
+          <SettingsBooleanField
+            label="Port numbers"
+            checked={showPortNumbers}
+            onToggle={actions.appearance.togglePortNumbers}
+          />
         </div>
       </div>
 
@@ -255,6 +283,20 @@ const SettingsPane = React.memo(() => {
             value={edgePathStyle}
             options={EDGE_PATH_OPTIONS}
             onChange={handleEdgePathStyleChange}
+          />
+          <SettingsSelectField
+            id="layout-engine-select"
+            label="Layout engine"
+            value={layoutEngine}
+            options={LAYOUT_ENGINE_OPTIONS}
+            onChange={handleLayoutEngineChange}
+          />
+          <SettingsSelectField
+            id="layout-direction-select"
+            label="Flow direction"
+            value={layoutDirection}
+            options={LAYOUT_DIRECTION_OPTIONS}
+            onChange={handleLayoutDirectionChange}
           />
           <SettingsNumberField
             id="node-sep-input"

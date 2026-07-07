@@ -71,18 +71,18 @@ edges:
       label:
         defaultValue: Node
       leftPorts:
-        label: Left Ports
+        label: Target ports
         type: number
         defaultValue: 1
         min: 0
         step: 1
         category: Ports
-        description: Number of left ports
+        description: Number of target (incoming) ports
       rightPorts:
-        label: Right Ports
+        label: Source ports
         type: number
         defaultValue: 1
         min: 0
         step: 1
         category: Ports
-        description: Number of right ports
+        description: Number of source (outgoing) ports

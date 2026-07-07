@@ -9,6 +9,14 @@ import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/
 import { isPortCountParameter } from '../utils/ports';
 import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 import { useDataStore } from './dataStore';
+import { ANNOTATION_LAYER_Z, ANNOTATION_NODE_TYPE } from '../types/annotations';
+import type {
+  AnnotationData,
+  AnnotationKind,
+  AnnotationLayer,
+  AnnotationStyle,
+  SaveFileAnnotation,
+} from '../types/annotations';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -19,6 +27,7 @@ import type {
   ParameterChangeHandler,
   ParameterInfo,
   ParameterValues,
+  PortAngles,
   PortPlacements,
   PortSide,
   SaveFilePayload,
@@ -30,7 +39,23 @@ export const MAX_HISTORY_DEPTH = 100;
 /** When true, indices are recomputed and applied to state before writing a save file. */
 export const RENUMBER_ON_SAVE = true;
 
-const SAVE_FILE_VERSION = '2.0.0';
+const SAVE_FILE_VERSION = '2.1.0';
+
+/** Whether a canvas node is an annotation (presentation layer, not the model). */
+const isAnnotationNode = (node: Node): boolean => node.type === ANNOTATION_NODE_TYPE;
+
+/**
+ * React Flow node flags derived from an annotation's payload: the layer sets
+ * the stacking, and the lock makes the node inert on the canvas (the class
+ * disables pointer events so clicks fall through to whatever is underneath).
+ * `draggable` is explicit so unlocked notes stay movable on a locked canvas.
+ */
+const annotationNodeFlags = (annotation: AnnotationData): Partial<Node> => ({
+  zIndex: ANNOTATION_LAYER_Z[annotation.layer ?? 'front'],
+  draggable: !annotation.locked,
+  selectable: !annotation.locked,
+  className: annotation.locked ? 'annotation-flow-node--locked' : undefined,
+});
 
 const EMPTY_ELEMENT_INFO: Record<string, ElementInfoEntry> = {};
 const EMPTY_EDGE_INFO: Record<string, EdgeInfoEntry> = {};
@@ -150,6 +175,54 @@ export interface GraphStore extends GraphData {
    * the intermediate ticks of a drag gesture that records once up front.
    */
   setNodeRotation: (nodeId: string, degrees: number, options?: { recordHistory?: boolean }) => void;
+  /**
+   * Sets a per-instance manual angle (degrees) for a circular element's perimeter
+   * port, or clears the override when `angle` is undefined. Presentation-only:
+   * stored in `node.data`. History is recorded by default; pass
+   * `{ recordHistory: false }` for the intermediate ticks of a drag that records
+   * once up front.
+   */
+  setPortAngle: (
+    nodeId: string,
+    portNumber: string,
+    angle: number | undefined,
+    options?: { recordHistory?: boolean }
+  ) => void;
+  /**
+   * Adds a text annotation to the canvas at the given position. Annotations live
+   * on the presentation layer only (no model state, no index) and are allowed on
+   * a locked canvas. The new note is selected so its style toolbar shows.
+   */
+  addAnnotation: (payload?: {
+    position?: XYPosition;
+    kind?: AnnotationKind;
+    text?: string;
+    src?: string;
+    style?: AnnotationStyle;
+    layer?: AnnotationLayer;
+  }) => Node | undefined;
+  /**
+   * Merges a patch into an annotation's text, style, layer, name, lock state,
+   * and/or rotation. Style fields set to `undefined` are removed (reset to the
+   * default); a layer change also restacks the node relative to the model; a
+   * lock change toggles the node's on-canvas selectability. History is recorded
+   * by default; pass `{ recordHistory: false }` for continuous gestures (e.g. a
+   * color-picker drag or a resize) that record once up front.
+   */
+  updateAnnotation: (
+    annotationId: string,
+    patch: {
+      text?: string;
+      style?: AnnotationStyle;
+      layer?: AnnotationLayer;
+      name?: string;
+      locked?: boolean;
+      rotation?: number;
+    },
+    options?: { recordHistory?: boolean }
+  ) => void;
+  /** Deletes an annotation. Allowed on a locked canvas. */
+  deleteAnnotation: (annotationId: string) => void;
   updateEdgeParameter: (edgeId: string, paramName: string, value: unknown) => boolean;
   updateModelParameter: (paramName: string, value: unknown) => void;
   isValidConnection: (connection: Connection) => boolean;
@@ -184,7 +257,10 @@ export interface GraphStore extends GraphData {
   applyPendingLoad: () => void;
 }
 
-const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+// structuredClone, not JSON round-tripping: parameter maps carry keys whose
+// value is deliberately `undefined` (required-but-unset fields like a flow
+// edge's area), and JSON serialization silently drops those keys.
+const deepClone = <T>(value: T): T => structuredClone(value);
 
 /**
  * Returns whether a node label is already used by another node. Used to enforce
@@ -218,6 +294,13 @@ const captureFrom = (s: GraphData): CanvasSnapshot => ({
     type: node.type,
     position: { ...node.position },
     data: { ...(node.data ?? {}) },
+    // Annotations carry explicit draggable/selectable flags (movable on a
+    // locked canvas, inert when annotation-locked), a layer zIndex, and a
+    // lock className; preserve all of them across undo/redo.
+    ...(node.draggable !== undefined ? { draggable: node.draggable } : {}),
+    ...(node.selectable !== undefined ? { selectable: node.selectable } : {}),
+    ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
+    ...(node.className !== undefined ? { className: node.className } : {}),
   })),
   edges: s.edges.map((edge) => ({
     id: edge.id,
@@ -305,8 +388,11 @@ const computeIndices = (
   const updatedNodeStates = deepClone(s.nodeStates);
   const updatedEdgeStates = deepClone(s.edgeStates);
 
+  // Annotations live outside the model: they never consume an index.
+  const modelNodes = s.nodes.filter((node) => !isAnnotationNode(node));
+
   const adjacencyList: Record<string, { connectedNodes: Set<string>; edges: Edge[] }> = {};
-  s.nodes.forEach((node) => {
+  modelNodes.forEach((node) => {
     adjacencyList[node.id] = { connectedNodes: new Set(), edges: [] };
   });
 
@@ -350,7 +436,7 @@ const computeIndices = (
     }
   };
 
-  const unvisitedNodes = new Set(s.nodes.map((node) => node.id));
+  const unvisitedNodes = new Set(modelNodes.map((node) => node.id));
   while (unvisitedNodes.size > 0) {
     const startNode = unvisitedNodes.values().next().value!;
     bfs(startNode);
@@ -666,6 +752,36 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }));
     },
 
+    setPortAngle: (nodeId, portNumber, angle, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot set port angle: node "${nodeId}" not found.`);
+        return;
+      }
+      const current = (node.data?.portAngles ?? {}) as PortAngles;
+      const normalized = angle == null ? undefined : ((angle % 360) + 360) % 360;
+      // No-op when nothing changes (same angle, or clearing an unset override).
+      if (
+        normalized === undefined ? !(portNumber in current) : current[portNumber] === normalized
+      ) {
+        return;
+      }
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.id !== nodeId) return n;
+          const angles = { ...((n.data?.portAngles ?? {}) as PortAngles) };
+          if (normalized === undefined) {
+            delete angles[portNumber];
+          } else {
+            angles[portNumber] = normalized;
+          }
+          return { ...n, data: { ...(n.data ?? {}), portAngles: angles } };
+        }),
+      }));
+    },
+
     // Returns true once the value is applied (or already current). Callers — the
     // properties panel in particular — treat a falsy return as a rejected edit,
     // so a void return here made every edge-parameter commit look like a failure.
@@ -687,6 +803,117 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         },
       }));
       return true;
+    },
+
+    // Annotation mutations bypass the canvas lock deliberately: annotations are
+    // presentation-only, so adding/editing/deleting them can never renumber the
+    // indices loaded data maps to.
+    addAnnotation: ({
+      position = { x: 0, y: 0 },
+      kind = 'text',
+      text = '',
+      src,
+      style = {},
+      layer = 'front',
+    } = {}) => {
+      get().recordHistory();
+
+      const takenIds = new Set(get().nodes.map((n) => n.id));
+      let id = `annotation-${generateRandomSuffix(6)}`;
+      while (takenIds.has(id)) {
+        id = `annotation-${generateRandomSuffix(6)}`;
+      }
+
+      const annotation: AnnotationData = { kind, text, style, ...(src ? { src } : {}), layer };
+      const newNode: Node = {
+        id,
+        type: ANNOTATION_NODE_TYPE,
+        position,
+        data: { annotation },
+        selected: true,
+        ...annotationNodeFlags(annotation),
+      };
+
+      set((s) => ({
+        nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), newNode],
+        selectedNodeId: null,
+        selectedEdgeId: null,
+      }));
+      return newNode;
+    },
+
+    updateAnnotation: (annotationId, patch, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      const node = get().nodes.find((n) => n.id === annotationId && isAnnotationNode(n));
+      if (!node) {
+        logger.error(`Cannot update annotation: "${annotationId}" not found.`);
+        return;
+      }
+      const current = (node.data?.annotation ?? { text: '', style: {} }) as AnnotationData;
+
+      const style: AnnotationStyle = { ...current.style, ...(patch.style ?? {}) };
+      // An explicit `undefined` in the patch clears the field back to its default
+      // (and keeps it out of the save file).
+      (Object.keys(style) as Array<keyof AnnotationStyle>).forEach((key) => {
+        if (style[key] === undefined) delete style[key];
+      });
+      const layer = patch.layer ?? current.layer ?? 'front';
+      const locked = patch.locked ?? current.locked ?? false;
+      // Blank names clear back to the automatic list label; rotation normalizes
+      // into [0, 360) with 0 dropped so untouched notes stay minimal on disk.
+      const name = (patch.name ?? current.name ?? '').trim();
+      const rotation =
+        patch.rotation !== undefined
+          ? ((patch.rotation % 360) + 360) % 360
+          : (current.rotation ?? 0);
+      const next: AnnotationData = {
+        ...current,
+        text: patch.text ?? current.text,
+        style,
+        layer,
+        name,
+        locked,
+        rotation,
+      };
+      if (!name) delete next.name;
+      if (!locked) delete next.locked;
+      if (!rotation) delete next.rotation;
+
+      if (
+        next.text === current.text &&
+        layer === (current.layer ?? 'front') &&
+        locked === (current.locked ?? false) &&
+        next.name === current.name &&
+        rotation === (current.rotation ?? 0) &&
+        JSON.stringify(next.style) === JSON.stringify(current.style)
+      ) {
+        return;
+      }
+
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) =>
+          n.id === annotationId
+            ? {
+                ...n,
+                data: { ...(n.data ?? {}), annotation: next },
+                ...annotationNodeFlags(next),
+                // Locking also drops any live selection so the toolbar closes.
+                ...(locked ? { selected: false } : {}),
+              }
+            : n
+        ),
+      }));
+    },
+
+    deleteAnnotation: (annotationId) => {
+      const node = get().nodes.find((n) => n.id === annotationId && isAnnotationNode(n));
+      if (!node) {
+        logger.error(`Cannot delete annotation: "${annotationId}" not found.`);
+        return;
+      }
+      get().recordHistory();
+      set((s) => ({ nodes: s.nodes.filter((n) => n.id !== annotationId) }));
     },
 
     updateModelParameter: (paramName, value) => {
@@ -981,6 +1208,26 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       // pane tick-list). Omit the section entirely when nothing is selected.
       const savedDatasets = useDataStore.getState().datasets.filter((d) => d.includeInSave);
 
+      // Annotations are serialized into their own top-level section; the model
+      // and uiAttributes sections carry model elements only.
+      const modelNodes = state.nodes.filter((node) => !isAnnotationNode(node));
+      const annotations: SaveFileAnnotation[] = state.nodes.filter(isAnnotationNode).map((node) => {
+        const annotation = (node.data?.annotation ?? { text: '', style: {} }) as AnnotationData;
+        const kind = annotation.kind ?? 'text';
+        return {
+          id: node.id,
+          kind,
+          position: node.position,
+          ...(kind === 'text' ? { text: annotation.text } : {}),
+          ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
+          ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
+          ...(annotation.name ? { name: annotation.name } : {}),
+          ...(annotation.locked ? { locked: true } : {}),
+          ...(annotation.rotation ? { rotation: annotation.rotation } : {}),
+          ...(Object.keys(annotation.style).length > 0 ? { style: annotation.style } : {}),
+        };
+      });
+
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
@@ -989,7 +1236,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         model: {
           id: state.model?.id,
           globalAttributes: { ...state.modelParameters },
-          nodes: state.nodes.map((node) => ({
+          nodes: modelNodes.map((node) => ({
             id: node.id,
             type: node.type!,
             attributes: state.nodeStates[node.id]?.parameters ?? {},
@@ -1004,8 +1251,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
             attributes: state.edgeStates[edge.id]?.parameters ?? {},
           })),
         },
+        ...(annotations.length > 0 ? { annotations } : {}),
         uiAttributes: {
-          nodes: state.nodes.map((node) => ({
+          nodes: modelNodes.map((node) => ({
             id: node.id,
             position: node.position,
             data: node.data,
@@ -1085,6 +1333,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       get().reset();
 
       const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
+      const elementInfo = get().model?.elementInfo ?? EMPTY_ELEMENT_INFO;
 
       const uiNodeById = new Map(
         (saveData.uiAttributes?.nodes ?? []).map((uiNode) => [uiNode.id, uiNode])
@@ -1094,7 +1343,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const usedLabels = new Set<string>();
       const newNodeStates: Record<string, NodeRuntimeState> = {};
       saveData.model.nodes.forEach((node) => {
-        const parameters = { ...(node.attributes ?? {}) };
+        // Saved attributes overlay the template defaults: YAML never carries
+        // required-but-unset fields (undefined keys are dropped on dump), so
+        // starting from the defaults restores those keys and the properties
+        // pane keeps showing their input boxes.
+        const parameters = {
+          ...buildDefaultParameters(elementInfo[node.type]?.parameters),
+          ...(node.attributes ?? {}),
+        };
         // When the model enforces unique labels, disambiguate any duplicates in
         // the loaded file so the canvas never opens in an invalid state.
         if (forceUniqueLabels && typeof parameters.label === 'string') {
@@ -1122,19 +1378,23 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
       const newEdgeStates: Record<string, EdgeRuntimeState> = {};
       modelEdges.forEach((edge) => {
-        if (edge.attributes) {
-          newEdgeStates[edge.id] = { parameters: edge.attributes };
-        } else {
-          const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
-          if (!edgeTemplate) {
-            logger.warn(
-              `Edge "${edge.id}": template not found for type "${edge.type}"; using empty parameters.`
-            );
-          }
-          newEdgeStates[edge.id] = {
-            parameters: edgeTemplate ? buildDefaultParameters(edgeTemplate.parameters) : {},
-          };
+        const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
+        if (!edgeTemplate) {
+          logger.warn(
+            `Edge "${edge.id}": template not found for type "${edge.type}"; ` +
+              `using the saved attributes as-is.`
+          );
         }
+        // Saved attributes overlay the template defaults (see the node states
+        // above): required-but-unset fields never reach the YAML, so the
+        // defaults restore their keys and the properties pane keeps showing
+        // their input boxes.
+        newEdgeStates[edge.id] = {
+          parameters: {
+            ...(edgeTemplate ? buildDefaultParameters(edgeTemplate.parameters) : {}),
+            ...(edge.attributes ?? {}),
+          },
+        };
       });
 
       const newEdges: Edge[] = modelEdges.map((edge) => ({
@@ -1146,10 +1406,33 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         type: edge.type,
       }));
 
+      // Annotations restore onto the presentation layer; they have no
+      // model/nodeStates entries.
+      const annotationNodes: Node[] = (saveData.annotations ?? []).map((a) => {
+        const layer: AnnotationLayer = a.layer === 'back' ? 'back' : 'front';
+        const annotation: AnnotationData = {
+          kind: a.kind ?? 'text',
+          text: a.text ?? '',
+          style: a.style ?? {},
+          ...(a.src ? { src: a.src } : {}),
+          layer,
+          ...(a.name ? { name: a.name } : {}),
+          ...(a.locked ? { locked: true } : {}),
+          ...(a.rotation ? { rotation: a.rotation } : {}),
+        };
+        return {
+          id: a.id,
+          type: ANNOTATION_NODE_TYPE,
+          position: a.position ?? { x: 0, y: 0 },
+          data: { annotation },
+          ...annotationNodeFlags(annotation),
+        };
+      });
+
       set({
         modelParameters: mergeModelParameters(get().model, saveData.model.globalAttributes),
         nodeStates: newNodeStates,
-        nodes: newNodes,
+        nodes: [...newNodes, ...annotationNodes],
         edgeStates: newEdgeStates,
         edges: newEdges,
         nodeCounters: saveData.uiState?.counters?.nodeCounters ?? {},

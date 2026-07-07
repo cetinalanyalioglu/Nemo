@@ -20,8 +20,13 @@ import CanvasTitle from './CanvasTitle';
 import DataLegend from './DataLegend';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
-import { useGridState, useLayoutState } from '../context/AppStateContext';
+import { useAppearanceState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
+import AnnotationNode from './nodes/AnnotationNode';
+import { ANNOTATION_DRAG_MIME } from './annotations-pane';
+import { ANNOTATION_NODE_TYPE } from '../types/annotations';
+import { readAnnotationImage } from '../utils/annotation-images';
+import { logger } from '../utils/logger';
 
 // Stable fallbacks so ReactFlow never receives undefined type maps while a
 // model is loading.
@@ -43,7 +48,9 @@ const Canvas = () => {
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const onEdgesChange = useGraphStore((s) => s.onEdgesChange);
   const addNode = useGraphStore((s) => s.addNode);
+  const addAnnotation = useGraphStore((s) => s.addAnnotation);
   const deleteNode = useGraphStore((s) => s.deleteNode);
+  const deleteAnnotation = useGraphStore((s) => s.deleteAnnotation);
   const deleteEdge = useGraphStore((s) => s.deleteEdge);
   const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
   const setSelectedEdgeId = useGraphStore((s) => s.setSelectedEdgeId);
@@ -56,11 +63,16 @@ const Canvas = () => {
 
   const { snapToGrid, size: gridSize } = useGridState();
   const { showMinimap } = useLayoutState();
+  const { showPortNumbers } = useAppearanceState();
 
   const snapGrid = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize]);
 
   const { model } = useModel();
-  const nodeTypes = useMemo(() => model?.nodeTypes ?? EMPTY_NODE_TYPES, [model?.nodeTypes]);
+  // Model element types plus the model-independent annotation layer.
+  const nodeTypes = useMemo(
+    () => ({ ...(model?.nodeTypes ?? EMPTY_NODE_TYPES), [ANNOTATION_NODE_TYPE]: AnnotationNode }),
+    [model?.nodeTypes]
+  );
   const edgeTypes = useMemo(() => model?.edgeTypes ?? EMPTY_EDGE_TYPES, [model?.edgeTypes]);
 
   const onInit = useCallback(
@@ -88,20 +100,40 @@ const Canvas = () => {
         return;
       }
 
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // Annotation drags (from the Annotations pane) drop onto the presentation
+      // layer, never through the model's addNode path.
+      if (event.dataTransfer.getData(ANNOTATION_DRAG_MIME)) {
+        addAnnotation({ position });
+        return;
+      }
+
+      // An image file dropped straight from the OS becomes an image annotation.
+      const file = event.dataTransfer.files?.[0];
+      if (file && file.type.startsWith('image/')) {
+        readAnnotationImage(file)
+          .then(({ src, width }) =>
+            addAnnotation({ position, kind: 'image', src, style: { width } })
+          )
+          .catch((error: unknown) =>
+            logger.error(error instanceof Error ? error.message : String(error))
+          );
+        return;
+      }
+
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) {
         console.error('No node type provided.');
         return;
       }
 
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
       addNode({ type, position });
     },
-    [reactFlowInstance, addNode]
+    [reactFlowInstance, addNode, addAnnotation]
   );
 
   const onConnect = useCallback(
@@ -115,6 +147,12 @@ const Canvas = () => {
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      // Annotations have no parameters: keep the properties panel out of it and
+      // let the note's own floating toolbar handle styling.
+      if (node.type === ANNOTATION_NODE_TYPE) {
+        setSelectedNodeId(null);
+        return;
+      }
       setSelectedNodeId(node.id);
     },
     [setSelectedNodeId]
@@ -167,15 +205,22 @@ const Canvas = () => {
       }
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        // Deletion is a topological change; a locked canvas rejects it in the
-        // store. Bail early so inspecting a selected element doesn't spam the
-        // console with one rejection per selected node/edge.
+        const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
+
+        // Annotations are presentation-only, so deleting them is allowed even on
+        // a locked canvas.
+        selectedNodes
+          .filter((node) => node.type === ANNOTATION_NODE_TYPE)
+          .forEach((node) => deleteAnnotation(node.id));
+
+        // Model deletion is a topological change; a locked canvas rejects it in
+        // the store. Bail early so inspecting a selected element doesn't spam
+        // the console with one rejection per selected node/edge.
         if (useGraphStore.getState().locked) return;
 
-        const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
-        selectedNodes.forEach((node) => {
-          deleteNode(node.id);
-        });
+        selectedNodes
+          .filter((node) => node.type !== ANNOTATION_NODE_TYPE)
+          .forEach((node) => deleteNode(node.id));
 
         const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
         selectedEdges.forEach((edge) => {
@@ -183,7 +228,7 @@ const Canvas = () => {
         });
       }
     },
-    [reactFlowInstance, deleteNode, deleteEdge, undo, redo]
+    [reactFlowInstance, deleteNode, deleteAnnotation, deleteEdge, undo, redo]
   );
 
   useEffect(() => {
@@ -194,7 +239,12 @@ const Canvas = () => {
   }, [handleKeyDown]);
 
   return (
-    <div className="canvas-wrapper" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
+    <div
+      className={`canvas-wrapper${showPortNumbers ? ' show-port-numbers' : ''}`}
+      ref={reactFlowWrapper}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}

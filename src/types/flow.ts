@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { IconType } from 'react-icons';
 import type { Edge, XYPosition } from 'reactflow';
 import type { Dataset } from './data';
+import type { SaveFileAnnotation } from './annotations';
 
 /** Runtime parameter bag for nodes and edges */
 export type ParameterValues = Record<string, unknown>;
@@ -110,6 +111,22 @@ export type NodePorts = { target: string[]; source: string[] };
 export type PortSide = 'left' | 'right' | 'top' | 'bottom';
 
 /**
+ * Frame an element is drawn in. `rect` is the default boxed node (HTML, ports on
+ * the four edges); `circle` is a round SVG frame with a border, a centred glyph
+ * and radial ports; `box` is a rectangular SVG frame with a gray interior, a
+ * schematic glyph and triangle ports on its edges. Purely presentational.
+ */
+export type NodeShape = 'rect' | 'circle' | 'box' | 'rail';
+
+/**
+ * Per-*instance* manual angular overrides for a circular element's perimeter
+ * ports, in degrees (math convention, 0° = right, 90° = up). Keyed by the port's
+ * positional suffix and stored in the node's UI data, so they round-trip through
+ * save/load and history and take precedence over the automatic distribution.
+ */
+export type PortAngles = Record<string, number>;
+
+/**
  * Per-node override mapping a port's positional number (the handle-id suffix) to
  * the edge it renders on. Presentation-only: it never changes a port's number,
  * direction (target/source), handle id, or connectivity — only where the handle
@@ -143,6 +160,28 @@ export interface NodeConfigEntry {
   icon: IconType;
   displayName: string;
   category: string;
+  /** Frame the element is drawn in. Defaults to `rect`. */
+  shape: NodeShape;
+  /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
+  glyph?: string;
+  /**
+   * For `circle` shapes: multiplier on the centred glyph's size, so each element
+   * type can size its glyph to look right in the circle (e.g. a tall glyph vs a
+   * wide one). Defaults to 1.
+   */
+  glyphScale?: number;
+  /**
+   * For `box` shapes: gray whitespace around the glyph as a fraction of the
+   * glyph's own width/height, on each side. Aspect-preserving. `glyphInsetX` may
+   * be 0 or negative to run the passage under the side borders to the ports.
+   * Both default to 0.
+   */
+  glyphInsetX?: number;
+  glyphInsetY?: number;
+  /** When true, the element's ports cannot be repositioned by the user. */
+  lockPorts?: boolean;
+  /** When true, the element shows the corner resize grip. Defaults to false. */
+  resizable?: boolean;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   /**
@@ -169,6 +208,19 @@ export interface ModelNodeDefinition {
   displayName: string;
   category: string;
   icon?: string;
+  /** Frame the element is drawn in (`rect` | `circle`). Defaults to `rect`. */
+  shape?: NodeShape;
+  /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
+  glyph?: string;
+  /** For `circle` shapes: multiplier on the centred glyph's size. Defaults to 1. */
+  glyphScale?: number;
+  /** For `box` shapes: gray whitespace around the glyph (fraction of glyph size). */
+  glyphInsetX?: number;
+  glyphInsetY?: number;
+  /** When true, the element's ports cannot be repositioned by the user. */
+  lockPorts?: boolean;
+  /** When true, the element shows the corner resize grip. Defaults to false. */
+  resizable?: boolean;
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;
@@ -286,6 +338,11 @@ export interface SaveFilePayload {
       totalNodeCounters: Record<string, number>;
     };
   };
+  /**
+   * Canvas annotations (notes on the presentation layer). Entirely separate from
+   * the model section: annotations are not part of the simulation graph.
+   */
+  annotations?: SaveFileAnnotation[];
   /** Optional embedded result datasets saved alongside the case. */
   data?: {
     datasets: Dataset[];

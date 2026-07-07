@@ -7,6 +7,7 @@ import {
   IoStatsChartOutline,
   IoConstructOutline,
   IoSettingsOutline,
+  IoPencilOutline,
 } from 'react-icons/io5';
 import '../styles/navigation-controls.css';
 
@@ -52,6 +53,15 @@ const NavigationControls = React.memo(() => {
         title="Data"
       >
         <IoStatsChartOutline />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => actions.sidebar.selectPane('annotations')}
+        className={`nav-button ${isOpen && activePane === 'annotations' ? 'active' : ''}`}
+        title="Annotations"
+      >
+        <IoPencilOutline />
       </button>
 
       <button

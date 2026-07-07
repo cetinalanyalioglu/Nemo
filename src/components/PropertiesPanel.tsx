@@ -219,8 +219,18 @@ const PropertiesPanel = React.memo(() => {
   const groupedParameters = useMemo(() => {
     if (!elementState?.parameters)
       return {} as Record<string, Array<{ key: string; value: unknown; info: ParameterInfo }>>;
-    return Object.entries(elementState.parameters).reduce(
-      (acc, [key, value]) => {
+    // Render the union of the element's parameter template and the runtime
+    // state: the template guarantees every defined parameter keeps its input
+    // box even when its key is absent from the state (e.g. a required field
+    // that is still unset), while extra state keys (legacy files, ad-hoc
+    // attributes) still show under "Other".
+    const keys = [
+      ...Object.keys(parametersInfo),
+      ...Object.keys(elementState.parameters).filter((key) => !(key in parametersInfo)),
+    ];
+    return keys.reduce(
+      (acc, key) => {
+        const value = elementState.parameters[key];
         const parameterInfo: ParameterInfo =
           parametersInfo[key] ||
           ({
@@ -495,14 +505,25 @@ const PropertiesPanel = React.memo(() => {
       <div className="properties-panel">
         {/* Panel header */}
         <div className="panel-header">
-          {isEdge ? (
-            <IoGitBranch className="panel-icon" />
-          ) : (
-            <IoSettingsOutline className="panel-icon" />
+          <div className="panel-header-row">
+            {isEdge ? (
+              <IoGitBranch className="panel-icon" />
+            ) : (
+              <IoSettingsOutline className="panel-icon" />
+            )}
+            <span className="panel-title">
+              {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
+            </span>
+          </div>
+          {/* Element type of the selection: the schematic alone may not make it
+              obvious which library element this is. */}
+          {elementType && (
+            <div className="panel-element-type" title={`Element type: ${elementType}`}>
+              {(isEdge
+                ? edgeInfo[elementType]?.displayName
+                : elementInfo[elementType]?.displayName) ?? elementType}
+            </div>
           )}
-          <span className="panel-title">
-            {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
-          </span>
         </div>
 
         {/* Parameter groups, ordered by precedence then alphabetically */}

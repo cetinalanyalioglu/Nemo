@@ -481,3 +481,418 @@ describe('graphStore port placement', () => {
     expect(useGraphStore.getState().activePort).toBeNull();
   });
 });
+
+describe('graphStore setPortAngle', () => {
+  const seedNode = () =>
+    useGraphStore.setState({
+      nodes: [{ id: 'n1', type: 'MassFlowInlet', position: { x: 0, y: 0 }, data: {} }],
+      nodeStates: { n1: { parameters: { label: 'Inlet' } } },
+      nodeCounters: { MassFlowInlet: 1 },
+      past: [],
+      future: [],
+      locked: false,
+    });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('stores a normalized manual angle in the node UI data', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 450);
+    expect(useGraphStore.getState().nodes[0].data.portAngles).toEqual({ '0': 90 });
+  });
+
+  it('clears the override when the angle is undefined', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    useGraphStore.getState().setPortAngle('n1', '0', undefined);
+    expect(useGraphStore.getState().nodes[0].data.portAngles).toEqual({});
+  });
+
+  it('is a no-op (no history) when the angle is unchanged', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('records one undo step so a rotation can be reverted', () => {
+    seedNode();
+    useGraphStore.getState().setPortAngle('n1', '0', 90);
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.portAngles ?? {}).toEqual({});
+  });
+});
+
+describe('graphStore annotations', () => {
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  const addNote = (text = 'hello', style = {}) =>
+    useGraphStore.getState().addAnnotation({ position: { x: 10, y: 20 }, text, style })!;
+
+  it('adds a selected, draggable annotation node with no model state', () => {
+    const node = addNote();
+    expect(node.type).toBe('annotation');
+    expect(node.selected).toBe(true);
+    expect(node.draggable).toBe(true);
+    expect(useGraphStore.getState().nodeStates[node.id]).toBeUndefined();
+    expect(useGraphStore.getState().nodes[0].data.annotation).toMatchObject({
+      text: 'hello',
+      style: {},
+    });
+  });
+
+  it('adds, edits and deletes annotations while the canvas is locked', () => {
+    useGraphStore.setState({ locked: true });
+    const node = addNote();
+    expect(node).toBeDefined();
+    useGraphStore.getState().updateAnnotation(node.id, { text: 'changed' });
+    const data = useGraphStore.getState().nodes[0].data.annotation;
+    expect(data.text).toBe('changed');
+    useGraphStore.getState().deleteAnnotation(node.id);
+    expect(useGraphStore.getState().nodes).toHaveLength(0);
+  });
+
+  it('merges style patches and clears fields patched to undefined', () => {
+    const node = addNote('x', { bold: true });
+    useGraphStore.getState().updateAnnotation(node.id, { style: { color: '#ff0000' } });
+    useGraphStore.getState().updateAnnotation(node.id, { style: { bold: undefined } });
+    const data = useGraphStore.getState().nodes[0].data.annotation;
+    expect(data.style).toEqual({ color: '#ff0000' });
+  });
+
+  it('is a no-op (no history) when nothing changes', () => {
+    const node = addNote('x', { bold: true });
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().updateAnnotation(node.id, { text: 'x', style: { bold: true } });
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('saves annotations to their own section, outside the model', () => {
+    const node = addNote('note text', { fontSize: 20 });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.model.nodes).toHaveLength(0);
+    expect(save.uiAttributes.nodes).toHaveLength(0);
+    expect(save.annotations).toEqual([
+      {
+        id: node.id,
+        kind: 'text',
+        position: { x: 10, y: 20 },
+        text: 'note text',
+        style: { fontSize: 20 },
+      },
+    ]);
+  });
+
+  it('omits the annotations section when there are none', () => {
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations).toBeUndefined();
+  });
+
+  it('round-trips annotations through applySaveData', () => {
+    addNote('roundtrip', { italic: true });
+    const save = useGraphStore.getState().generateSaveData();
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const nodes = useGraphStore.getState().nodes;
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].type).toBe('annotation');
+    expect(nodes[0].draggable).toBe(true);
+    expect(nodes[0].data.annotation).toMatchObject({ text: 'roundtrip', style: { italic: true } });
+  });
+
+  it('never assigns a model index to an annotation', () => {
+    useGraphStore.setState({
+      nodes: [
+        { id: 'n1', type: 'x', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'a1',
+          type: 'annotation',
+          position: { x: 0, y: 0 },
+          data: { annotation: { text: '', style: {} } },
+        },
+        { id: 'n2', type: 'x', position: { x: 0, y: 0 }, data: {} },
+      ],
+      nodeStates: {
+        n1: { parameters: { label: 'A' } },
+        n2: { parameters: { label: 'B' } },
+      },
+    });
+    useGraphStore.getState().regenerateIndices();
+    const states = useGraphStore.getState().nodeStates;
+    const indices = [states.n1.parameters.index, states.n2.parameters.index].sort();
+    expect(indices).toEqual([0, 1]);
+  });
+
+  it('undo restores a deleted annotation with its content', () => {
+    const node = addNote('keep me');
+    useGraphStore.getState().deleteAnnotation(node.id);
+    expect(useGraphStore.getState().nodes).toHaveLength(0);
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.annotation.text).toBe('keep me');
+  });
+});
+
+describe('graphStore image and layered annotations', () => {
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  const SRC = 'data:image/png;base64,AAAA';
+
+  it('adds an image annotation with kind, src and a front zIndex', () => {
+    const node = useGraphStore.getState().addAnnotation({
+      position: { x: 1, y: 2 },
+      kind: 'image',
+      src: SRC,
+      style: { width: 320 },
+    })!;
+    expect(node.zIndex).toBe(1);
+    expect(useGraphStore.getState().nodes[0].data.annotation).toMatchObject({
+      kind: 'image',
+      src: SRC,
+      style: { width: 320 },
+    });
+  });
+
+  it('moves an annotation behind the model and back, restacking the node', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    // Deeper than React Flow's +1000 selection elevation, so the toggle takes
+    // effect visually even while the node stays selected.
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(-1500);
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'front' });
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
+  });
+
+  it('saves image annotations with src (no text) and a back layer marker', () => {
+    const node = useGraphStore.getState().addAnnotation({
+      kind: 'image',
+      src: SRC,
+      style: { width: 100 },
+    })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations).toHaveLength(1);
+    const saved = save.annotations![0];
+    expect(saved).toMatchObject({ kind: 'image', src: SRC, layer: 'back' });
+    expect(saved.text).toBeUndefined();
+  });
+
+  it('round-trips an image annotation through applySaveData with its layer', () => {
+    const node = useGraphStore.getState().addAnnotation({ kind: 'image', src: SRC })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    const save = useGraphStore.getState().generateSaveData();
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const restored = useGraphStore.getState().nodes[0];
+    expect(restored.zIndex).toBe(-1500);
+    expect(restored.data.annotation).toMatchObject({ kind: 'image', src: SRC, layer: 'back' });
+  });
+
+  it('undo restores the previous layer and zIndex', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
+  });
+
+  it('locking makes the node unselectable and undraggable; unlocking reverts', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { locked: true });
+    let stored = useGraphStore.getState().nodes[0];
+    expect(stored.selectable).toBe(false);
+    expect(stored.draggable).toBe(false);
+    expect(stored.selected).toBe(false);
+    expect(stored.className).toBe('annotation-flow-node--locked');
+    useGraphStore.getState().updateAnnotation(node.id, { locked: false });
+    stored = useGraphStore.getState().nodes[0];
+    expect(stored.selectable).toBe(true);
+    expect(stored.draggable).toBe(true);
+    expect(stored.data.annotation.locked).toBeUndefined();
+  });
+
+  it('normalizes rotation into [0, 360) and drops zero', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { rotation: -30 });
+    expect(useGraphStore.getState().nodes[0].data.annotation.rotation).toBe(330);
+    useGraphStore.getState().updateAnnotation(node.id, { rotation: 360 });
+    expect(useGraphStore.getState().nodes[0].data.annotation.rotation).toBeUndefined();
+  });
+
+  it('clears the name when renamed to blank', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { name: 'Guide' });
+    expect(useGraphStore.getState().nodes[0].data.annotation.name).toBe('Guide');
+    useGraphStore.getState().updateAnnotation(node.id, { name: '  ' });
+    expect(useGraphStore.getState().nodes[0].data.annotation.name).toBeUndefined();
+  });
+
+  it('round-trips name, lock and rotation through save/load', () => {
+    const node = useGraphStore.getState().addAnnotation({ kind: 'image', src: SRC })!;
+    useGraphStore
+      .getState()
+      .updateAnnotation(node.id, { name: 'Combustor guide', locked: true, rotation: 15 });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations![0]).toMatchObject({
+      name: 'Combustor guide',
+      locked: true,
+      rotation: 15,
+    });
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const restored = useGraphStore.getState().nodes[0];
+    expect(restored.data.annotation).toMatchObject({
+      name: 'Combustor guide',
+      locked: true,
+      rotation: 15,
+    });
+    expect(restored.selectable).toBe(false);
+    expect(restored.className).toBe('annotation-flow-node--locked');
+  });
+
+  it('undo restores the pre-lock selectability', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { locked: true });
+    useGraphStore.getState().undo();
+    const stored = useGraphStore.getState().nodes[0];
+    expect(stored.data.annotation.locked).toBeUndefined();
+    expect(stored.selectable).toBe(true);
+  });
+});
+
+describe('graphStore unset required parameters (edge area)', () => {
+  /** A two-element model whose `flow` edge carries a mandatory `area`. */
+  const areaModel = buildRuntimeModel(
+    validateModelDefinition({
+      id: 'area-model',
+      name: 'AreaModel',
+      nodes: {
+        Source: {
+          displayName: 'Source',
+          category: 'E',
+          ports: { target: [], source: ['0'] },
+          parameters: { label: { defaultValue: 'Source' } },
+        },
+        Sink: {
+          displayName: 'Sink',
+          category: 'E',
+          ports: { target: ['0'], source: [] },
+          parameters: { label: { defaultValue: 'Sink' } },
+        },
+      },
+      edges: {
+        flow: {
+          displayName: 'Flow',
+          category: 'C',
+          parameters: { area: { label: 'Area', type: 'float', category: 'P', required: true } },
+        },
+      },
+    })
+  );
+
+  const installGraph = () => {
+    useGraphStore.setState({
+      model: areaModel,
+      nodes: [
+        { id: 's', type: 'Source', position: { x: 0, y: 0 }, data: {} },
+        { id: 'k', type: 'Sink', position: { x: 0, y: 0 }, data: {} },
+      ],
+      nodeStates: {
+        s: { parameters: { label: 'Source' } },
+        k: { parameters: { label: 'Sink' } },
+      },
+      edges: [
+        {
+          id: 'e1',
+          source: 's',
+          target: 'k',
+          sourceHandle: 's-port-0',
+          targetHandle: 'k-port-0',
+          type: 'flow',
+        },
+      ],
+      // Required-but-unset: the key exists with an undefined value, which is
+      // what buildDefaultParameters produces on edge creation.
+      edgeStates: { e1: { parameters: { area: undefined } } },
+    });
+  };
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  it('keeps the unset area key through the save-time index renumbering', () => {
+    installGraph();
+    useGraphStore.getState().regenerateIndices();
+    const parameters = useGraphStore.getState().edgeStates.e1.parameters;
+    // The key must survive (a JSON-based clone would silently drop it and the
+    // properties pane would lose the Area input box).
+    expect(Object.prototype.hasOwnProperty.call(parameters, 'area')).toBe(true);
+    expect(parameters.area).toBeUndefined();
+  });
+
+  it('restores the unset area key after a YAML-like save/load round trip', () => {
+    installGraph();
+    useGraphStore.getState().regenerateIndices();
+    const save = useGraphStore.getState().generateSaveData();
+    // YAML serialization drops keys whose value is undefined; JSON stringify
+    // does the same, so it faithfully models the on-disk file.
+    const reloaded = JSON.parse(JSON.stringify(save));
+    expect('area' in (reloaded.model.edges[0].attributes ?? {})).toBe(false);
+    useGraphStore.getState().applySaveData(reloaded);
+    const parameters = useGraphStore.getState().edgeStates.e1.parameters;
+    expect(Object.prototype.hasOwnProperty.call(parameters, 'area')).toBe(true);
+    expect(parameters.area).toBeUndefined();
+  });
+
+  it('keeps a set area value through the same round trip', () => {
+    installGraph();
+    useGraphStore.getState().updateEdgeParameter('e1', 'area', 0.02);
+    const save = useGraphStore.getState().generateSaveData();
+    const reloaded = JSON.parse(JSON.stringify(save));
+    useGraphStore.getState().applySaveData(reloaded);
+    expect(useGraphStore.getState().edgeStates.e1.parameters.area).toBe(0.02);
+  });
+});

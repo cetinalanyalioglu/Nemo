@@ -9,12 +9,21 @@ import { buildIncidentEdgesSignature } from '../../store/graph-selectors';
 import { useAppearanceState, useGridState, useRotationState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { debugLog } from '../../utils/debug';
-import { computePortLayout, groupPortsBySide } from '../../utils/ports';
-import type { PlacedPort } from '../../utils/ports';
+import { computePortLayout, groupPortsBySide, computeRadialPorts } from '../../utils/ports';
+import type { PlacedPort, RadialPort } from '../../utils/ports';
+import CircularNodeFrame, { portHandlePoint } from './CircularNodeFrame';
+import type { FramePort } from './CircularNodeFrame';
+import RectNodeFrame, { boxLayout } from './RectNodeFrame';
+import type { BoxPort } from './RectNodeFrame';
+import RailNodeFrame, { railLayout } from './RailNodeFrame';
+import type { RailPort } from './RailNodeFrame';
+import { resolveGlyph } from './glyphs';
 import type {
   ParameterChangeHandler,
   ElementInfoEntry,
   NodePorts,
+  NodeShape,
+  PortAngles,
   PortPlacements,
   PortSide,
 } from '../../types/flow';
@@ -95,6 +104,21 @@ const SIDE_POSITION: Record<PortSide, Position> = {
 /** Sides offered as drop targets while a port is in move-mode. */
 const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
 
+/**
+ * Default on-canvas height (px) of a `box` element before any resize. The
+ * default fixes the height (width follows the frame aspect) so box elements
+ * share a common vertical size along a flow line regardless of glyph aspect.
+ */
+const DEFAULT_BOX_HEIGHT = 52;
+
+/**
+ * Default on-canvas size (px) of a static circular element; must match the
+ * `--circular-node-size` CSS variable. The reference disc for the library-wide
+ * port-triangle pixel size: a disc at exactly this size renders its ports at
+ * scale 1.
+ */
+const REF_CIRCLE_PX = 40;
+
 /** Arrow key → destination edge, so a moving port can be sent with the keyboard. */
 const ARROW_KEY_SIDE: Record<string, PortSide> = {
   ArrowUp: 'top',
@@ -125,6 +149,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const contextFinishEditing = useGraphStore((s) => s.finishEditing);
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const setPortPlacement = useGraphStore((s) => s.setPortPlacement);
+  const setPortAngle = useGraphStore((s) => s.setPortAngle);
   const setActivePort = useGraphStore((s) => s.setActivePort);
   // The suffix of this node's port currently in move-mode, or null. A primitive
   // selector so a change to the active port only re-renders the two nodes it
@@ -152,6 +177,9 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
+  // True while the pointer hovers the element with Alt held: the cursor turns
+  // into a rotate arrow and a drag rotates instead of moving the node.
+  const [rotateIntent, setRotateIntent] = useState(false);
 
   const config = type && model ? model.nodeConfig[type] : undefined;
   const editingStateValue = editingState || { isEditing: false, tempLabel: '' };
@@ -192,6 +220,158 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     () => groupPortsBySide(calculatedPorts, portPlacements),
     [calculatedPorts, portPlacements]
   );
+
+  // Frame shape: `rect` keeps the four-edge rails; `circle` draws a bordered disc
+  // with radial ports; `box` draws a bordered rectangle with a schematic glyph
+  // and triangle ports on the four edges.
+  const shape: NodeShape = config?.shape ?? 'rect';
+  const isCircle = shape === 'circle';
+  const isBox = shape === 'box';
+  const isRail = shape === 'rail';
+  // Dynamic-port circular elements (the junction node-dot) fan their ports evenly
+  // around the full circle rather than clustering them on the left/right arcs.
+  const isDynamicCircle = isCircle && !!config?.dynamicPorts;
+  // Rail and dynamic-circle elements derive their on-canvas size from the port
+  // count instead of being freely resized, so they skip the resize grip and the
+  // auto-measure pass.
+  const isAutoSized = isRail || isDynamicCircle;
+  const portsLocked = config?.lockPorts ?? false;
+  // Per-element switch for the corner resize grip; hidden unless the model
+  // definition opts in (auto-sized elements never show it).
+  const resizable = (config?.resizable ?? false) && !isAutoSized;
+
+  // Per-instance manual port angles (circle only) live in the node's UI data, so
+  // rotating a port around the border round-trips through save/load and history.
+  const portAngles = (data as { portAngles?: PortAngles } | undefined)?.portAngles;
+
+  // Circle ports resolved to outward angles on the border: manual angle wins,
+  // else automatic radial distribution. Only computed for circular frames.
+  const radialPorts = useMemo(
+    () =>
+      isCircle ? computeRadialPorts(calculatedPorts, portAngles, { even: isDynamicCircle }) : [],
+    [isCircle, isDynamicCircle, calculatedPorts, portAngles]
+  );
+
+  // Auto-sized elements grow with their port count. The junction disc grows a
+  // little per extra port for visual weight and handle room; the rail's height
+  // is driven entirely by its port stack (see railLayout).
+  const circleSizePx = useMemo(() => {
+    if (!isDynamicCircle) return null;
+    const n = radialPorts.length;
+    return Math.min(96, 40 + Math.max(0, n - 3) * 7);
+  }, [isDynamicCircle, radialPorts.length]);
+
+  // The disc's SVG (and its unit-space port triangles) scales with the node's
+  // on-canvas size, so normalize by the reference disc to keep ports at the
+  // library-wide pixel size on discs of any size. Dynamic discs additionally
+  // shrink their ports once the chord spacing between many fanned neighbours
+  // drops below the triangle base.
+  const circleWidthParam = nodeState?.parameters?.width;
+  const circlePortScale = useMemo(() => {
+    if (!isCircle) return 1;
+    const sizePx = isDynamicCircle
+      ? (circleSizePx ?? REF_CIRCLE_PX)
+      : typeof circleWidthParam === 'number'
+        ? circleWidthParam
+        : REF_CIRCLE_PX;
+    // Cap the upscale on very small discs so port tips don't outgrow the frame.
+    const sizeNorm = Math.min(1.15, REF_CIRCLE_PX / sizePx);
+    if (!isDynamicCircle) return sizeNorm;
+    const n = radialPorts.length;
+    if (n < 2) return sizeNorm;
+    const RC = 41 - (0.085 * 41) / 2; // frame ring centreline (see CircularNodeFrame)
+    const base = 0.6 * 41; // frame port base
+    const spacing = 2 * RC * Math.sin(Math.PI / n);
+    return Math.min(sizeNorm, spacing / (base * 1.06));
+  }, [isCircle, isDynamicCircle, circleSizePx, circleWidthParam, radialPorts.length]);
+
+  // Rotating a port to a new angle moves its handle, so React Flow must re-measure
+  // this node's handle geometry for incident edges to re-route.
+  const anglesSignature = useMemo(() => JSON.stringify(portAngles ?? {}), [portAngles]);
+  useEffect(() => {
+    if (isCircle) updateNodeInternals(id);
+  }, [anglesSignature, isCircle, id, updateNodeInternals]);
+
+  // Box frame: ports keep their edge buckets (respecting any placement overrides)
+  // and are distributed evenly along each edge; the glyph aspect + whitespace
+  // insets fix the frame geometry (and the node's locked aspect).
+  const boxInsetX = config?.glyphInsetX ?? 0;
+  const boxInsetY = config?.glyphInsetY ?? 0;
+  const boxGlyph = isBox ? resolveGlyph(config?.glyph) : undefined;
+  const boxGlyphAspect = boxGlyph?.aspect ?? 1.6;
+  const boxL = useMemo(
+    () => (isBox ? boxLayout(boxGlyphAspect, boxInsetX, boxInsetY) : null),
+    [isBox, boxGlyphAspect, boxInsetX, boxInsetY]
+  );
+  // Left/right ports anchor to the glyph's flow-passage centerline rather than
+  // the frame's mid-height, so off-axis glyphs (resonator cavity, injector stub)
+  // meet their ports on the main line. Mapped from glyph-height fraction to the
+  // interior-height fraction the port anchors use; top/bottom ports keep the
+  // plain even spread.
+  const boxPassageFrac = (boxInsetY + (boxGlyph?.portCenterY ?? 0.5)) / (1 + 2 * boxInsetY);
+  // The frame's on-canvas height (px), mirroring the sizing in `style` below, so
+  // the frame can draw its port triangles at the library-wide pixel size.
+  const boxWidthParam = nodeState?.parameters?.width;
+  const boxHeightPx =
+    isBox && boxL
+      ? (typeof boxWidthParam === 'number' ? boxWidthParam : DEFAULT_BOX_HEIGHT * boxL.aspect) /
+        boxL.aspect
+      : undefined;
+  const boxPorts = useMemo<BoxPort[]>(() => {
+    if (!isBox) return [];
+    const out: BoxPort[] = [];
+    ALL_SIDES.forEach((side) => {
+      const bucket = portBuckets[side];
+      const onFlowAxis = side === 'left' || side === 'right';
+      bucket.forEach((p, i) => {
+        const spread = (i + 1) / (bucket.length + 1);
+        const offset = onFlowAxis
+          ? Math.min(1, Math.max(0, boxPassageFrac + spread - 0.5))
+          : spread;
+        out.push({
+          suffix: p.suffix,
+          side,
+          offset,
+          direction: p.direction,
+        });
+      });
+    });
+    return out;
+  }, [isBox, portBuckets, boxPassageFrac]);
+
+  // Rail frame: targets stack on the left, sources on the right, each side
+  // vertically centred. Height follows the busier side; the label is fixed-size.
+  const railGlyphAspect = resolveGlyph(isRail ? config?.glyph : undefined)?.aspect ?? 0.25;
+  const maxSidePorts = Math.max(calculatedPorts.target.length, calculatedPorts.source.length);
+  const railL = useMemo(
+    () => (isRail ? railLayout(maxSidePorts, railGlyphAspect) : null),
+    [isRail, maxSidePorts, railGlyphAspect]
+  );
+  const railPorts = useMemo<RailPort[]>(() => {
+    if (!isRail) return [];
+    const targetCount = calculatedPorts.target.length;
+    const sourceCount = calculatedPorts.source.length;
+    return [
+      ...calculatedPorts.target.map(
+        (suffix, i): RailPort => ({
+          suffix,
+          side: 'left',
+          index: i,
+          count: targetCount,
+          direction: 'target',
+        })
+      ),
+      ...calculatedPorts.source.map(
+        (suffix, i): RailPort => ({
+          suffix,
+          side: 'right',
+          index: i,
+          count: sourceCount,
+          direction: 'source',
+        })
+      ),
+    ];
+  }, [isRail, calculatedPorts]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -308,6 +488,32 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     const width = nodeState.parameters.width;
     const height = nodeState.parameters.height;
 
+    // Rail frames lock to their computed geometry (width fixed, height from the
+    // port count), so the label never stretches and nothing distorts.
+    if (isRail && railL) {
+      return { ...base, width: `${railL.vw}px`, height: `${railL.vh}px`, boxSizing: 'border-box' };
+    }
+
+    // Dynamic-port discs (junction) size from their port count, ignoring any
+    // stored width/height — they are auto-sized, not user-resized.
+    if (isDynamicCircle && circleSizePx != null) {
+      return {
+        ...base,
+        width: `${circleSizePx}px`,
+        height: `${circleSizePx}px`,
+        boxSizing: 'border-box',
+      };
+    }
+
+    // Box frames are aspect-locked: an explicit width drives, height follows the
+    // frame aspect (glyph aspect + insets), so the SVG never letterboxes and
+    // resize stays true. The default size is height-driven instead, so unsized
+    // box elements share a common vertical size.
+    if (isBox && boxL) {
+      const w = typeof width === 'number' ? width : DEFAULT_BOX_HEIGHT * boxL.aspect;
+      return { ...base, width: `${w}px`, height: `${w / boxL.aspect}px`, boxSizing: 'border-box' };
+    }
+
     if (width || height) {
       return {
         ...base,
@@ -317,7 +523,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       };
     }
     return base;
-  }, [nodeState, rotation]);
+  }, [nodeState, rotation, isBox, boxL, isRail, railL, isDynamicCircle, circleSizePx]);
 
   // Rotation changes where the handles sit, so React Flow must re-measure this
   // node's handle geometry for incident edges to re-route to the rotated ports.
@@ -338,6 +544,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const nodeClasses = [
     'custom-node',
     type,
+    `shape-${shape}`,
     selected ? 'custom-node-selected' : '',
     isHighlighted ? 'custom-node-issue' : '',
     hasLeftPort ? 'has-left-port' : '',
@@ -346,7 +553,35 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     hasBottomPort ? 'has-bottom-port' : '',
     activePortSuffix != null ? 'custom-node--port-move' : '',
     isResizing ? 'resizing' : '',
+    rotateIntent ? 'custom-node--rotate' : '',
   ].join(' ');
+
+  // Tracks the Alt-hover combination that arms rotate-mode. The key listeners
+  // are attached only while the pointer is over this element, so a canvas full
+  // of nodes doesn't stack window-level handlers.
+  useEffect(() => {
+    const el = nodeRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => setRotateIntent(e.altKey);
+    const onEnter = (e: MouseEvent) => {
+      setRotateIntent(e.altKey);
+      window.addEventListener('keydown', onKey);
+      window.addEventListener('keyup', onKey);
+    };
+    const onLeave = () => {
+      setRotateIntent(false);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+  }, []);
 
   const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -539,6 +774,155 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     autoResize(e);
   };
 
+  /** True when the event originated on a child that owns its own gestures. */
+  const isGestureExempt = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest(
+      '.framed-port, .port-wrapper, .resize-handle, .react-flow__handle, .custom-node-label, input'
+    );
+
+  // Alt-drag anywhere on the element rotates it about its centre (the corner
+  // grip is hidden unless the element opts into resizing). Runs in the capture
+  // phase and swallows the event so React Flow doesn't also start a node drag;
+  // ports, handles, the grip, and the label keep their own gestures.
+  const handleNodePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.altKey || isGestureExempt(e.target)) return;
+    handleRotateStart(e);
+  };
+
+  // Alt-double-click restores the upright orientation.
+  const handleNodeDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!e.altKey || isGestureExempt(e.target)) return;
+    resetRotation(e);
+  };
+
+  // Alt-drag a circular element's port to move it around the border; Alt-click
+  // (no drag) clears the manual angle, restoring the automatic placement. Runs on
+  // mousedown-capture with a modifier so a plain press still falls through to the
+  // React Flow handle (which starts an edge on `onMouseDown`). Angle snapping
+  // reuses the rotation-snap settings, with Shift inverting the choice.
+  const handlePortAngleMouseDown = (e: React.MouseEvent<HTMLDivElement>, suffix: string) => {
+    if (!e.altKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = nodeRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    let moved = false;
+    let hasRecorded = false;
+
+    const onMove = (ev: MouseEvent) => {
+      moved = true;
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
+      // Math convention: 0° = right, 90° = up; screen y grows down, so negate.
+      let deg = (Math.atan2(-(ev.clientY - cy), ev.clientX - cx) * 180) / Math.PI;
+      const shouldSnap = rotationSnap !== ev.shiftKey;
+      if (shouldSnap && rotationIncrement > 0) {
+        deg = Math.round(deg / rotationIncrement) * rotationIncrement;
+      }
+      setPortAngle(id, suffix, deg, { recordHistory: false });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (!moved) setPortAngle(id, suffix, undefined);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Renders one circular-element port: an absolutely-positioned hit area on the
+  // border (at the port's angle) carrying the invisible React Flow handle. The
+  // visible triangle is drawn by CircularNodeFrame; this only handles connection
+  // and Alt-drag rotation. `position` follows the nearest cardinal so the edge
+  // exit vector stays clean.
+  const renderRadialPort = (port: RadialPort) => {
+    const { xPct, yPct } = portHandlePoint(port.exitAngle);
+    return (
+      <div
+        key={port.suffix}
+        className={`circular-port framed-port nodrag port-side-${port.side} port-dir-${port.direction}`}
+        style={{ left: `${xPct}%`, top: `${yPct}%` }}
+        title="Alt-drag to move this port around the border; Alt-click to reset (Shift toggles snapping)"
+        onMouseDownCapture={(e) => handlePortAngleMouseDown(e, port.suffix)}
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle circular-handle"
+        />
+        <span className="port-index">{port.suffix}</span>
+      </div>
+    );
+  };
+
+  // Renders one box-element port: an absolutely-positioned hit area on the border
+  // edge carrying the invisible handle (the visible triangle is drawn by
+  // RectNodeFrame). Unless the element locks its ports, clicking the port toggles
+  // move-mode so it can be re-homed to another edge via the ghost targets.
+  const renderBoxPort = (port: BoxPort) => {
+    if (!boxL) return null;
+    const a = boxL.portAnchor(port.side, port.offset);
+    const isActive = activePortSuffix === port.suffix;
+    return (
+      <div
+        key={port.suffix}
+        className={`box-port framed-port nodrag port-side-${port.side}${
+          isActive ? ' port-wrapper--active' : ''
+        }`}
+        style={{ left: `${(a.x / boxL.vw) * 100}%`, top: `${(a.y / boxL.vh) * 100}%` }}
+        onClick={
+          portsLocked
+            ? undefined
+            : (e) => {
+                e.stopPropagation();
+                setActivePort(isActive ? null : { nodeId: id, port: port.suffix });
+              }
+        }
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle box-handle"
+        />
+        <span className="port-index">{port.suffix}</span>
+      </div>
+    );
+  };
+
+  // Renders one rail-element port: an absolutely-positioned hit area on the left
+  // or right border, stacked at its index (the visible triangle is drawn by
+  // RailNodeFrame). Rail ports are fixed to their side, so there is no move-mode.
+  const renderRailPort = (port: RailPort) => {
+    if (!railL) return null;
+    const a = railL.portAnchor(port.side, port.index, port.count);
+    return (
+      <div
+        key={port.suffix}
+        className={`rail-port framed-port nodrag port-side-${port.side}`}
+        style={{ left: `${(a.x / railL.vw) * 100}%`, top: `${(a.y / railL.vh) * 100}%` }}
+      >
+        <Handle
+          type={port.direction}
+          position={SIDE_POSITION[port.side]}
+          id={`${id}-port-${port.suffix}`}
+          className="react-flow__handle custom-handle rail-handle"
+        />
+        <span className="port-index">{port.suffix}</span>
+      </div>
+    );
+  };
+
   // Renders one port. The React Flow handle `type` is fixed by the port's
   // direction (its physics role), while `position` follows its presentational
   // side — the two are deliberately decoupled. The handle id keeps the port's
@@ -609,6 +993,9 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   }, [isResizing]);
 
   useEffect(() => {
+    // Auto-sized elements (rail, dynamic disc) derive their size from the port
+    // count via `style`; never overwrite that with a DOM measurement.
+    if (isAutoSized) return;
     if (nodeRef.current && (!nodeState?.parameters?.width || !nodeState?.parameters?.height)) {
       const computedStyle = window.getComputedStyle(nodeRef.current);
       const rect = nodeRef.current.getBoundingClientRect();
@@ -652,7 +1039,18 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         console.error('Error calculating node dimensions:', error);
       }
     }
-  }, [nodeState, id, setNodeDimensions, getZoom]);
+  }, [nodeState, id, setNodeDimensions, getZoom, isAutoSized]);
+
+  // Auto-sized elements change dimensions when their port count changes, so React
+  // Flow must re-measure the handle geometry for incident edges to re-route.
+  const autoSizeSignature = isRail
+    ? `rail:${railL?.vw ?? 0}x${railL?.vh ?? 0}`
+    : isDynamicCircle
+      ? `disc:${circleSizePx ?? 0}`
+      : '';
+  useEffect(() => {
+    if (autoSizeSignature) updateNodeInternals(id);
+  }, [autoSizeSignature, id, updateNodeInternals]);
 
   if (!config) {
     console.error(`No configuration found for node type: ${type}`);
@@ -668,8 +1066,221 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const elementIndexLabel =
     showIndices && typeof elementIndex === 'number' ? elementIndex : undefined;
 
+  // Circular elements render as a single SVG frame (disc + glyph + clipped port
+  // triangles + border) with radial handles overlaid, and the label as a caption
+  // beneath the disc. The four-edge rect layout below is bypassed entirely.
+  if (isCircle) {
+    const framePorts: FramePort[] = radialPorts.map((p) => ({
+      suffix: p.suffix,
+      angleDeg: p.exitAngle,
+      direction: p.direction,
+    }));
+    return (
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <CircularNodeFrame
+          glyphKey={config.glyph}
+          glyphScale={config.glyphScale}
+          portScale={circlePortScale}
+          ports={framePorts}
+        />
+        {radialPorts.map(renderRadialPort)}
+
+        <div className="circular-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
+
+        {selected && resizable && (
+          <div
+            className="resize-handle"
+            onPointerDown={handleGripPointerDown}
+            onDoubleClick={handleGripDoubleClick}
+            title={
+              'Drag to resize • Alt-drag to rotate (Shift toggles angle snapping)\n' +
+              'Double-click resets size • Alt-double-click resets rotation'
+            }
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Manifold-rail elements (dynamic-port splitter/junction family): a tall
+  // rounded bar whose height follows the busier port side, with a fixed-size
+  // vertical label. Ports are fixed to their side (no move-mode) and the element
+  // is auto-sized (no resize grip).
+  if (isRail) {
+    return (
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <RailNodeFrame
+          glyphKey={config.glyph}
+          idPrefix={id}
+          maxPorts={maxSidePorts}
+          ports={railPorts}
+        />
+        {railPorts.map(renderRailPort)}
+
+        <div className="rail-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Rectangular ("box") elements: a single SVG frame (gray fill + schematic glyph
+  // + clipped triangle edge-ports + border) with radial handles overlaid and the
+  // label beneath. Ports re-home via move-mode unless the element locks them.
+  if (isBox) {
+    return (
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
+        {showContour && dataView.color && (
+          <div
+            className="custom-node-data-strip"
+            style={{ background: dataView.color }}
+            aria-hidden
+          />
+        )}
+        {elementIndexLabel !== undefined && (
+          <span className="element-index-label port-index">{elementIndexLabel}</span>
+        )}
+
+        <RectNodeFrame
+          glyphKey={config.glyph}
+          idPrefix={id}
+          insetX={boxInsetX}
+          insetY={boxInsetY}
+          ports={boxPorts}
+          heightPx={boxHeightPx}
+        />
+        {boxPorts.map(renderBoxPort)}
+        {!portsLocked && renderGhostTargets()}
+
+        <div className="box-node-caption">
+          {editingStateValue.isEditing ? (
+            <input
+              value={editingStateValue.tempLabel}
+              onChange={(e) => contextOnChange(id, e)}
+              onBlur={() => contextFinishEditing(id, { fromBlur: true })}
+              onKeyDown={(e) => contextOnKeyDown(id, e)}
+              autoFocus
+              className="custom-node-input nodrag"
+              spellCheck={false}
+              size={Math.max(editingStateValue.tempLabel.length, 1)}
+            />
+          ) : (
+            <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
+              {String(nodeState.parameters.label)}
+            </div>
+          )}
+          {showValues && dataView.value !== undefined && (
+            <span className="custom-node-data-value">
+              {formatDataValue(dataView.value, precision, notation, dataView.unit)}
+            </span>
+          )}
+        </div>
+
+        {selected && resizable && (
+          <div
+            className="resize-handle"
+            onPointerDown={handleGripPointerDown}
+            onDoubleClick={handleGripDoubleClick}
+            title={
+              'Drag to resize • Alt-drag to rotate (Shift toggles angle snapping)\n' +
+              'Double-click resets size • Alt-double-click resets rotation'
+            }
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={nodeClasses} ref={nodeRef} style={style}>
+    <div
+      className={nodeClasses}
+      ref={nodeRef}
+      style={style}
+      onPointerDownCapture={handleNodePointerDownCapture}
+      onDoubleClick={handleNodeDoubleClick}
+    >
       {showContour && dataView.color && (
         <div
           className="custom-node-data-strip"
@@ -731,7 +1342,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
 
       {renderGhostTargets()}
 
-      {selected && (
+      {selected && resizable && (
         <div
           className="resize-handle"
           onPointerDown={handleGripPointerDown}

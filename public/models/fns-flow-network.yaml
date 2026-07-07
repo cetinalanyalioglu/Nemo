@@ -1,11 +1,14 @@
-# FNS Flow Network model definition
+# Nefes Flow Network model definition
 #
-# Element library for the FNS compressible flow-network solver
-# (~/Projects/FNS).  Networks built with this model and saved from the UI are
+# Element library for the Nefes compressible flow-network solver
+# (~/Projects/Nefes).  Networks built with this model and saved from the UI are
 # read directly by the solver:
 #
-#     from fns.io import load_case
+#     from nefes.io import load_case
 #     solution = load_case("<saved-case>.yaml").solve()
+#
+# The model id keeps its historical value ("fns-flow-network") so existing save
+# files remain loadable; the solver's loader (nefes.io.yaml_in.MODEL_ID) matches it.
 #
 # Conventions matching the solver:
 #   - All solution variables live on EDGES; each edge needs its flow area.
@@ -25,6 +28,11 @@
 # length-bearing: its mean-flow face is a lossless constant-area passage, and
 # its length feeds the acoustic (perturbation) analysis.
 #
+# Composite elements (Orifice, Lossy Nozzle, Sudden Contraction, Helmholtz
+# Resonator, Fanno Pipe, Tapered Duct) are single nodes here that the solver
+# expands at build time into their atomic recipes (nefes.elements.catalog);
+# their internal states are read back via solution.composite(<label>).
+#
 # Model-level parameters (Model pane) hold the thermo model, the gas properties
 # and the reference scales used by the solver for nondimensionalization.  The
 # "Thermo model" selector switches between a calorically-perfect gas (R, gamma)
@@ -42,8 +50,8 @@
 # ignored when the perfect-gas model is selected.
 
 id: fns-flow-network
-name: FNS Flow Network
-description: Compressible flow-network element library for the FNS solver (mean flow + acoustics).
+name: Nefes Flow Network
+description: Compressible flow-network element library for the Nefes solver (mean flow + acoustics).
 forceUniqueNodeLabels: true
 
 parameters:
@@ -59,8 +67,8 @@ parameters:
       chemical (HP) equilibrium; it uses the built-in thermochemistry database and
       needs an explicit composition on every inlet / mass source.
     options:
-      - {value: perfect_gas, label: Perfect gas}
-      - {value: equilibrium, label: Equilibrium (reacting)}
+      - { value: perfect_gas, label: Perfect gas }
+      - { value: equilibrium, label: Equilibrium (reacting) }
   gasConstant:
     label: Specific gas constant R
     type: float
@@ -69,7 +77,7 @@ parameters:
     category: Gas
     min: 1
     description: Specific gas constant of the working gas
-    visibleIf: {parameter: thermoModel, equals: perfect_gas}
+    visibleIf: { parameter: thermoModel, equals: perfect_gas }
   heatCapacityRatio:
     label: Heat capacity ratio
     type: float
@@ -79,7 +87,7 @@ parameters:
     max: 1.999
     step: 0.01
     description: cp/cv of the working gas (calorically perfect)
-    visibleIf: {parameter: thermoModel, equals: perfect_gas}
+    visibleIf: { parameter: thermoModel, equals: perfect_gas }
   species:
     label: Species
     type: string
@@ -93,7 +101,7 @@ parameters:
       list, e.g. "CH4, O2, N2, CO2, H2O, OH, H, O". Condensed feeds (e.g. a liquid
       fuel like "Jet-A(L)") are allowed in the composition and contribute their
       enthalpy; equilibrium products are gas-phase.
-    visibleIf: {parameter: thermoModel, equals: equilibrium}
+    visibleIf: { parameter: thermoModel, equals: equilibrium }
   referencePressure:
     label: Reference pressure
     type: float
@@ -153,17 +161,19 @@ edges:
           setting either on any edge switches the whole network to this manual
           per-edge closure, which does expect the flame edges drawn in the flow
           direction. Ignored by the perfect-gas model.
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         options:
-          - {value: auto, label: Auto}
-          - {value: frozen, label: Frozen (unburnt)}
-          - {value: equilibrium, label: Equilibrium (burnt)}
+          - { value: auto, label: Auto }
+          - { value: frozen, label: Frozen (unburnt) }
+          - { value: equilibrium, label: Equilibrium (burnt) }
 
 nodes:
   MassFlowInlet:
     displayName: Mass Flow Inlet
     category: Boundary elements
     icon: BsArrowDownCircle
+    shape: circle
+    glyph: mdot
     dynamicPorts: false
     ports:
       target: []
@@ -197,7 +207,7 @@ nodes:
         type: string
         defaultValue: ''
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Species mixture of the supplied stream for the reacting model, e.g.
           "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
@@ -207,17 +217,17 @@ nodes:
         type: select
         defaultValue: mole
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: Whether the composition entries are mole or mass fractions.
         options:
-          - {value: mole, label: Mole fractions}
-          - {value: mass, label: Mass fractions}
+          - { value: mole, label: Mole fractions }
+          - { value: mass, label: Mass fractions }
       marker:
         label: Feed is burnt gas
         type: boolean
         defaultValue: false
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Whether the supplied stream is already-burnt gas rather than fresh reactant. Off
           (default) feeds fresh reactant; On feeds fully-burnt gas (e.g. exhaust-gas
@@ -236,10 +246,10 @@ nodes:
           is an ideal pressure-release end (p' = 0, reflection R = -1); Impedance
           sets the specific acoustic impedance below.
         options:
-          - {value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)'}
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: open, label: Open ($p' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)' }
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: open, label: Open ($p' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -250,7 +260,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -258,7 +268,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
     disallowedConnections:
       - MassFlowInlet
       - TotalPressureInlet
@@ -267,6 +277,8 @@ nodes:
     displayName: Total Pressure Inlet
     category: Boundary elements
     icon: BsArrowDownCircle
+    shape: circle
+    glyph: pt
     dynamicPorts: false
     ports:
       target: []
@@ -295,7 +307,7 @@ nodes:
         type: string
         defaultValue: ''
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Species mixture of the supplied stream for the reacting model, e.g.
           "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
@@ -305,17 +317,17 @@ nodes:
         type: select
         defaultValue: mole
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: Whether the composition entries are mole or mass fractions.
         options:
-          - {value: mole, label: Mole fractions}
-          - {value: mass, label: Mass fractions}
+          - { value: mole, label: Mole fractions }
+          - { value: mass, label: Mass fractions }
       marker:
         label: Feed is burnt gas
         type: boolean
         defaultValue: false
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Whether the supplied stream is already-burnt gas rather than fresh reactant. Off
           (default) feeds fresh reactant; On feeds fully-burnt gas (e.g. exhaust-gas
@@ -334,10 +346,10 @@ nodes:
           u' = 0); Open is an ideal pressure-release end (p' = 0, reflection
           R = -1); Impedance sets the specific acoustic impedance below.
         options:
-          - {value: inherit, label: "Constant total pressure ($p_t' = 0$)"}
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: open, label: Open ($p' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: inherit, label: "Constant total pressure ($p_t' = 0$)" }
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: open, label: Open ($p' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -348,7 +360,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -356,7 +368,7 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
     disallowedConnections:
       - MassFlowInlet
       - TotalPressureInlet
@@ -365,6 +377,9 @@ nodes:
     displayName: Pressure Outlet
     category: Boundary elements
     icon: BsArrowUpCircle
+    shape: circle
+    glyph: p
+    glyphScale: 0.85
     dynamicPorts: false
     ports:
       target: ['0']
@@ -393,7 +408,7 @@ nodes:
         type: string
         defaultValue: ''
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Species mixture drawn into the network on backflow (ingestion) for the
           reacting model, e.g. "O2:0.21, N2:0.79". Used only when the flow reverses
@@ -403,17 +418,17 @@ nodes:
         type: select
         defaultValue: mole
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: Whether the backflow composition entries are mole or mass fractions.
         options:
-          - {value: mole, label: Mole fractions}
-          - {value: mass, label: Mass fractions}
+          - { value: mole, label: Mole fractions }
+          - { value: mass, label: Mass fractions }
       marker:
         label: Backflow is burnt gas
         type: boolean
         defaultValue: false
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Whether the backflow drawn in on ingestion is already-burnt gas rather than fresh
           reactant. Off (default) is fresh reactant; On is fully-burnt gas. Used only when
@@ -429,9 +444,9 @@ nodes:
           (a rigid wall, u' = 0); Open is an ideal pressure-release end (p' = 0,
           reflection R = -1); Impedance sets the specific acoustic impedance below.
         options:
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: open, label: Open ($p' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: open, label: Open ($p' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -442,7 +457,7 @@ nodes:
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures (reflection coefficient,
           excitation, mean-flow open end, frequency tables) are set in Python.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -450,12 +465,14 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
 
   MassFlowOutlet:
     displayName: Mass Flow Outlet
     category: Boundary elements
     icon: BsArrowUpCircleFill
+    shape: circle
+    glyph: mdot
     dynamicPorts: false
     ports:
       target: ['0']
@@ -485,10 +502,10 @@ nodes:
           Rigid is an infinite impedance (a rigid wall, u' = 0); Open is an ideal
           pressure-release end (p' = 0); Impedance sets the specific acoustic impedance.
         options:
-          - {value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)'}
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: open, label: Open ($p' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: inherit, label: 'Constant mass flow ($\dot m'' = 0$)' }
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: open, label: Open ($p' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -498,7 +515,7 @@ nodes:
         description: >-
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures are set in Python.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -506,12 +523,17 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
 
   ChokedNozzleOutlet:
     displayName: Choked Nozzle Outlet
     category: Boundary elements
     icon: BsFunnelFill
+    shape: box
+    glyph: choked-nozzle
+    glyphInsetX: 0.0
+    glyphInsetY: 0.12
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -543,10 +565,10 @@ nodes:
           an infinite impedance (u' = 0); Open is a pressure-release end (p' = 0);
           Impedance sets the specific acoustic impedance.
         options:
-          - {value: inherit, label: Compact choked nozzle (Marble-Candel)}
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: open, label: Open ($p' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: inherit, label: Compact choked nozzle (Marble-Candel) }
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: open, label: Open ($p' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -556,7 +578,7 @@ nodes:
         description: >-
           Specific acoustic impedance magnitude |Z| / (rho c) at this terminal
           (1 = matched / non-reflecting). Advanced closures are set in Python.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -564,12 +586,15 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
 
   Wall:
     displayName: Wall
     category: Boundary elements
     icon: BsSlashLg
+    shape: circle
+    glyph: wall
+    glyphScale: 1.77
     dynamicPorts: false
     ports:
       target: ['0']
@@ -587,8 +612,8 @@ nodes:
           Rigid is an infinite acoustic impedance (a hard wall, u' = 0); Impedance
           gives the wall a liner impedance instead.
         options:
-          - {value: rigid, label: Rigid ($u' = 0$)}
-          - {value: impedance, label: Impedance}
+          - { value: rigid, label: Rigid ($u' = 0$) }
+          - { value: impedance, label: Impedance }
       impedanceMagnitude:
         label: Impedance amplitude
         type: float
@@ -596,7 +621,7 @@ nodes:
         category: Acoustics
         min: 0
         description: Specific acoustic impedance magnitude |Z| / (rho c) of the liner (1 = matched).
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
       impedancePhase:
         label: Impedance phase (deg)
         type: float
@@ -604,12 +629,14 @@ nodes:
         unit: deg
         category: Acoustics
         description: Phase of the specific acoustic impedance, in degrees.
-        visibleIf: {parameter: boundaryType, equals: impedance}
+        visibleIf: { parameter: boundaryType, equals: impedance }
 
   Cavity:
     displayName: Cavity
     category: Boundary elements
     icon: BsCircle
+    shape: circle
+    glyph: cavity
     dynamicPorts: false
     ports:
       target: ['0']
@@ -637,6 +664,11 @@ nodes:
     displayName: Isentropic Area Change
     category: Two port elements
     icon: BsArrowLeftRight
+    shape: box
+    glyph: isentropic-area-change
+    glyphInsetX: -0.02
+    glyphInsetY: 0.15
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -681,10 +713,37 @@ nodes:
     # The optional storage lengths give a real diffuser its acoustic compliance and
     # inertance (storage block M); leave them 0 for a lengthless jump.
 
+  TransferMatrix:
+    displayName: Transfer Matrix
+    category: Two port elements
+    icon: BsGrid3X3
+    shape: box
+    glyph: transfer-matrix
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: TransferMatrix
+    # 2-port whose acoustic response is a user-supplied transfer matrix
+    # w_down = TM(omega) . w_up; mean-flow-wise an isentropic area change, so it
+    # seats a well-defined mean state on both faces. The frequency-domain
+    # descriptor is a Python object with no YAML form and cannot be entered
+    # here: load the case in Python and attach it (spec.transfer_matrix = ...).
+
   SuddenAreaChange:
     displayName: Sudden Area Change
     category: Two port elements
     icon: BsArrowsExpand
+    shape: box
+    glyph: sudden-area-change
+    glyphInsetX: -0.02
+    glyphInsetY: 0.18
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -749,6 +808,11 @@ nodes:
     displayName: Loss Element
     category: Two port elements
     icon: BsDiamond
+    shape: box
+    glyph: loss-element
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -802,6 +866,11 @@ nodes:
     displayName: Linear Resistance
     category: Two port elements
     icon: BsGripVertical
+    shape: box
+    glyph: linear-resistance
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -861,6 +930,11 @@ nodes:
     displayName: Duct
     category: Two port elements
     icon: BsArrowBarRight
+    shape: box
+    glyph: duct
+    glyphInsetX: -0.02
+    glyphInsetY: -0.02
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -884,6 +958,11 @@ nodes:
     displayName: Pipe
     category: Two port elements
     icon: BsBezier2
+    shape: box
+    glyph: pipe
+    glyphInsetX: -0.02
+    glyphInsetY: -0.02
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -933,6 +1012,11 @@ nodes:
     displayName: Heat Release Flame
     category: Two port elements
     icon: BsBrightnessHighFill
+    shape: box
+    glyph: heat-release-flame
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -960,6 +1044,11 @@ nodes:
     displayName: Equilibrium Flame
     category: Two port elements
     icon: BsFire
+    shape: box
+    glyph: equilibrium-flame
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -980,6 +1069,11 @@ nodes:
     displayName: Mass Source
     category: Two port elements
     icon: BsDropletFill
+    shape: box
+    glyph: mass-source
+    glyphInsetX: -0.02
+    glyphInsetY: 0.02
+    lockPorts: true
     dynamicPorts: false
     ports:
       target: ['0']
@@ -1018,7 +1112,7 @@ nodes:
         type: string
         defaultValue: ''
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Species mixture of the injected stream for the reacting model, e.g.
           "CH4:1.0" for a fuel injector. Required by the equilibrium model; ignored
@@ -1028,17 +1122,17 @@ nodes:
         type: select
         defaultValue: mole
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: Whether the composition entries are mole or mass fractions.
         options:
-          - {value: mole, label: Mole fractions}
-          - {value: mass, label: Mass fractions}
+          - { value: mole, label: Mole fractions }
+          - { value: mass, label: Mass fractions }
       marker:
         label: Injectant is burnt gas
         type: boolean
         defaultValue: false
         category: Reacting
-        visibleIf: {parameter: thermoModel, scope: model, equals: equilibrium}
+        visibleIf: { parameter: thermoModel, scope: model, equals: equilibrium }
         description: >-
           Whether the injected stream is already-burnt gas rather than fresh reactant. Off
           (default) injects fresh reactant (the normal case for an injector); On injects
@@ -1049,16 +1143,264 @@ nodes:
     # reaction itself -- ignition is the flame's job. Constant-area (both edges
     # must share one area).
 
+  Orifice:
+    displayName: Orifice
+    category: Composite elements
+    icon: BsRecordCircle
+    shape: box
+    glyph: orifice
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: Orifice
+      throatArea:
+        label: Throat area
+        type: float
+        defaultValue: 0.001
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+        description: >-
+          Orifice throat (vena-contracta plane) area. Keep it smaller than both attached
+          edge areas for a genuine orifice; the flow accelerates isentropically to the
+          throat and re-expands with the full Borda-Carnot mixing loss.
+    # Composite: expands to IsentropicAreaChange -> SuddenAreaChange with an internal
+    # throat edge at throatArea (the De Domenico assembly at maximum loss). Read the
+    # throat state via solution.composite(<label>).throat_state.
+
+  LossyNozzle:
+    displayName: Lossy Nozzle
+    category: Composite elements
+    icon: BsFunnel
+    shape: box
+    glyph: lossy-nozzle
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: LossyNozzle
+      throatArea:
+        label: Throat area
+        type: float
+        defaultValue: 0.001
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+        description: Nozzle throat area A_T (the minimum section; chokes first).
+      beta:
+        label: 'Jet area ratio $\beta$'
+        type: float
+        defaultValue: 0.7
+        category: Parameters
+        min: 0.01
+        max: 1.0
+        step: 0.01
+        description: >-
+          Jet-to-downstream area ratio A_j / A_2 in [A_T/A_2, 1]. It knobs the loss
+          between the two physical limits: A_T/A_2 recovers the orifice (maximum loss)
+          and 1 the lossless isentropic nozzle.
+    # Composite: A1 ->isen-> AT ->isen-> Aj ->Borda-> A2 (general lossy nozzle,
+    # De Domenico). Two internal edges at AT and Aj = beta * A2, where A2 is read
+    # off the attached outflow edge at build time (areas live on edges).
+
+  SuddenContraction:
+    displayName: Sudden Contraction
+    category: Composite elements
+    icon: BsArrowsAngleContract
+    shape: box
+    glyph: sudden-contraction
+    glyphInsetX: -0.02
+    glyphInsetY: 0.05
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: SuddenContraction
+      contractionCoefficient:
+        label: Contraction coefficient $C_c$
+        type: float
+        defaultValue: 0.62
+        category: Parameters
+        min: 0.01
+        max: 1.0
+        step: 0.01
+        description: >-
+          Vena-contracta coefficient: the flow necks to C_c * A_2 just past the
+          contraction plane before re-expanding to fill the pipe. 0.62 suits a
+          sharp-edged contraction; 1 is the loss-free limit.
+    # Composite: isentropic acceleration to the vena contracta (cc * A2, where A2 is
+    # read off the attached outflow edge at build time) followed by a Borda-Carnot
+    # re-expansion -- the compressible upgrade to SuddenAreaChange's cc-loss, exact at
+    # higher Mach. Vena-contracta state via solution.composite(<label>).throat_state.
+
+  HelmholtzResonator:
+    displayName: Helmholtz Resonator
+    category: Composite elements
+    icon: BsSoundwave
+    shape: box
+    glyph: helmholtz-resonator
+    glyphInsetX: -0.02
+    glyphInsetY: 0.02
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: HelmholtzResonator
+      volume:
+        label: Cavity volume
+        type: float
+        defaultValue: 0.001
+        unit: m^3
+        category: Parameters
+        min: 1e-9
+        step: 0.0001
+        description: Backing cavity volume V (the acoustic compliance).
+      neckLength:
+        label: Neck length
+        type: float
+        defaultValue: 0.05
+        unit: m
+        category: Parameters
+        min: 0.000001
+        step: 0.001
+        description: >-
+          Neck length (the acoustic inertance). Lengthen by an end correction to
+          model the entrained near-field mass.
+      neckArea:
+        label: Neck area
+        type: float
+        defaultValue: 0.0005
+        unit: m^2
+        category: Parameters
+        min: 0.000001
+        step: 0.0001
+        description: Neck cross-sectional area A_n.
+    # Composite: a side-branch tee (junction) + neck duct + backing cavity hanging off
+    # the main line, which passes straight through the tee. Resonates at
+    # f0 = c * sqrt(A_n / (V * L_n)) / 2pi.
+
+  FannoPipe:
+    displayName: Fanno Pipe
+    category: Composite elements
+    icon: BsSegmentedNav
+    shape: box
+    glyph: fanno-pipe
+    glyphInsetX: -0.02
+    glyphInsetY: -0.02
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: FannoPipe
+      length:
+        label: Length
+        type: float
+        defaultValue: 1.0
+        unit: m
+        category: Parameters
+        min: 0.000001
+        step: 0.01
+        description: Total pipe length L (friction length and acoustic propagation length).
+      diameter:
+        label: Hydraulic diameter
+        type: float
+        defaultValue: 0.05
+        unit: m
+        category: Parameters
+        min: 0.000001
+        step: 0.001
+        description: >-
+          Hydraulic diameter D for the friction term K = f L / D. The attached edge
+          areas must equal pi D^2 / 4 for a circular pipe.
+      frictionFactor:
+        label: Darcy friction factor
+        type: float
+        defaultValue: 0.02
+        category: Parameters
+        min: 0
+        step: 0.001
+        description: Darcy friction factor f (e.g. 64/Re laminar, Haaland/Colebrook turbulent).
+      nSegments:
+        label: Segments
+        type: number
+        defaultValue: 8
+        category: Parameters
+        min: 1
+        step: 1
+        description: >-
+          Number of chained pipe segments N -- a fidelity knob. The chain converges to
+          the true distributed (Fanno) solution as N grows and resolves the Mach rise
+          toward choke; 1 is the single lumped pipe. Size from the highest analysis
+          frequency: N >= 12 * f_max * L / c.
+    # Composite: a chain of N Pipe atoms, each L/N long, joined by internal edges (each
+    # internal edge is an intermediate flow state). Per-segment states via
+    # solution.composite(<label>).profile(<field>).
+
+  TaperedDuct:
+    displayName: Tapered Duct
+    category: Composite elements
+    icon: BsHourglass
+    shape: box
+    glyph: tapered-duct
+    glyphInsetX: -0.02
+    glyphInsetY: 0.02
+    lockPorts: true
+    dynamicPorts: false
+    ports:
+      target: ['0']
+      source: ['1']
+    parameters:
+      label:
+        defaultValue: TaperedDuct
+      areaProfile:
+        label: Area profile
+        type: string
+        defaultValue: ''
+        category: Parameters
+        required: true
+        description: >-
+          Station table of the area profile as "x:A" pairs separated by commas, e.g.
+          "0:3e-3, 0.15:1.5e-3, 0.3:3e-3" (positions x in m, strictly increasing;
+          areas A in m^2). Stations may be non-uniform -- cluster them where the area
+          varies fastest, e.g. near a throat. The segment count is the number of
+          stations minus one; the first/last areas must equal the attached edge areas.
+    # Composite: discretizes a continuously area-varying passage (horn / con-di nozzle)
+    # into per-station compact area changes + length-bearing ducts. A con-di profile
+    # chokes at its true (minimum-area) station. Throat via
+    # solution.composite(<label>).throat_state; profile via .profile(<field>).
+
   JunctionStaticP:
     displayName: Junction (static p)
     category: Multi port elements
     icon: BsLightningFill
+    shape: circle
+    glyph: junction
     dynamicPorts: true
     dynamicPortConfig:
       target:
         countParameter: leftPorts
         default: 2
-        min: 1
+        min: 2
       source:
         countParameter: rightPorts
         default: 1
@@ -1070,21 +1412,21 @@ nodes:
       label:
         defaultValue: Junction
       leftPorts:
-        label: Left ports
+        label: Target ports
         type: number
         defaultValue: 2
-        min: 1
+        min: 2
         step: 1
         category: Ports
-        description: Number of left (target) ports
+        description: Number of target (incoming) ports
       rightPorts:
-        label: Right ports
+        label: Source ports
         type: number
         defaultValue: 1
         min: 1
         step: 1
         category: Ports
-        description: Number of right (source) ports
+        description: Number of source (outgoing) ports
       volume:
         label: Chamber volume
         type: float
@@ -1107,12 +1449,14 @@ nodes:
     displayName: Lossless Splitter
     category: Multi port elements
     icon: BsDiagram2
+    shape: rail
+    glyph: lossless-splitter
     dynamicPorts: true
     dynamicPortConfig:
       source:
         countParameter: rightPorts
         default: 2
-        min: 1
+        min: 2
     ports:
       target: ['0']
       source: []
@@ -1123,7 +1467,7 @@ nodes:
         label: Output ports
         type: number
         defaultValue: 2
-        min: 1
+        min: 2
         step: 1
         category: Ports
         description: Number of output ports
@@ -1141,3 +1485,46 @@ nodes:
           compliance. Inert in the mean flow.
     # Common total pressure on all ports (isentropic distribution plenum):
     # mass + energy + constant entropy into every branch.
+
+  ForcedSplitter:
+    displayName: Forced Splitter
+    category: Multi port elements
+    icon: BsSignpostSplit
+    shape: rail
+    glyph: lossless-splitter
+    dynamicPorts: true
+    dynamicPortConfig:
+      source:
+        countParameter: rightPorts
+        default: 2
+        min: 2
+    ports:
+      target: ['0']
+      source: []
+    parameters:
+      label:
+        defaultValue: ForcedSplitter
+      rightPorts:
+        label: Output ports
+        type: number
+        defaultValue: 2
+        min: 2
+        step: 1
+        category: Ports
+        description: Number of output ports
+      fractions:
+        label: Outflow fractions
+        type: string
+        defaultValue: '0.5'
+        category: Parameters
+        required: true
+        description: >-
+          Controlled outflow mass fractions, comma separated, one value per output port
+          except the last -- e.g. "0.3, 0.2" for three outputs. Each value is that
+          port's share of the inflow (in port order, all in (0, 1), sum < 1); the last
+          output carries the remainder and keeps total-pressure continuity with the
+          inflow.
+    # Ideal flow divider: the branch flows are prescribed (mdot_k = beta_k * mdot_in)
+    # rather than set by downstream resistance, so the controlled branch pressures
+    # float -- downstream elements must absorb the jump (a control-valve
+    # idealization). Reverse flow through the splitter is not modelled.

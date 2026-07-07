@@ -44,3 +44,6 @@ Thumbs.db
 
 # Scratch folder
 scratch/
+
+# Playwright MCP artifacts
+.playwright-mcp/

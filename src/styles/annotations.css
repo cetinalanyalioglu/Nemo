@@ -1,0 +1,552 @@
+/* Canvas text annotations (presentation layer) and their floating style toolbar. */
+
+.annotation-node {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 40px;
+  max-width: 420px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--color-text-body);
+  line-height: 1.45;
+  cursor: grab;
+}
+
+/* Image annotations: no padding or text metrics — the picture IS the node, so
+   transparent regions (e.g. PNG alpha) show the canvas through. */
+.annotation-node--image {
+  position: relative;
+  max-width: none;
+  min-width: 0;
+  padding: 0;
+  line-height: 0;
+}
+
+.annotation-image {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Corner scale grip of a selected image annotation: an oversized invisible hit
+   zone with a visible accent dot, grabbable at any zoom. */
+.annotation-node--image .resize-handle {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
+  cursor: se-resize;
+  pointer-events: all;
+}
+
+.annotation-node--image .resize-handle::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.annotation-node--border {
+  border: 1px solid var(--color-border);
+}
+
+.annotation-node--selected {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Locked annotations (pane toggle) are inert on the canvas: no selection, no
+   drag, and clicks fall through to whatever sits underneath. The class is set
+   on the React Flow node wrapper by the store. */
+.react-flow__node.annotation-flow-node--locked {
+  pointer-events: none !important;
+}
+
+/* Alt over a note arms rotate-mode (same cursor as the model elements): a
+   black clockwise arc with a white halo so it reads on any background. */
+.annotation-node--rotate {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath d='M12 5 A7 7 0 1 1 5 12' fill='none' stroke='white' stroke-width='5.2' stroke-linecap='round'/%3E%3Cpath d='M1.6 12.8 L8.4 12.8 L5 6.4 Z' fill='white'/%3E%3Cpath d='M12 5 A7 7 0 1 1 5 12' fill='none' stroke='black' stroke-width='2.2'/%3E%3Cpath d='M2.6 11.9 L7.4 11.9 L5 7.4 Z' fill='black'/%3E%3C/svg%3E")
+      10 10,
+    grab;
+}
+
+.annotation-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Markdown output: compact spacing so short notes don't balloon. */
+.annotation-content p {
+  margin: 0 0 0.4em;
+}
+
+.annotation-content p:last-child {
+  margin-bottom: 0;
+}
+
+.annotation-content h1,
+.annotation-content h2,
+.annotation-content h3,
+.annotation-content h4 {
+  margin: 0 0 0.3em;
+  line-height: 1.25;
+}
+
+.annotation-content h1 {
+  font-size: 1.6em;
+}
+
+.annotation-content h2 {
+  font-size: 1.35em;
+}
+
+.annotation-content h3 {
+  font-size: 1.15em;
+}
+
+.annotation-content ul,
+.annotation-content ol {
+  margin: 0 0 0.4em;
+  padding-left: 1.3em;
+}
+
+.annotation-content li {
+  margin: 0.1em 0;
+}
+
+.annotation-content code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--color-surface-muted);
+  font-size: 0.9em;
+}
+
+.annotation-content blockquote {
+  margin: 0 0 0.4em;
+  padding-left: 0.7em;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.annotation-content img {
+  max-width: 100%;
+}
+
+.annotation-content a {
+  color: var(--color-accent);
+}
+
+/* Inline Markdown-source editor (double-click). The note div freezes at its
+   rendered size while editing, and the editor simply fills it — no minimum
+   sizes and no native resize corner, so opening it never changes the node's
+   footprint (size changes go through the edge stretchers instead). */
+.annotation-editor {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 4px 6px;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+  outline: none;
+}
+
+.annotation-editor:focus {
+  border-color: var(--color-accent);
+}
+
+.annotation-editor::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+/* Slim app-style scrollbar instead of the native one (whose arrow buttons
+   clash with the rest of the UI). */
+.annotation-editor {
+  scrollbar-width: thin;
+}
+
+.annotation-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+.annotation-editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.annotation-editor::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.annotation-editor::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+/* While the editor is open, its own dashed border is the only boundary: the
+   selection outline would double it up. */
+.annotation-node--editing.annotation-node--selected {
+  outline: none;
+}
+
+/* Edge stretchers of a selected text note: drag sets an explicit width
+   (right bar) or height (bottom bar); double-click autosizes that direction.
+   The element is an oversized invisible hit zone (grabbable at any zoom); the
+   visible bar is drawn by ::after. */
+.annotation-stretch {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.annotation-stretch::after {
+  content: '';
+  border-radius: 3px;
+  background: var(--color-accent);
+}
+
+.annotation-stretch-h {
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 44px;
+  cursor: ew-resize;
+}
+
+.annotation-stretch-h::after {
+  width: 6px;
+  height: 26px;
+}
+
+.annotation-stretch-v {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 20px;
+  cursor: ns-resize;
+}
+
+.annotation-stretch-v::after {
+  width: 26px;
+  height: 6px;
+}
+
+/* Floating style toolbar (React Flow NodeToolbar portal). */
+.annotation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.annotation-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.annotation-tool:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+}
+
+.annotation-tool.active {
+  background: var(--color-accent-subtle-bg);
+  color: var(--color-accent);
+}
+
+.annotation-tool-danger:hover {
+  color: var(--color-error-strong);
+}
+
+select.annotation-tool-font {
+  height: 24px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-control);
+}
+
+/* Numeric field with explicit +/- steppers, mirroring the properties panel's
+   number inputs (buttons appear on hover, one step per click). */
+.annotation-stepper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 56px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.annotation-stepper:focus-within {
+  border-color: var(--color-accent);
+}
+
+.annotation-stepper-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 18px 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-control);
+  font-size: 12px;
+  outline: none;
+}
+
+.annotation-stepper-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.annotation-stepper-controls {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.annotation-stepper:hover .annotation-stepper-controls,
+.annotation-stepper:focus-within .annotation-stepper-controls {
+  opacity: 1;
+}
+
+.annotation-stepper-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.annotation-tool-color {
+  height: 24px;
+  padding: 0 5px;
+  gap: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.annotation-tool-color:hover {
+  border-color: var(--color-accent);
+}
+
+.annotation-tool-color input[type='color'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.annotation-tool-color-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.annotation-tool-color-swatch {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+.annotation-toolbar-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--color-border-subtle);
+}
+
+/* Annotations pane (left sidebar). */
+.annotation-add-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.annotation-add-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle-bg-alt);
+}
+
+.annotation-add-chip-icon {
+  font-size: 16px;
+}
+
+.annotation-pane-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* The item list scrolls on its own once it outgrows the pane, so a document
+   with many annotations stays navigable. */
+.annotation-list-scroll {
+  max-height: 45vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.annotation-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.annotation-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.annotation-list-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.annotation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.annotation-list-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all 0.15s ease;
+}
+
+.annotation-list-row:hover {
+  background: var(--color-accent-subtle-bg);
+  color: var(--color-accent);
+}
+
+.annotation-list-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.annotation-list-text {
+  flex: 1;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Inline rename input, swapped in for the row label on double-click. */
+.annotation-list-rename {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-control);
+  font-size: 12px;
+  outline: none;
+}
+
+.annotation-list-action {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.annotation-list-action:hover {
+  color: var(--color-accent);
+}
+
+.annotation-list-action.locked {
+  color: var(--color-accent);
+}
+
+.annotation-list-delete:hover {
+  color: var(--color-error-strong);
+}
+
+.annotation-pane-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}

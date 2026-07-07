@@ -19,6 +19,14 @@ import {
   BsDiamond,
   BsTriangle,
   BsGripVertical,
+  BsRecordCircle,
+  BsFunnel,
+  BsArrowsAngleContract,
+  BsSoundwave,
+  BsSegmentedNav,
+  BsHourglass,
+  BsSignpostSplit,
+  BsGrid3X3,
 } from 'react-icons/bs';
 
 /**
@@ -45,6 +53,14 @@ const iconRegistry: Record<string, IconType> = {
   BsDiamond,
   BsTriangle,
   BsGripVertical,
+  BsRecordCircle,
+  BsFunnel,
+  BsArrowsAngleContract,
+  BsSoundwave,
+  BsSegmentedNav,
+  BsHourglass,
+  BsSignpostSplit,
+  BsGrid3X3,
 };
 
 /** Fallback icon used when a model references an unknown icon name. */

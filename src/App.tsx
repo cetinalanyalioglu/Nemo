@@ -6,6 +6,7 @@ import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
 import ModelPane from './components/model-pane';
 import DataPane from './components/data-pane';
+import AnnotationsPane from './components/annotations-pane';
 import ToolsPane from './components/tools-pane';
 import SettingsPane from './components/settings-pane';
 import Canvas from './components/Canvas';
@@ -13,6 +14,7 @@ import ConsolePane from './components/console-pane';
 import PropertiesPanel from './components/PropertiesPanel';
 import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
+import GlyphGallery from './components/GlyphGallery';
 import './styles/app.css';
 import { ReactFlowProvider } from './context/ReactFlowContext';
 import { AppStateProvider, useAppState } from './context/AppStateContext';
@@ -25,6 +27,7 @@ function AppContent() {
     if (sidebar.activePane === 'library') return <NodeLibrary />;
     if (sidebar.activePane === 'model') return <ModelPane />;
     if (sidebar.activePane === 'data') return <DataPane />;
+    if (sidebar.activePane === 'annotations') return <AnnotationsPane />;
     if (sidebar.activePane === 'tools') return <ToolsPane />;
     if (sidebar.activePane === 'settings') return <SettingsPane />;
     return <DocumentPane />;
@@ -54,6 +57,11 @@ function App() {
       installDiagnosticsBridge();
     }
   }, []);
+
+  // Dev-only design-review sheet for the glyph set (light + dark, all sizes).
+  if (new URLSearchParams(window.location.search).has('glyphs')) {
+    return <GlyphGallery />;
+  }
 
   return (
     <ReactFlowProvider>

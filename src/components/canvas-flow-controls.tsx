@@ -1,13 +1,15 @@
 import React, { memo, useCallback, useEffect, useRef } from 'react';
-import { ControlButton, useStoreApi, useNodesInitialized } from 'reactflow';
+import { ControlButton, useStoreApi, useNodesInitialized, internalsSymbol } from 'reactflow';
 import { BsGrid } from 'react-icons/bs';
 import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
 import { useDataStore, selectActiveItem } from '../store/dataStore';
-import { getLayoutedElements } from '../utils/layoutUtils';
+import { getElkLayoutedElements, getLayoutedElements } from '../utils/layoutUtils';
+import type { LayoutPort } from '../utils/layoutUtils';
 import { logger } from '../utils/logger';
+import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 
 const LockIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 32" aria-hidden>
@@ -49,18 +51,49 @@ SnapToGridControl.displayName = 'SnapToGridControl';
 
 export const AutoLayoutControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
+  const store = useStoreApi();
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const recordHistory = useGraphStore((s) => s.recordHistory);
-  const { nodeSep, rankSep } = useLayoutState();
+  const { layoutEngine, layoutDirection, nodeSep, rankSep } = useLayoutState();
 
-  const onLayout = useCallback(() => {
+  const onLayout = useCallback(async () => {
     if (!reactFlowInstance) return;
 
     // Read from the ReactFlow instance so nodes carry their measured dimensions,
-    // letting dagre lay them out by real size instead of a hardcoded default.
-    const nodes = reactFlowInstance.getNodes();
+    // letting the engine lay them out by real size instead of a hardcoded default.
+    // Annotations stay where the user put them: they are not part of the network,
+    // so the layout engine never sees (or moves) them.
+    const nodes = reactFlowInstance.getNodes().filter((node) => node.type !== ANNOTATION_NODE_TYPE);
     const edges = reactFlowInstance.getEdges();
-    const { nodes: layoutedNodes } = getLayoutedElements(nodes, edges, 'LR', nodeSep, rankSep);
+
+    let layoutedNodes;
+    if (layoutEngine === 'elk') {
+      // Hand ELK the measured handle positions so the layout respects where
+      // each port actually sits on its node (top/bottom branches, rail stacks).
+      const ports: Record<string, LayoutPort[]> = {};
+      store.getState().nodeInternals.forEach((node, id) => {
+        const handleBounds = node[internalsSymbol]?.handleBounds;
+        const handles = [...(handleBounds?.target ?? []), ...(handleBounds?.source ?? [])];
+        const resolved = handles
+          .filter((h) => h.id)
+          .map((h) => ({ id: h.id!, x: h.x + h.width / 2, y: h.y + h.height / 2 }));
+        if (resolved.length > 0) ports[id] = resolved;
+      });
+      ({ nodes: layoutedNodes } = await getElkLayoutedElements(nodes, edges, {
+        direction: layoutDirection,
+        nodeSep,
+        rankSep,
+        ports,
+      }));
+    } else {
+      ({ nodes: layoutedNodes } = getLayoutedElements(
+        nodes,
+        edges,
+        layoutDirection,
+        nodeSep,
+        rankSep
+      ));
+    }
 
     const changes = layoutedNodes.map((node) => ({
       type: 'position' as const,
@@ -73,7 +106,16 @@ export const AutoLayoutControl = memo(() => {
 
     const { x, y, zoom } = reactFlowInstance.getViewport();
     reactFlowInstance.setViewport({ x, y, zoom });
-  }, [reactFlowInstance, onNodesChange, recordHistory, nodeSep, rankSep]);
+  }, [
+    reactFlowInstance,
+    store,
+    onNodesChange,
+    recordHistory,
+    layoutEngine,
+    layoutDirection,
+    nodeSep,
+    rankSep,
+  ]);
 
   return (
     <ControlButton
