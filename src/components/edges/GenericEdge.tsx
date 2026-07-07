@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { BaseEdge, useReactFlow, type EdgeProps } from 'reactflow';
+import { BaseEdge, useReactFlow, useStore, type EdgeProps } from 'reactflow';
 import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { useGraphStore } from '../../store/graphStore';
@@ -7,10 +7,13 @@ import { useDataStore, useElementDataView, formatDataValue } from '../../store/d
 import EdgeMidpointMarker from './EdgeMidpointMarker';
 import {
   computeEdgePathGeometry,
+  computeRotatedEdgePathGeometry,
   EDGE_MIDPOINT_MARKER_RADIUS,
   FRAMED_PORT_HANDLE_HALF,
   FRAMED_SHAPES,
   insetEndpoint,
+  insetEndpointAlongNormal,
+  rotatedPortNormal,
 } from './edge-path-utils';
 
 /**
@@ -63,6 +66,16 @@ const GenericEdge = ({
   };
   const sourceInset = framedInset(source);
   const targetInset = framedInset(target);
+
+  // On-canvas rotation of the endpoint nodes: React Flow keeps reporting the
+  // handles' unrotated `Position`, so a rotated element needs its true outward
+  // normal reconstructed for the edge to leave the border orthogonally.
+  const sourceRotation = useStore(
+    (s) => (s.nodeInternals.get(source)?.data?.rotation as number | undefined) ?? 0
+  );
+  const targetRotation = useStore(
+    (s) => (s.nodeInternals.get(target)?.data?.rotation as number | undefined) ?? 0
+  );
   const { showEdgeBadges, showIndices } = useAppearanceState();
   const edgeState = useGraphStore((s) => s.edgeStates[id]);
   // Boolean selector (stable) — re-renders only when this edge's validity
@@ -90,6 +103,25 @@ const GenericEdge = ({
     labelX,
     labelY,
   } = useMemo(() => {
+    // Rotated endpoints: inset and depart along the true (rotated) outward
+    // normal. Unrotated graphs keep React Flow's own path helpers verbatim.
+    if (sourceRotation || targetRotation) {
+      const sn = rotatedPortNormal(sourcePosition, sourceRotation);
+      const tn = rotatedPortNormal(targetPosition, targetRotation);
+      const s = insetEndpointAlongNormal(sourceX, sourceY, sn, sourceInset);
+      const t = insetEndpointAlongNormal(targetX, targetY, tn, targetInset);
+      return computeRotatedEdgePathGeometry(
+        {
+          sourceX: s.x,
+          sourceY: s.y,
+          targetX: t.x,
+          targetY: t.y,
+          sourceNormal: sn,
+          targetNormal: tn,
+        },
+        edgePathStyle
+      );
+    }
     const s = insetEndpoint(sourceX, sourceY, sourcePosition, sourceInset);
     const t = insetEndpoint(targetX, targetY, targetPosition, targetInset);
     return computeEdgePathGeometry(
@@ -113,6 +145,8 @@ const GenericEdge = ({
     targetPosition,
     sourceInset,
     targetInset,
+    sourceRotation,
+    targetRotation,
   ]);
 
   // reactflow's BaseEdge hardcodes the path className and drops any we pass, so
