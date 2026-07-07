@@ -257,7 +257,10 @@ export interface GraphStore extends GraphData {
   applyPendingLoad: () => void;
 }
 
-const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+// structuredClone, not JSON round-tripping: parameter maps carry keys whose
+// value is deliberately `undefined` (required-but-unset fields like a flow
+// edge's area), and JSON serialization silently drops those keys.
+const deepClone = <T>(value: T): T => structuredClone(value);
 
 /**
  * Returns whether a node label is already used by another node. Used to enforce
@@ -1330,6 +1333,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       get().reset();
 
       const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
+      const elementInfo = get().model?.elementInfo ?? EMPTY_ELEMENT_INFO;
 
       const uiNodeById = new Map(
         (saveData.uiAttributes?.nodes ?? []).map((uiNode) => [uiNode.id, uiNode])
@@ -1339,7 +1343,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const usedLabels = new Set<string>();
       const newNodeStates: Record<string, NodeRuntimeState> = {};
       saveData.model.nodes.forEach((node) => {
-        const parameters = { ...(node.attributes ?? {}) };
+        // Saved attributes overlay the template defaults: YAML never carries
+        // required-but-unset fields (undefined keys are dropped on dump), so
+        // starting from the defaults restores those keys and the properties
+        // pane keeps showing their input boxes.
+        const parameters = {
+          ...buildDefaultParameters(elementInfo[node.type]?.parameters),
+          ...(node.attributes ?? {}),
+        };
         // When the model enforces unique labels, disambiguate any duplicates in
         // the loaded file so the canvas never opens in an invalid state.
         if (forceUniqueLabels && typeof parameters.label === 'string') {
@@ -1367,19 +1378,23 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
       const newEdgeStates: Record<string, EdgeRuntimeState> = {};
       modelEdges.forEach((edge) => {
-        if (edge.attributes) {
-          newEdgeStates[edge.id] = { parameters: edge.attributes };
-        } else {
-          const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
-          if (!edgeTemplate) {
-            logger.warn(
-              `Edge "${edge.id}": template not found for type "${edge.type}"; using empty parameters.`
-            );
-          }
-          newEdgeStates[edge.id] = {
-            parameters: edgeTemplate ? buildDefaultParameters(edgeTemplate.parameters) : {},
-          };
+        const edgeTemplate = edgeInfo[edge.type || getDefaultEdgeType(get().model)];
+        if (!edgeTemplate) {
+          logger.warn(
+            `Edge "${edge.id}": template not found for type "${edge.type}"; ` +
+              `using the saved attributes as-is.`
+          );
         }
+        // Saved attributes overlay the template defaults (see the node states
+        // above): required-but-unset fields never reach the YAML, so the
+        // defaults restore their keys and the properties pane keeps showing
+        // their input boxes.
+        newEdgeStates[edge.id] = {
+          parameters: {
+            ...(edgeTemplate ? buildDefaultParameters(edgeTemplate.parameters) : {}),
+            ...(edge.attributes ?? {}),
+          },
+        };
       });
 
       const newEdges: Edge[] = modelEdges.map((edge) => ({

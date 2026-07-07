@@ -219,8 +219,18 @@ const PropertiesPanel = React.memo(() => {
   const groupedParameters = useMemo(() => {
     if (!elementState?.parameters)
       return {} as Record<string, Array<{ key: string; value: unknown; info: ParameterInfo }>>;
-    return Object.entries(elementState.parameters).reduce(
-      (acc, [key, value]) => {
+    // Render the union of the element's parameter template and the runtime
+    // state: the template guarantees every defined parameter keeps its input
+    // box even when its key is absent from the state (e.g. a required field
+    // that is still unset), while extra state keys (legacy files, ad-hoc
+    // attributes) still show under "Other".
+    const keys = [
+      ...Object.keys(parametersInfo),
+      ...Object.keys(elementState.parameters).filter((key) => !(key in parametersInfo)),
+    ];
+    return keys.reduce(
+      (acc, key) => {
+        const value = elementState.parameters[key];
         const parameterInfo: ParameterInfo =
           parametersInfo[key] ||
           ({

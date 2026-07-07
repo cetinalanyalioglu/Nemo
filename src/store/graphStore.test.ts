@@ -790,3 +790,109 @@ describe('graphStore image and layered annotations', () => {
     expect(stored.selectable).toBe(true);
   });
 });
+
+describe('graphStore unset required parameters (edge area)', () => {
+  /** A two-element model whose `flow` edge carries a mandatory `area`. */
+  const areaModel = buildRuntimeModel(
+    validateModelDefinition({
+      id: 'area-model',
+      name: 'AreaModel',
+      nodes: {
+        Source: {
+          displayName: 'Source',
+          category: 'E',
+          ports: { target: [], source: ['0'] },
+          parameters: { label: { defaultValue: 'Source' } },
+        },
+        Sink: {
+          displayName: 'Sink',
+          category: 'E',
+          ports: { target: ['0'], source: [] },
+          parameters: { label: { defaultValue: 'Sink' } },
+        },
+      },
+      edges: {
+        flow: {
+          displayName: 'Flow',
+          category: 'C',
+          parameters: { area: { label: 'Area', type: 'float', category: 'P', required: true } },
+        },
+      },
+    })
+  );
+
+  const installGraph = () => {
+    useGraphStore.setState({
+      model: areaModel,
+      nodes: [
+        { id: 's', type: 'Source', position: { x: 0, y: 0 }, data: {} },
+        { id: 'k', type: 'Sink', position: { x: 0, y: 0 }, data: {} },
+      ],
+      nodeStates: {
+        s: { parameters: { label: 'Source' } },
+        k: { parameters: { label: 'Sink' } },
+      },
+      edges: [
+        {
+          id: 'e1',
+          source: 's',
+          target: 'k',
+          sourceHandle: 's-port-0',
+          targetHandle: 'k-port-0',
+          type: 'flow',
+        },
+      ],
+      // Required-but-unset: the key exists with an undefined value, which is
+      // what buildDefaultParameters produces on edge creation.
+      edgeStates: { e1: { parameters: { area: undefined } } },
+    });
+  };
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  it('keeps the unset area key through the save-time index renumbering', () => {
+    installGraph();
+    useGraphStore.getState().regenerateIndices();
+    const parameters = useGraphStore.getState().edgeStates.e1.parameters;
+    // The key must survive (a JSON-based clone would silently drop it and the
+    // properties pane would lose the Area input box).
+    expect(Object.prototype.hasOwnProperty.call(parameters, 'area')).toBe(true);
+    expect(parameters.area).toBeUndefined();
+  });
+
+  it('restores the unset area key after a YAML-like save/load round trip', () => {
+    installGraph();
+    useGraphStore.getState().regenerateIndices();
+    const save = useGraphStore.getState().generateSaveData();
+    // YAML serialization drops keys whose value is undefined; JSON stringify
+    // does the same, so it faithfully models the on-disk file.
+    const reloaded = JSON.parse(JSON.stringify(save));
+    expect('area' in (reloaded.model.edges[0].attributes ?? {})).toBe(false);
+    useGraphStore.getState().applySaveData(reloaded);
+    const parameters = useGraphStore.getState().edgeStates.e1.parameters;
+    expect(Object.prototype.hasOwnProperty.call(parameters, 'area')).toBe(true);
+    expect(parameters.area).toBeUndefined();
+  });
+
+  it('keeps a set area value through the same round trip', () => {
+    installGraph();
+    useGraphStore.getState().updateEdgeParameter('e1', 'area', 0.02);
+    const save = useGraphStore.getState().generateSaveData();
+    const reloaded = JSON.parse(JSON.stringify(save));
+    useGraphStore.getState().applySaveData(reloaded);
+    expect(useGraphStore.getState().edgeStates.e1.parameters.area).toBe(0.02);
+  });
+});
