@@ -5,7 +5,11 @@ They form their own presentation layer, designed to grow (shapes, further media)
 
 ## Interaction
 
-- The **Annotations** pane (pencil icon in the navigation rail) is the home of the layer: drag the _Text_ chip onto the canvas (or click it to drop a note at the viewport centre), upload a picture via the _Image_ chip, and use the _Notes_ list to select/centre or delete existing annotations.
+- The **Annotations** pane (pencil icon in the navigation rail) is the home of the layer: drag the _Text_ chip onto the canvas (or click it to drop a note at the viewport centre), upload a picture via the _Image_ chip, and use the _Items_ list to manage existing annotations.
+- The _Items_ list scrolls once it outgrows the pane.
+  Click a row to centre (and select) the item; double-click it to give the item a **name** (shown instead of the text preview or the `(image)` stand-in; rename to blank to clear).
+- Each row carries a **lock** toggle: a locked annotation cannot be selected or dragged on the canvas — clicks pass through it to whatever is underneath — which makes a back-layer image usable as a tracing guide while placing elements on top.
+  Locked items are managed (unlocked, renamed, deleted) from the pane.
 - Double-click a note to edit its **Markdown** source (headings, emphasis, lists, links, images; raw HTML is intentionally not rendered).
   Blur or `Ctrl+Enter` commits; `Escape` cancels.
   The note keeps its rendered size while the editor is open.
@@ -15,6 +19,7 @@ They form their own presentation layer, designed to grow (shapes, further media)
   Scale with the corner grip or the width stepper; combine with the _back_ layer to use a picture as a background under the network.
   SVG scales losslessly (it is rendered through an `<img>` element, so embedded scripts never execute); PDF is not a browser-image format and is not supported — export the page as SVG or PNG instead.
 - The **layer** buttons stack an annotation above (`front`, the default) or below (`back`) the model elements and edges.
+- **Alt-drag** rotates an annotation about its centre, exactly like the model elements: the rotation-snap settings apply (Shift inverts them for the drag), and Alt-double-click restores the upright orientation.
 - Annotations participate in undo/redo and are movable, editable and deletable even while the canvas is locked — the lock only guards the model graph (indices).
 - Auto-layout ignores annotations; they stay where the user put them.
 
@@ -40,6 +45,7 @@ annotations:
 ```
 
 `kind` is `text` or `image` and namespaces future annotation kinds; `layer` appears only when `back`.
+`name`, `locked` and `rotation` (degrees) appear only when set.
 `style` holds only the fields the user explicitly set; unset fields fall back to the defaults in `src/types/annotations.ts` (and to the active theme for colors), so notes without explicit colors remain readable in both themes.
 
 ## Example

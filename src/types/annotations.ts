@@ -72,6 +72,16 @@ export interface AnnotationData {
   src?: string;
   /** Stacking relative to the model layer. Defaults to `front`. */
   layer?: AnnotationLayer;
+  /** Display name shown in the annotations pane instead of the text preview. */
+  name?: string;
+  /**
+   * When true, the annotation cannot be selected or dragged on the canvas
+   * (clicks pass through to whatever is underneath); it can only be managed
+   * from the annotations pane. Useful for background guide images.
+   */
+  locked?: boolean;
+  /** Rotation about the annotation centre, degrees clockwise in [0, 360). */
+  rotation?: number;
 }
 
 /** Defaults applied wherever a style field is unset. */
@@ -103,6 +113,12 @@ export interface SaveFileAnnotation {
   src?: string;
   /** Stacking relative to the model layer; omitted when `front` (the default). */
   layer?: AnnotationLayer;
+  /** Display name for the annotations pane; omitted when unset. */
+  name?: string;
+  /** Unselectable-on-canvas flag; omitted when false (the default). */
+  locked?: boolean;
+  /** Rotation in degrees; omitted when 0. */
+  rotation?: number;
   /** Only explicitly-set style fields; omitted entirely when all are default. */
   style?: AnnotationStyle;
 }

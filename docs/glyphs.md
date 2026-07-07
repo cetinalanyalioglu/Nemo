@@ -17,6 +17,7 @@ The glyph therefore draws on gray, and the visual language is:
 ## Geometry
 
 - viewBox is `0 0 100 H` with `H` free (55–70 typical). The frame preserves the aspect and derives the node's locked aspect from it.
+- The viewBox width may deviate to control the node's on-canvas length: the duct and pipe glyphs use `0 0 80 48` so they render as long as the compact two-port elements while keeping the same pixel scale (stroke widths, hatch density) as the Fanno pipe's `0 0 100 48`.
 - Duct walls run to `x=0` and `x=100`; the model YAML's `glyphInsetX: -0.02` slides the passage under the side borders so it meets the port triangles.
 - Leave headroom above/below the walls for the gray margin; `glyphInsetY` adds more if needed.
 

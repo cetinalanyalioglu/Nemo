@@ -44,6 +44,19 @@ const SAVE_FILE_VERSION = '2.1.0';
 /** Whether a canvas node is an annotation (presentation layer, not the model). */
 const isAnnotationNode = (node: Node): boolean => node.type === ANNOTATION_NODE_TYPE;
 
+/**
+ * React Flow node flags derived from an annotation's payload: the layer sets
+ * the stacking, and the lock makes the node inert on the canvas (the class
+ * disables pointer events so clicks fall through to whatever is underneath).
+ * `draggable` is explicit so unlocked notes stay movable on a locked canvas.
+ */
+const annotationNodeFlags = (annotation: AnnotationData): Partial<Node> => ({
+  zIndex: ANNOTATION_LAYER_Z[annotation.layer ?? 'front'],
+  draggable: !annotation.locked,
+  selectable: !annotation.locked,
+  className: annotation.locked ? 'annotation-flow-node--locked' : undefined,
+});
+
 const EMPTY_ELEMENT_INFO: Record<string, ElementInfoEntry> = {};
 const EMPTY_EDGE_INFO: Record<string, EdgeInfoEntry> = {};
 
@@ -189,15 +202,23 @@ export interface GraphStore extends GraphData {
     layer?: AnnotationLayer;
   }) => Node | undefined;
   /**
-   * Merges a patch into an annotation's text, style, and/or layer. Style fields
-   * set to `undefined` are removed (reset to the default); a layer change also
-   * restacks the node relative to the model. History is recorded by default;
-   * pass `{ recordHistory: false }` for continuous gestures (e.g. a color-picker
-   * drag or a resize) that record once up front.
+   * Merges a patch into an annotation's text, style, layer, name, lock state,
+   * and/or rotation. Style fields set to `undefined` are removed (reset to the
+   * default); a layer change also restacks the node relative to the model; a
+   * lock change toggles the node's on-canvas selectability. History is recorded
+   * by default; pass `{ recordHistory: false }` for continuous gestures (e.g. a
+   * color-picker drag or a resize) that record once up front.
    */
   updateAnnotation: (
     annotationId: string,
-    patch: { text?: string; style?: AnnotationStyle; layer?: AnnotationLayer },
+    patch: {
+      text?: string;
+      style?: AnnotationStyle;
+      layer?: AnnotationLayer;
+      name?: string;
+      locked?: boolean;
+      rotation?: number;
+    },
     options?: { recordHistory?: boolean }
   ) => void;
   /** Deletes an annotation. Allowed on a locked canvas. */
@@ -270,10 +291,13 @@ const captureFrom = (s: GraphData): CanvasSnapshot => ({
     type: node.type,
     position: { ...node.position },
     data: { ...(node.data ?? {}) },
-    // Annotations carry an explicit draggable flag (movable on a locked canvas)
-    // and a layer zIndex; preserve both across undo/redo.
+    // Annotations carry explicit draggable/selectable flags (movable on a
+    // locked canvas, inert when annotation-locked), a layer zIndex, and a
+    // lock className; preserve all of them across undo/redo.
     ...(node.draggable !== undefined ? { draggable: node.draggable } : {}),
+    ...(node.selectable !== undefined ? { selectable: node.selectable } : {}),
     ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
+    ...(node.className !== undefined ? { className: node.className } : {}),
   })),
   edges: s.edges.map((edge) => ({
     id: edge.id,
@@ -804,10 +828,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         position,
         data: { annotation },
         selected: true,
-        zIndex: ANNOTATION_LAYER_Z[layer],
-        // Explicit so notes stay movable on a locked canvas (the lock only
-        // guards the model graph).
-        draggable: true,
+        ...annotationNodeFlags(annotation),
       };
 
       set((s) => ({
@@ -834,11 +855,33 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         if (style[key] === undefined) delete style[key];
       });
       const layer = patch.layer ?? current.layer ?? 'front';
-      const next: AnnotationData = { ...current, text: patch.text ?? current.text, style, layer };
+      const locked = patch.locked ?? current.locked ?? false;
+      // Blank names clear back to the automatic list label; rotation normalizes
+      // into [0, 360) with 0 dropped so untouched notes stay minimal on disk.
+      const name = (patch.name ?? current.name ?? '').trim();
+      const rotation =
+        patch.rotation !== undefined
+          ? ((patch.rotation % 360) + 360) % 360
+          : (current.rotation ?? 0);
+      const next: AnnotationData = {
+        ...current,
+        text: patch.text ?? current.text,
+        style,
+        layer,
+        name,
+        locked,
+        rotation,
+      };
+      if (!name) delete next.name;
+      if (!locked) delete next.locked;
+      if (!rotation) delete next.rotation;
 
       if (
         next.text === current.text &&
         layer === (current.layer ?? 'front') &&
+        locked === (current.locked ?? false) &&
+        next.name === current.name &&
+        rotation === (current.rotation ?? 0) &&
         JSON.stringify(next.style) === JSON.stringify(current.style)
       ) {
         return;
@@ -851,7 +894,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
             ? {
                 ...n,
                 data: { ...(n.data ?? {}), annotation: next },
-                zIndex: ANNOTATION_LAYER_Z[layer],
+                ...annotationNodeFlags(next),
+                // Locking also drops any live selection so the toolbar closes.
+                ...(locked ? { selected: false } : {}),
               }
             : n
         ),
@@ -1173,6 +1218,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           ...(kind === 'text' ? { text: annotation.text } : {}),
           ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
           ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
+          ...(annotation.name ? { name: annotation.name } : {}),
+          ...(annotation.locked ? { locked: true } : {}),
+          ...(annotation.rotation ? { rotation: annotation.rotation } : {}),
           ...(Object.keys(annotation.style).length > 0 ? { style: annotation.style } : {}),
         };
       });
@@ -1347,21 +1395,22 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       // model/nodeStates entries.
       const annotationNodes: Node[] = (saveData.annotations ?? []).map((a) => {
         const layer: AnnotationLayer = a.layer === 'back' ? 'back' : 'front';
+        const annotation: AnnotationData = {
+          kind: a.kind ?? 'text',
+          text: a.text ?? '',
+          style: a.style ?? {},
+          ...(a.src ? { src: a.src } : {}),
+          layer,
+          ...(a.name ? { name: a.name } : {}),
+          ...(a.locked ? { locked: true } : {}),
+          ...(a.rotation ? { rotation: a.rotation } : {}),
+        };
         return {
           id: a.id,
           type: ANNOTATION_NODE_TYPE,
           position: a.position ?? { x: 0, y: 0 },
-          data: {
-            annotation: {
-              kind: a.kind ?? 'text',
-              text: a.text ?? '',
-              style: a.style ?? {},
-              ...(a.src ? { src: a.src } : {}),
-              layer,
-            },
-          },
-          zIndex: ANNOTATION_LAYER_Z[layer],
-          draggable: true,
+          data: { annotation },
+          ...annotationNodeFlags(annotation),
         };
       });
 

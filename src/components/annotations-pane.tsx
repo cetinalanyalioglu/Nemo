@@ -1,8 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoChevronDown,
   IoImageOutline,
+  IoLockClosed,
+  IoLockOpenOutline,
   IoPencilOutline,
   IoTextOutline,
   IoTrashOutline,
@@ -18,7 +20,7 @@ import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 import type { AnnotationData } from '../types/annotations';
 
 const ADD_GROUP = '__annotations_add__';
-const NOTES_GROUP = '__annotations_notes__';
+const ITEMS_GROUP = '__annotations_items__';
 
 /** MIME type carried by a palette drag that drops a new annotation. */
 export const ANNOTATION_DRAG_MIME = 'application/fnetlibui-annotation';
@@ -31,6 +33,12 @@ const previewText = (text: string): string => {
     .find((l) => l.length > 0);
   if (!line) return '(empty note)';
   return line.replace(/^#{1,6}\s+/, '').replace(/[*_`>]/g, '');
+};
+
+/** Row label: an explicit name wins; otherwise the text preview or a stand-in. */
+const itemLabel = (annotation: AnnotationData): string => {
+  if (annotation.name) return annotation.name;
+  return annotation.kind === 'image' ? '(image)' : previewText(annotation.text);
 };
 
 /**
@@ -48,11 +56,28 @@ const AnnotationsPane = React.memo(() => {
   const { reactFlowInstance } = useReactFlow();
   const nodes = useGraphStore((s) => s.nodes);
   const addAnnotation = useGraphStore((s) => s.addAnnotation);
+  const updateAnnotation = useGraphStore((s) => s.updateAnnotation);
   const deleteAnnotation = useGraphStore((s) => s.deleteAnnotation);
   const onNodesChange = useGraphStore((s) => s.onNodesChange);
 
   const annotations = useMemo(() => nodes.filter((n) => n.type === ANNOTATION_NODE_TYPE), [nodes]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline rename state: double-clicking a row swaps its label for an input.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (renamingId) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renamingId]);
+
+  const commitRename = () => {
+    if (renamingId) updateAnnotation(renamingId, { name: renameDraft });
+    setRenamingId(null);
+  };
 
   const onDragStart = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData(ANNOTATION_DRAG_MIME, 'text');
@@ -87,8 +112,13 @@ const AnnotationsPane = React.memo(() => {
     const node = annotations.find((n) => n.id === id);
     if (!node) return;
     // Select the note (deselecting everything else) so its toolbar shows, and
-    // bring it into view.
-    onNodesChange(nodes.map((n) => ({ type: 'select' as const, id: n.id, selected: n.id === id })));
+    // bring it into view. Locked items only centre: they are not selectable.
+    const locked = ((node.data?.annotation ?? {}) as AnnotationData).locked === true;
+    if (!locked) {
+      onNodesChange(
+        nodes.map((n) => ({ type: 'select' as const, id: n.id, selected: n.id === id }))
+      );
+    }
     reactFlowInstance?.setCenter(node.position.x, node.position.y, {
       zoom: Math.max(1, reactFlowInstance.getZoom()),
       duration: 300,
@@ -150,54 +180,91 @@ const AnnotationsPane = React.memo(() => {
         </div>
       </div>
 
-      <div className={`elements-group ${collapsedGroups[NOTES_GROUP] ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={() => actions.sidebar.toggleGroup(NOTES_GROUP)}>
+      <div className={`elements-group ${collapsedGroups[ITEMS_GROUP] ? 'collapsed' : ''}`}>
+        <div className="group-header" onClick={() => actions.sidebar.toggleGroup(ITEMS_GROUP)}>
           <div className="group-header-content">
-            <span>NOTES</span>
+            <span>ITEMS</span>
             <IoChevronDown className="group-collapse-icon" />
           </div>
         </div>
-        <div className={`group-content ${collapsedGroups[NOTES_GROUP] ? 'collapsed' : ''}`}>
+        <div className={`group-content ${collapsedGroups[ITEMS_GROUP] ? 'collapsed' : ''}`}>
           {annotations.length === 0 ? (
             <p className="annotation-pane-empty">No annotations yet.</p>
           ) : (
-            <ul className="annotation-list">
-              {annotations.map((node) => {
-                const annotation = (node.data?.annotation ?? {
-                  text: '',
-                  style: {},
-                }) as AnnotationData;
-                const isImage = annotation.kind === 'image';
-                return (
-                  <li
-                    key={node.id}
-                    className="annotation-list-row"
-                    onClick={() => focusAnnotation(node.id)}
-                    title="Click to select and centre this note"
-                  >
-                    {isImage ? (
-                      <IoImageOutline className="annotation-list-icon" />
-                    ) : (
-                      <IoTextOutline className="annotation-list-icon" />
-                    )}
-                    <span className="annotation-list-text">
-                      {isImage ? '(image)' : previewText(annotation.text)}
-                    </span>
-                    <button
-                      type="button"
-                      className="annotation-list-delete"
-                      title="Delete this note"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteAnnotation(node.id);
+            <div className="annotation-list-scroll">
+              <ul className="annotation-list">
+                {annotations.map((node) => {
+                  const annotation = (node.data?.annotation ?? {
+                    text: '',
+                    style: {},
+                  }) as AnnotationData;
+                  const isImage = annotation.kind === 'image';
+                  const isLocked = annotation.locked === true;
+                  return (
+                    <li
+                      key={node.id}
+                      className="annotation-list-row"
+                      onClick={() => focusAnnotation(node.id)}
+                      onDoubleClick={() => {
+                        setRenamingId(node.id);
+                        setRenameDraft(annotation.name ?? '');
                       }}
+                      title="Click to centre this item; double-click to rename it"
                     >
-                      <IoTrashOutline />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                      {isImage ? (
+                        <IoImageOutline className="annotation-list-icon" />
+                      ) : (
+                        <IoTextOutline className="annotation-list-icon" />
+                      )}
+                      {renamingId === node.id ? (
+                        <input
+                          ref={renameInputRef}
+                          type="text"
+                          className="annotation-list-rename"
+                          value={renameDraft}
+                          placeholder={itemLabel(annotation)}
+                          onChange={(e) => setRenameDraft(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename();
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                        />
+                      ) : (
+                        <span className="annotation-list-text">{itemLabel(annotation)}</span>
+                      )}
+                      <button
+                        type="button"
+                        className={`annotation-list-action${isLocked ? ' locked' : ''}`}
+                        title={
+                          isLocked
+                            ? 'Unlock: make this item selectable on the canvas again'
+                            : 'Lock: make this item unselectable on the canvas (clicks pass through)'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateAnnotation(node.id, { locked: !isLocked });
+                        }}
+                      >
+                        {isLocked ? <IoLockClosed /> : <IoLockOpenOutline />}
+                      </button>
+                      <button
+                        type="button"
+                        className="annotation-list-action annotation-list-delete"
+                        title="Delete this item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteAnnotation(node.id);
+                        }}
+                      >
+                        <IoTrashOutline />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       </div>

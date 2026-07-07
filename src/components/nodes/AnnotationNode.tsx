@@ -13,6 +13,7 @@ import {
 } from 'react-icons/md';
 import { IoAdd, IoRemove, IoSquareOutline, IoTrashOutline } from 'react-icons/io5';
 import '../../styles/annotations.css';
+import { useRotationState } from '../../context/AppStateContext';
 import { useGraphStore } from '../../store/graphStore';
 import MarkdownContent from '../MarkdownContent';
 import { ANNOTATION_FONT_STACKS, ANNOTATION_STYLE_DEFAULTS } from '../../types/annotations';
@@ -33,6 +34,14 @@ const FONT_OPTIONS: Array<{ value: AnnotationFont; label: string }> = [
 
 /** Fallback display width (px) for an image annotation without an explicit one. */
 const DEFAULT_IMAGE_WIDTH = 240;
+
+/**
+ * Stacking of the floating style toolbar. React Flow gives the toolbar the
+ * selected node's z-index + 1, which for a back-layer annotation is deeply
+ * negative: the toolbar would render behind the pane and stop taking clicks.
+ * A fixed positive value keeps it interactive regardless of the note's layer.
+ */
+const TOOLBAR_Z_INDEX = 1200;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -123,13 +132,18 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
   const annotation = (data?.annotation ?? { text: '', style: {} }) as AnnotationData;
   const kind = annotation.kind ?? 'text';
   const layer = annotation.layer ?? 'front';
+  const rotation = annotation.rotation ?? 0;
   const updateAnnotation = useGraphStore((s) => s.updateAnnotation);
   const deleteAnnotation = useGraphStore((s) => s.deleteAnnotation);
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const { getZoom } = useReactFlow();
+  const { snap: rotationSnap, increment: rotationIncrement } = useRotationState();
 
   const noteRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  // True while the pointer hovers the note with Alt held: the cursor turns into
+  // a rotate arrow and a drag rotates instead of moving the node.
+  const [rotateIntent, setRotateIntent] = useState(false);
 
   // A freshly-dropped text note has no text yet; open the editor right away so
   // the user can start typing without an extra double-click.
@@ -145,6 +159,33 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
       editorRef.current?.select();
     }
   }, [editing]);
+
+  // Tracks the Alt-hover combination that arms rotate-mode (same gesture as the
+  // model elements). Key listeners attach only while the pointer is over this
+  // note, so a canvas full of annotations doesn't stack window-level handlers.
+  useEffect(() => {
+    const el = noteRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => setRotateIntent(e.altKey);
+    const onEnter = (e: MouseEvent) => {
+      setRotateIntent(e.altKey);
+      window.addEventListener('keydown', onKey);
+      window.addEventListener('keyup', onKey);
+    };
+    const onLeave = () => {
+      setRotateIntent(false);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+  }, []);
 
   const startEditing = () => {
     if (kind !== 'text') return;
@@ -172,12 +213,22 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
 
   const setLayer = (next: AnnotationLayer) => updateAnnotation(id, { layer: next });
 
+  // Projects a screen-space drag onto the note's local (possibly rotated) axes
+  // so resize gestures still track the grip after the note has been rotated.
+  const projectDelta = (dx: number, dy: number): { x: number; y: number } => {
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return { x: dx * cos + dy * sin, y: -dx * sin + dy * cos };
+  };
+
   // Corner-grip scaling for image annotations: one history record per gesture,
   // width tracked in flow units (screen delta divided by zoom), aspect free.
   const handleImageResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.preventDefault();
     const startX = e.clientX;
+    const startY = e.clientY;
     const startWidth =
       annotation.style.width ?? noteRef.current?.offsetWidth ?? DEFAULT_IMAGE_WIDTH;
     const zoom = getZoom();
@@ -187,7 +238,8 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
         recordHistory();
         hasRecorded = true;
       }
-      const width = Math.round(clamp(startWidth + (ev.clientX - startX) / zoom, 24, 4000));
+      const delta = projectDelta(ev.clientX - startX, ev.clientY - startY);
+      const width = Math.round(clamp(startWidth + delta.x / zoom, 24, 4000));
       updateAnnotation(id, { style: { width } }, { recordHistory: false });
     };
     const onUp = () => {
@@ -206,7 +258,8 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
       e.preventDefault();
       const el = noteRef.current;
       if (!el) return;
-      const start = axis === 'width' ? e.clientX : e.clientY;
+      const startX = e.clientX;
+      const startY = e.clientY;
       const startSize = axis === 'width' ? el.offsetWidth : el.offsetHeight;
       const minSize = axis === 'width' ? 40 : 20;
       const zoom = getZoom();
@@ -216,8 +269,9 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           recordHistory();
           hasRecorded = true;
         }
-        const pointer = axis === 'width' ? ev.clientX : ev.clientY;
-        const size = Math.round(clamp(startSize + (pointer - start) / zoom, minSize, 4000));
+        const delta = projectDelta(ev.clientX - startX, ev.clientY - startY);
+        const along = axis === 'width' ? delta.x : delta.y;
+        const size = Math.round(clamp(startSize + along / zoom, minSize, 4000));
         updateAnnotation(id, { style: { [axis]: size } }, { recordHistory: false });
       };
       const onUp = () => {
@@ -227,6 +281,66 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     };
+
+  // Alt-drag anywhere on the note rotates it about its centre, mirroring the
+  // model elements' gesture (including the snap settings, with Shift inverting
+  // the choice for the duration of the drag).
+  const handleRotateStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = noteRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // The centre is invariant under the rotation itself, so the pivot captured
+    // here stays valid for the whole gesture.
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const startPointerAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+    const startRotation = rotation;
+    let hasRecorded = false;
+    const onMove = (ev: PointerEvent) => {
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
+      const angle = Math.atan2(ev.clientY - cy, ev.clientX - cx);
+      let degrees = startRotation + ((angle - startPointerAngle) * 180) / Math.PI;
+      const shouldSnap = rotationSnap !== ev.shiftKey;
+      if (shouldSnap && rotationIncrement > 0) {
+        degrees = Math.round(degrees / rotationIncrement) * rotationIncrement;
+      }
+      updateAnnotation(id, { rotation: degrees }, { recordHistory: false });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  /** True when the event originated on a child that owns its own gestures. */
+  const isGestureExempt = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest('.annotation-stretch, .resize-handle, .annotation-editor');
+
+  // Runs in the capture phase and swallows the event so React Flow doesn't also
+  // start a node drag; the stretchers, the image grip, and the editor keep
+  // their own gestures.
+  const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.altKey || editing || isGestureExempt(e.target)) return;
+    handleRotateStart(e);
+  };
+
+  // Double-click edits the text; with Alt held it restores the upright
+  // orientation instead (both kinds).
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.altKey) {
+      e.stopPropagation();
+      updateAnnotation(id, { rotation: 0 });
+      return;
+    }
+    startEditing();
+  };
 
   // Double-clicking a stretcher clears its dimension: back to content-sizing in
   // that direction. Swallow the event so it doesn't open the text editor.
@@ -260,6 +374,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           // swap doesn't resize the node.
           ...(editing && editSize ? { width: `${editSize.w}px`, height: `${editSize.h}px` } : {}),
         };
+  if (rotation) noteCss.transform = `rotate(${rotation}deg)`;
 
   const noteClasses = [
     'annotation-node',
@@ -267,6 +382,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
     style.border ? 'annotation-node--border' : '',
     selected ? 'annotation-node--selected' : '',
     editing ? 'annotation-node--editing' : '',
+    rotateIntent && !editing ? 'annotation-node--rotate' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -339,7 +455,11 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
 
   return (
     <>
-      <NodeToolbar isVisible={selected && !editing} position={Position.Top}>
+      <NodeToolbar
+        isVisible={selected && !editing}
+        position={Position.Top}
+        style={{ zIndex: TOOLBAR_Z_INDEX }}
+      >
         <div className="annotation-toolbar nodrag">
           {kind === 'text' && (
             <>
@@ -430,7 +550,13 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
         </div>
       </NodeToolbar>
 
-      <div className={noteClasses} style={noteCss} ref={noteRef} onDoubleClick={startEditing}>
+      <div
+        className={noteClasses}
+        style={noteCss}
+        ref={noteRef}
+        onDoubleClick={handleDoubleClick}
+        onPointerDownCapture={handlePointerDownCapture}
+      >
         {kind === 'image' ? (
           <>
             <img className="annotation-image" src={annotation.src} alt="" draggable={false} />

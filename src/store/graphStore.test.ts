@@ -726,4 +726,67 @@ describe('graphStore image and layered annotations', () => {
     useGraphStore.getState().undo();
     expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
   });
+
+  it('locking makes the node unselectable and undraggable; unlocking reverts', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { locked: true });
+    let stored = useGraphStore.getState().nodes[0];
+    expect(stored.selectable).toBe(false);
+    expect(stored.draggable).toBe(false);
+    expect(stored.selected).toBe(false);
+    expect(stored.className).toBe('annotation-flow-node--locked');
+    useGraphStore.getState().updateAnnotation(node.id, { locked: false });
+    stored = useGraphStore.getState().nodes[0];
+    expect(stored.selectable).toBe(true);
+    expect(stored.draggable).toBe(true);
+    expect(stored.data.annotation.locked).toBeUndefined();
+  });
+
+  it('normalizes rotation into [0, 360) and drops zero', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { rotation: -30 });
+    expect(useGraphStore.getState().nodes[0].data.annotation.rotation).toBe(330);
+    useGraphStore.getState().updateAnnotation(node.id, { rotation: 360 });
+    expect(useGraphStore.getState().nodes[0].data.annotation.rotation).toBeUndefined();
+  });
+
+  it('clears the name when renamed to blank', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { name: 'Guide' });
+    expect(useGraphStore.getState().nodes[0].data.annotation.name).toBe('Guide');
+    useGraphStore.getState().updateAnnotation(node.id, { name: '  ' });
+    expect(useGraphStore.getState().nodes[0].data.annotation.name).toBeUndefined();
+  });
+
+  it('round-trips name, lock and rotation through save/load', () => {
+    const node = useGraphStore.getState().addAnnotation({ kind: 'image', src: SRC })!;
+    useGraphStore
+      .getState()
+      .updateAnnotation(node.id, { name: 'Combustor guide', locked: true, rotation: 15 });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations![0]).toMatchObject({
+      name: 'Combustor guide',
+      locked: true,
+      rotation: 15,
+    });
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const restored = useGraphStore.getState().nodes[0];
+    expect(restored.data.annotation).toMatchObject({
+      name: 'Combustor guide',
+      locked: true,
+      rotation: 15,
+    });
+    expect(restored.selectable).toBe(false);
+    expect(restored.className).toBe('annotation-flow-node--locked');
+  });
+
+  it('undo restores the pre-lock selectability', () => {
+    const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
+    useGraphStore.getState().updateAnnotation(node.id, { locked: true });
+    useGraphStore.getState().undo();
+    const stored = useGraphStore.getState().nodes[0];
+    expect(stored.data.annotation.locked).toBeUndefined();
+    expect(stored.selectable).toBe(true);
+  });
 });
