@@ -688,7 +688,9 @@ describe('graphStore image and layered annotations', () => {
   it('moves an annotation behind the model and back, restacking the node', () => {
     const node = useGraphStore.getState().addAnnotation({ text: 'x' })!;
     useGraphStore.getState().updateAnnotation(node.id, { layer: 'back' });
-    expect(useGraphStore.getState().nodes[0].zIndex).toBe(-1);
+    // Deeper than React Flow's +1000 selection elevation, so the toggle takes
+    // effect visually even while the node stays selected.
+    expect(useGraphStore.getState().nodes[0].zIndex).toBe(-1500);
     useGraphStore.getState().updateAnnotation(node.id, { layer: 'front' });
     expect(useGraphStore.getState().nodes[0].zIndex).toBe(1);
   });
@@ -714,7 +716,7 @@ describe('graphStore image and layered annotations', () => {
     useGraphStore.getState().reset();
     useGraphStore.getState().applySaveData(save);
     const restored = useGraphStore.getState().nodes[0];
-    expect(restored.zIndex).toBe(-1);
+    expect(restored.zIndex).toBe(-1500);
     expect(restored.data.annotation).toMatchObject({ kind: 'image', src: SRC, layer: 'back' });
   });
 

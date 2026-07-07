@@ -29,18 +29,29 @@
   pointer-events: none;
 }
 
-/* Corner scale grip of a selected image annotation (same look as the element
-   resize grip). */
+/* Corner scale grip of a selected image annotation: an oversized invisible hit
+   zone with a visible accent dot, grabbable at any zoom. */
 .annotation-node--image .resize-handle {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  right: -10px;
+  bottom: -10px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
   cursor: se-resize;
   pointer-events: all;
+}
+
+.annotation-node--image .resize-handle::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
 }
 
 .annotation-node--border {
@@ -144,31 +155,85 @@
   border-color: var(--color-accent);
 }
 
+.annotation-editor::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+/* Slim app-style scrollbar instead of the native one (whose arrow buttons
+   clash with the rest of the UI). */
+.annotation-editor {
+  scrollbar-width: thin;
+}
+
+.annotation-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+.annotation-editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.annotation-editor::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.annotation-editor::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+/* While the editor is open, its own dashed border is the only boundary: the
+   selection outline would double it up. */
+.annotation-node--editing.annotation-node--selected {
+  outline: none;
+}
+
 /* Edge stretchers of a selected text note: drag sets an explicit width
-   (right bar) or height (bottom bar); double-click autosizes that direction. */
+   (right bar) or height (bottom bar); double-click autosizes that direction.
+   The element is an oversized invisible hit zone (grabbable at any zoom); the
+   visible bar is drawn by ::after. */
 .annotation-stretch {
   position: absolute;
-  background: var(--color-accent);
-  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 10;
 }
 
+.annotation-stretch::after {
+  content: '';
+  border-radius: 3px;
+  background: var(--color-accent);
+}
+
 .annotation-stretch-h {
-  right: -4px;
+  right: -10px;
   top: 50%;
   transform: translateY(-50%);
-  width: 5px;
-  height: 22px;
+  width: 20px;
+  height: 44px;
   cursor: ew-resize;
 }
 
+.annotation-stretch-h::after {
+  width: 6px;
+  height: 26px;
+}
+
 .annotation-stretch-v {
-  bottom: -4px;
+  bottom: -10px;
   left: 50%;
   transform: translateX(-50%);
-  width: 22px;
-  height: 5px;
+  width: 44px;
+  height: 20px;
   cursor: ns-resize;
+}
+
+.annotation-stretch-v::after {
+  width: 26px;
+  height: 6px;
 }
 
 /* Floating style toolbar (React Flow NodeToolbar portal). */

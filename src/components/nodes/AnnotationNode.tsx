@@ -266,6 +266,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
     kind === 'image' ? 'annotation-node--image' : '',
     style.border ? 'annotation-node--border' : '',
     selected ? 'annotation-node--selected' : '',
+    editing ? 'annotation-node--editing' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -449,7 +450,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
             // workable minimum; an existing note keeps its exact footprint.
             style={editSize ? undefined : { minWidth: 200, minHeight: 52 }}
             value={draft}
-            placeholder="Write a note (Markdown supported)…"
+            placeholder="Write a note…"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitText}
             onKeyDown={(e) => {

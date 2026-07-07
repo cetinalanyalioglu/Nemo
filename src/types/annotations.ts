@@ -23,8 +23,13 @@ export type AnnotationKind = 'text' | 'image';
  */
 export type AnnotationLayer = 'front' | 'back';
 
-/** Node `zIndex` for each annotation layer; model elements sit at 0. */
-export const ANNOTATION_LAYER_Z: Record<AnnotationLayer, number> = { front: 1, back: -1 };
+/**
+ * Node `zIndex` for each annotation layer; model elements sit at 0. React Flow
+ * elevates a selected node by +1000, so `back` is deeper than -1000: a
+ * back-layer annotation stays behind the model even while selected, making the
+ * layer toggle take effect instantly.
+ */
+export const ANNOTATION_LAYER_Z: Record<AnnotationLayer, number> = { front: 1, back: -1500 };
 
 export type AnnotationAlign = 'left' | 'center' | 'right';
 
