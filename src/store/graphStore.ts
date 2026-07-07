@@ -231,6 +231,25 @@ export interface GraphStore extends GraphData {
   updateEdges: (newEdges: Edge[], removedEdgeIds?: string[]) => void;
   regenerateIndices: () => void;
 
+  // Clipboard.
+  /**
+   * Captures the given nodes/annotations — plus the edges connecting two
+   * copied nodes — into the in-memory clipboard. Edges cannot exist on their
+   * own, so an edge with an endpoint outside the set is dropped. Returns the
+   * number of items captured; an empty selection keeps the previous clipboard
+   * content.
+   */
+  copySelection: (nodeIds: string[]) => number;
+  /**
+   * Pastes the clipboard as fresh items: new ids, de-duplicated labels/names,
+   * generated indices cleared (they are recomputed on save), every other
+   * parameter copied verbatim. Each successive paste of the same clipboard
+   * lands at a growing offset. The paste is one undo step and the new items
+   * become the selection. On a locked canvas only annotations paste. Returns
+   * the number of items pasted.
+   */
+  pasteClipboard: () => number;
+
   // Label editing.
   startEditing: (nodeId: string) => void;
   onChange: (nodeId: string, evt: ReactChangeEvent<HTMLInputElement>) => void;
@@ -287,34 +306,79 @@ const generateRandomSuffix = (length = 3): string => {
   return result;
 };
 
+/**
+ * Bumps a name's trailing number until `isTaken` clears (e.g. "Pump3" →
+ * "Pump4", "Header" → "Header2"); returns the name unchanged when it is free.
+ * Used to de-duplicate the labels/names of pasted items.
+ */
+const bumpName = (name: string, isTaken: (candidate: string) => boolean): string => {
+  const match = /^(.*?)(\d+)$/.exec(name);
+  const base = match ? match[1] : name;
+  let counter = match ? Number(match[2]) : 1;
+  let candidate = name;
+  while (isTaken(candidate)) {
+    counter += 1;
+    candidate = `${base}${counter}`;
+  }
+  return candidate;
+};
+
+/**
+ * Clones a node down to the fields that persist across a restore or a paste
+ * (drops transient selection state; keeps the explicit annotation flags —
+ * draggable/selectable, layer zIndex, lock className).
+ */
+const snapshotNode = (node: Node): Node => ({
+  id: node.id,
+  type: node.type,
+  position: { ...node.position },
+  data: { ...(node.data ?? {}) },
+  ...(node.draggable !== undefined ? { draggable: node.draggable } : {}),
+  ...(node.selectable !== undefined ? { selectable: node.selectable } : {}),
+  ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
+  ...(node.className !== undefined ? { className: node.className } : {}),
+});
+
+/** Clones an edge down to the fields that persist (drops selection state). */
+const snapshotEdge = (edge: Edge): Edge => ({
+  id: edge.id,
+  source: edge.source,
+  target: edge.target,
+  sourceHandle: edge.sourceHandle ?? undefined,
+  targetHandle: edge.targetHandle ?? undefined,
+  type: edge.type,
+});
+
 /** Builds a snapshot from the current graph slice. */
 const captureFrom = (s: GraphData): CanvasSnapshot => ({
-  nodes: s.nodes.map((node) => ({
-    id: node.id,
-    type: node.type,
-    position: { ...node.position },
-    data: { ...(node.data ?? {}) },
-    // Annotations carry explicit draggable/selectable flags (movable on a
-    // locked canvas, inert when annotation-locked), a layer zIndex, and a
-    // lock className; preserve all of them across undo/redo.
-    ...(node.draggable !== undefined ? { draggable: node.draggable } : {}),
-    ...(node.selectable !== undefined ? { selectable: node.selectable } : {}),
-    ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
-    ...(node.className !== undefined ? { className: node.className } : {}),
-  })),
-  edges: s.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: edge.sourceHandle ?? undefined,
-    targetHandle: edge.targetHandle ?? undefined,
-    type: edge.type,
-  })),
+  nodes: s.nodes.map(snapshotNode),
+  edges: s.edges.map(snapshotEdge),
   nodeStates: deepClone(s.nodeStates),
   edgeStates: deepClone(s.edgeStates),
   nodeCounters: { ...s.nodeCounters },
   totalNodeCounters: { ...s.totalNodeCounters },
 });
+
+/** Offset applied to pasted items, cascading with each paste of the same copy. */
+const PASTE_OFFSET = 40;
+
+/**
+ * The in-memory canvas clipboard: cloned nodes (model elements and
+ * annotations), the edges internal to the copied set, and the parameter bags
+ * keyed by the original ids. Module state rather than store state — the
+ * clipboard is transient UI plumbing, never part of undo history or save
+ * files.
+ */
+interface CanvasClipboard {
+  nodes: Node[];
+  edges: Edge[];
+  nodeStates: Record<string, NodeRuntimeState>;
+  edgeStates: Record<string, EdgeRuntimeState>;
+}
+
+let clipboard: CanvasClipboard | null = null;
+/** Pastes of the current clipboard so far; drives the cascading offset. */
+let clipboardPasteCount = 0;
 
 /** Produces the graph-slice patch that restores a snapshot. */
 const restorePatch = (snapshot: CanvasSnapshot): Partial<GraphData> => ({
@@ -1139,6 +1203,226 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     },
 
     regenerateIndices: () => applyIndices(true),
+
+    copySelection: (nodeIds) => {
+      const state = get();
+      const wanted = new Set(nodeIds);
+      const nodes = state.nodes.filter((node) => wanted.has(node.id));
+      if (nodes.length === 0) return 0;
+
+      const copiedIds = new Set(nodes.map((node) => node.id));
+      // Edges cannot exist on their own: only edges whose two endpoints are
+      // both part of the selection travel with it.
+      const edges = state.edges.filter(
+        (edge) => copiedIds.has(edge.source) && copiedIds.has(edge.target)
+      );
+
+      const nodeStates: Record<string, NodeRuntimeState> = {};
+      nodes.forEach((node) => {
+        const nodeState = state.nodeStates[node.id];
+        if (nodeState) nodeStates[node.id] = deepClone(nodeState);
+      });
+      const edgeStates: Record<string, EdgeRuntimeState> = {};
+      edges.forEach((edge) => {
+        const edgeState = state.edgeStates[edge.id];
+        if (edgeState) edgeStates[edge.id] = deepClone(edgeState);
+      });
+
+      clipboard = {
+        nodes: nodes.map(snapshotNode),
+        edges: edges.map(snapshotEdge),
+        nodeStates,
+        edgeStates,
+      };
+      clipboardPasteCount = 0;
+      return nodes.length + edges.length;
+    },
+
+    pasteClipboard: () => {
+      const clip = clipboard;
+      if (!clip) return 0;
+
+      const state = get();
+      const elementInfo = state.model?.elementInfo ?? EMPTY_ELEMENT_INFO;
+      const edgeInfo = state.model?.edgeInfo ?? EMPTY_EDGE_INFO;
+
+      const annotations = clip.nodes.filter(isAnnotationNode);
+      let modelNodes = clip.nodes.filter((node) => !isAnnotationNode(node));
+      let edges = clip.edges;
+
+      // Pasting model elements is a topological change; a locked canvas only
+      // accepts the presentation-layer part of the clipboard.
+      if (state.locked && modelNodes.length > 0) {
+        if (annotations.length === 0) {
+          logger.warn('Canvas is locked: unlock it before pasting nodes or edges.');
+          return 0;
+        }
+        logger.warn('Canvas is locked: pasted the annotations only.');
+        modelNodes = [];
+        edges = [];
+      }
+
+      // The clipboard can outlive a model switch: skip anything the active
+      // model no longer knows, along with the edges attached to it.
+      const knownNodes = modelNodes.filter((node) => node.type && elementInfo[node.type]);
+      const knownIds = new Set(knownNodes.map((node) => node.id));
+      const knownEdges = edges.filter(
+        (edge) =>
+          edge.type && edgeInfo[edge.type] && knownIds.has(edge.source) && knownIds.has(edge.target)
+      );
+      if (knownNodes.length < modelNodes.length || knownEdges.length < edges.length) {
+        logger.warn('Some copied items are unknown to the active model and were skipped.');
+      }
+      modelNodes = knownNodes;
+      edges = knownEdges;
+
+      if (modelNodes.length === 0 && annotations.length === 0) return 0;
+
+      get().recordHistory();
+      clipboardPasteCount += 1;
+      const offset = PASTE_OFFSET * clipboardPasteCount;
+
+      const takenNodeIds = new Set(state.nodes.map((node) => node.id));
+      const workingNodeStates = { ...state.nodeStates };
+      const totalNodeCounters = { ...state.totalNodeCounters };
+      const nodeCounters = { ...state.nodeCounters };
+      const idMap: Record<string, string> = {};
+      const newNodes: Node[] = [];
+      const newNodeStates: Record<string, NodeRuntimeState> = {};
+
+      for (const node of modelNodes) {
+        const type = node.type!;
+        const counter = (totalNodeCounters[type] || 0) + 1;
+        let id = `${type}${counter}-${generateRandomSuffix()}`;
+        while (takenNodeIds.has(id) || workingNodeStates[id]) {
+          id = `${type}${counter}-${generateRandomSuffix()}`;
+        }
+        takenNodeIds.add(id);
+        totalNodeCounters[type] = counter;
+        nodeCounters[type] = (nodeCounters[type] || 0) + 1;
+        idMap[node.id] = id;
+
+        const defaults = buildDefaultParameters(elementInfo[type].parameters);
+        const parameters = {
+          ...defaults,
+          ...deepClone(clip.nodeStates[node.id]?.parameters ?? {}),
+        };
+        // A generated index must never be duplicated: reset it to the
+        // fresh-node default; save (or regenerateIndices) assigns a real one.
+        if ('index' in parameters) parameters.index = defaults.index;
+        // De-duplicate the label by bumping its trailing number. The source
+        // label may be free again (e.g. after a cut), then it is kept as is.
+        const sourceLabel = parameters.label;
+        if (typeof sourceLabel === 'string' && sourceLabel) {
+          parameters.label = bumpName(sourceLabel, (candidate) =>
+            isNodeLabelTaken(workingNodeStates, candidate)
+          );
+        }
+
+        workingNodeStates[id] = { parameters };
+        newNodeStates[id] = { parameters };
+        newNodes.push({
+          ...node,
+          id,
+          position: { x: node.position.x + offset, y: node.position.y + offset },
+          data: deepClone(node.data ?? {}),
+          selected: true,
+        });
+      }
+
+      const annotationNames = new Set<string>();
+      state.nodes.filter(isAnnotationNode).forEach((node) => {
+        const name = (node.data?.annotation as AnnotationData | undefined)?.name;
+        if (name) annotationNames.add(name);
+      });
+
+      for (const node of annotations) {
+        let id = `annotation-${generateRandomSuffix(6)}`;
+        while (takenNodeIds.has(id)) {
+          id = `annotation-${generateRandomSuffix(6)}`;
+        }
+        takenNodeIds.add(id);
+
+        const data = deepClone(node.data ?? {});
+        const annotation = (data.annotation ?? { text: '', style: {} }) as AnnotationData;
+        if (annotation.name) {
+          annotation.name = bumpName(annotation.name, (candidate) =>
+            annotationNames.has(candidate)
+          );
+          annotationNames.add(annotation.name);
+        }
+        data.annotation = annotation;
+
+        newNodes.push({
+          ...node,
+          id,
+          position: { x: node.position.x + offset, y: node.position.y + offset },
+          data,
+          // A pasted copy keeps its lock, and locked notes are unselectable,
+          // so only unlocked copies join the fresh selection.
+          selected: !annotation.locked,
+          ...annotationNodeFlags(annotation),
+        });
+      }
+
+      // Handle ids embed the node id (`{nodeId}-port-{n}`): swap the prefix,
+      // keep the port number.
+      const remapHandle = (
+        handle: string | null | undefined,
+        oldNodeId: string,
+        newNodeId: string
+      ): string | undefined => {
+        if (!handle) return undefined;
+        return handle.startsWith(oldNodeId)
+          ? `${newNodeId}${handle.slice(oldNodeId.length)}`
+          : handle;
+      };
+
+      const takenEdgeIds = new Set(state.edges.map((edge) => edge.id));
+      const newEdges: Edge[] = [];
+      const newEdgeStates: Record<string, EdgeRuntimeState> = {};
+
+      for (const edge of edges) {
+        const source = idMap[edge.source];
+        const target = idMap[edge.target];
+        if (!source || !target) continue;
+        const sourceHandle = remapHandle(edge.sourceHandle, edge.source, source);
+        const targetHandle = remapHandle(edge.targetHandle, edge.target, target);
+        // Mirror reactflow's addEdge id format; fresh endpoints make it unique.
+        let id = `reactflow__edge-${source}${sourceHandle ?? ''}-${target}${targetHandle ?? ''}`;
+        while (takenEdgeIds.has(id)) {
+          id = `${id}-${generateRandomSuffix()}`;
+        }
+        takenEdgeIds.add(id);
+
+        const defaults = buildDefaultParameters(edgeInfo[edge.type!]?.parameters);
+        const parameters = {
+          ...defaults,
+          ...deepClone(clip.edgeStates[edge.id]?.parameters ?? {}),
+        };
+        if ('index' in parameters) parameters.index = defaults.index;
+
+        newEdgeStates[id] = { parameters };
+        newEdges.push({ ...edge, id, source, target, sourceHandle, targetHandle, selected: true });
+      }
+
+      const newModelNodeIds = modelNodes.map((node) => idMap[node.id]);
+      set((s) => ({
+        nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
+        edges: [...s.edges.map((e) => (e.selected ? { ...e, selected: false } : e)), ...newEdges],
+        nodeStates: { ...s.nodeStates, ...newNodeStates },
+        edgeStates: { ...s.edgeStates, ...newEdgeStates },
+        totalNodeCounters,
+        nodeCounters,
+        // Mirror addNode: focus the properties panel only when the paste is a
+        // single model element.
+        selectedNodeId:
+          newNodes.length === 1 && newModelNodeIds.length === 1 ? newModelNodeIds[0] : null,
+        selectedEdgeId: null,
+      }));
+
+      return newNodes.length + newEdges.length;
+    },
 
     startEditing: (nodeId) => {
       set((s) => ({

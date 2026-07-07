@@ -57,6 +57,8 @@ const Canvas = () => {
   const setActivePort = useGraphStore((s) => s.setActivePort);
   const isValidConnection = useGraphStore((s) => s.isValidConnection);
   const addCustomEdge = useGraphStore((s) => s.addCustomEdge);
+  const copySelection = useGraphStore((s) => s.copySelection);
+  const pasteClipboard = useGraphStore((s) => s.pasteClipboard);
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const undo = useGraphStore((s) => s.undo);
   const redo = useGraphStore((s) => s.redo);
@@ -176,6 +178,34 @@ const Canvas = () => {
     recordHistory();
   }, [recordHistory]);
 
+  // Deletes the current selection: annotations first (allowed even on a locked
+  // canvas), then — canvas permitting — model nodes and edges. Shared by the
+  // Delete key and cut.
+  const deleteSelection = useCallback(() => {
+    if (!reactFlowInstance) return;
+    const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
+
+    // Annotations are presentation-only, so deleting them is allowed even on
+    // a locked canvas.
+    selectedNodes
+      .filter((node) => node.type === ANNOTATION_NODE_TYPE)
+      .forEach((node) => deleteAnnotation(node.id));
+
+    // Model deletion is a topological change; a locked canvas rejects it in
+    // the store. Bail early so inspecting a selected element doesn't spam
+    // the console with one rejection per selected node/edge.
+    if (useGraphStore.getState().locked) return;
+
+    selectedNodes
+      .filter((node) => node.type !== ANNOTATION_NODE_TYPE)
+      .forEach((node) => deleteNode(node.id));
+
+    const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
+    selectedEdges.forEach((edge) => {
+      deleteEdge(edge.id);
+    });
+  }, [reactFlowInstance, deleteNode, deleteAnnotation, deleteEdge]);
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!reactFlowInstance) return;
@@ -204,31 +234,36 @@ const Canvas = () => {
         return;
       }
 
+      // Clipboard shortcuts react to the plain modifier only, so browser
+      // combos like Ctrl+Shift+C stay untouched; a live text selection (e.g.
+      // in the console pane) also keeps the native copy behavior.
+      if (isMod && !event.shiftKey && !event.altKey) {
+        const key = event.key.toLowerCase();
+        if (key === 'c' || key === 'x') {
+          const textSelection = window.getSelection();
+          if (textSelection && !textSelection.isCollapsed) return;
+          const selectedNodeIds = reactFlowInstance
+            .getNodes()
+            .filter((node) => node.selected)
+            .map((node) => node.id);
+          if (selectedNodeIds.length === 0) return;
+          event.preventDefault();
+          const copied = copySelection(selectedNodeIds);
+          if (key === 'x' && copied > 0) deleteSelection();
+          return;
+        }
+        if (key === 'v') {
+          event.preventDefault();
+          pasteClipboard();
+          return;
+        }
+      }
+
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
-
-        // Annotations are presentation-only, so deleting them is allowed even on
-        // a locked canvas.
-        selectedNodes
-          .filter((node) => node.type === ANNOTATION_NODE_TYPE)
-          .forEach((node) => deleteAnnotation(node.id));
-
-        // Model deletion is a topological change; a locked canvas rejects it in
-        // the store. Bail early so inspecting a selected element doesn't spam
-        // the console with one rejection per selected node/edge.
-        if (useGraphStore.getState().locked) return;
-
-        selectedNodes
-          .filter((node) => node.type !== ANNOTATION_NODE_TYPE)
-          .forEach((node) => deleteNode(node.id));
-
-        const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
-        selectedEdges.forEach((edge) => {
-          deleteEdge(edge.id);
-        });
+        deleteSelection();
       }
     },
-    [reactFlowInstance, deleteNode, deleteAnnotation, deleteEdge, undo, redo]
+    [reactFlowInstance, deleteSelection, copySelection, pasteClipboard, undo, redo]
   );
 
   useEffect(() => {
