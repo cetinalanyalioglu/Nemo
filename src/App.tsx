@@ -6,6 +6,7 @@ import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
 import ModelPane from './components/model-pane';
 import DataPane from './components/data-pane';
+import AnnotationsPane from './components/annotations-pane';
 import ToolsPane from './components/tools-pane';
 import SettingsPane from './components/settings-pane';
 import Canvas from './components/Canvas';
@@ -26,6 +27,7 @@ function AppContent() {
     if (sidebar.activePane === 'library') return <NodeLibrary />;
     if (sidebar.activePane === 'model') return <ModelPane />;
     if (sidebar.activePane === 'data') return <DataPane />;
+    if (sidebar.activePane === 'annotations') return <AnnotationsPane />;
     if (sidebar.activePane === 'tools') return <ToolsPane />;
     if (sidebar.activePane === 'settings') return <SettingsPane />;
     return <DocumentPane />;

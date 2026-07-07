@@ -8,6 +8,7 @@ import type {
 } from '../types/flow';
 import { computePortLayout, listPorts } from './ports';
 import { isParameterVisible } from './parameter-conditions';
+import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 
 /** Severity of a network-validity problem. Errors should block a clean save. */
 export type ValiditySeverity = 'error' | 'warning';
@@ -122,7 +123,7 @@ const collectMissingRequired = (
  * connected when any edge references it as a source or target handle.
  */
 export const checkNetworkValidity = ({
-  nodes,
+  nodes: allNodes,
   edges,
   nodeStates,
   edgeStates,
@@ -130,6 +131,10 @@ export const checkNetworkValidity = ({
   modelParameters,
 }: ValidityInput): ValidityIssue[] => {
   const issues: ValidityIssue[] = [];
+
+  // Annotations are presentation-only: no ports, no parameters, no place in the
+  // model — never a validity concern.
+  const nodes = allNodes.filter((node) => node.type !== ANNOTATION_NODE_TYPE);
 
   // Nodes that participate in at least one edge.
   const connectedNodeIds = new Set<string>();

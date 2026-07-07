@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { IconType } from 'react-icons';
 import type { Edge, XYPosition } from 'reactflow';
 import type { Dataset } from './data';
+import type { SaveFileAnnotation } from './annotations';
 
 /** Runtime parameter bag for nodes and edges */
 export type ParameterValues = Record<string, unknown>;
@@ -337,6 +338,11 @@ export interface SaveFilePayload {
       totalNodeCounters: Record<string, number>;
     };
   };
+  /**
+   * Canvas annotations (notes on the presentation layer). Entirely separate from
+   * the model section: annotations are not part of the simulation graph.
+   */
+  annotations?: SaveFileAnnotation[];
   /** Optional embedded result datasets saved alongside the case. */
   data?: {
     datasets: Dataset[];

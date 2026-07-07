@@ -4,7 +4,14 @@ import type { ThemeId } from '../types/theme';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 import { CONSOLE_DEFAULT_HEIGHT } from '../types/console';
 
-export type SidebarPane = 'library' | 'document' | 'model' | 'tools' | 'settings' | 'data';
+export type SidebarPane =
+  | 'library'
+  | 'document'
+  | 'model'
+  | 'tools'
+  | 'settings'
+  | 'data'
+  | 'annotations';
 export type EdgePathStyle = 'bezier' | 'straight' | 'smoothstep' | 'simplebezier';
 
 type CollapsedGroups = Record<string, boolean>;

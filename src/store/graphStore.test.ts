@@ -529,3 +529,125 @@ describe('graphStore setPortAngle', () => {
     expect(useGraphStore.getState().nodes[0].data.portAngles ?? {}).toEqual({});
   });
 });
+
+describe('graphStore annotations', () => {
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+    });
+    useConsoleStore.getState().clear();
+  });
+
+  const addNote = (text = 'hello', style = {}) =>
+    useGraphStore.getState().addAnnotation({ position: { x: 10, y: 20 }, text, style })!;
+
+  it('adds a selected, draggable annotation node with no model state', () => {
+    const node = addNote();
+    expect(node.type).toBe('annotation');
+    expect(node.selected).toBe(true);
+    expect(node.draggable).toBe(true);
+    expect(useGraphStore.getState().nodeStates[node.id]).toBeUndefined();
+    expect(useGraphStore.getState().nodes[0].data.annotation).toEqual({
+      text: 'hello',
+      style: {},
+    });
+  });
+
+  it('adds, edits and deletes annotations while the canvas is locked', () => {
+    useGraphStore.setState({ locked: true });
+    const node = addNote();
+    expect(node).toBeDefined();
+    useGraphStore.getState().updateAnnotation(node.id, { text: 'changed' });
+    const data = useGraphStore.getState().nodes[0].data.annotation;
+    expect(data.text).toBe('changed');
+    useGraphStore.getState().deleteAnnotation(node.id);
+    expect(useGraphStore.getState().nodes).toHaveLength(0);
+  });
+
+  it('merges style patches and clears fields patched to undefined', () => {
+    const node = addNote('x', { bold: true });
+    useGraphStore.getState().updateAnnotation(node.id, { style: { color: '#ff0000' } });
+    useGraphStore.getState().updateAnnotation(node.id, { style: { bold: undefined } });
+    const data = useGraphStore.getState().nodes[0].data.annotation;
+    expect(data.style).toEqual({ color: '#ff0000' });
+  });
+
+  it('is a no-op (no history) when nothing changes', () => {
+    const node = addNote('x', { bold: true });
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().updateAnnotation(node.id, { text: 'x', style: { bold: true } });
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('saves annotations to their own section, outside the model', () => {
+    const node = addNote('note text', { fontSize: 20 });
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.model.nodes).toHaveLength(0);
+    expect(save.uiAttributes.nodes).toHaveLength(0);
+    expect(save.annotations).toEqual([
+      {
+        id: node.id,
+        kind: 'text',
+        position: { x: 10, y: 20 },
+        text: 'note text',
+        style: { fontSize: 20 },
+      },
+    ]);
+  });
+
+  it('omits the annotations section when there are none', () => {
+    const save = useGraphStore.getState().generateSaveData();
+    expect(save.annotations).toBeUndefined();
+  });
+
+  it('round-trips annotations through applySaveData', () => {
+    addNote('roundtrip', { italic: true });
+    const save = useGraphStore.getState().generateSaveData();
+    useGraphStore.getState().reset();
+    useGraphStore.getState().applySaveData(save);
+    const nodes = useGraphStore.getState().nodes;
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].type).toBe('annotation');
+    expect(nodes[0].draggable).toBe(true);
+    expect(nodes[0].data.annotation).toEqual({ text: 'roundtrip', style: { italic: true } });
+  });
+
+  it('never assigns a model index to an annotation', () => {
+    useGraphStore.setState({
+      nodes: [
+        { id: 'n1', type: 'x', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'a1',
+          type: 'annotation',
+          position: { x: 0, y: 0 },
+          data: { annotation: { text: '', style: {} } },
+        },
+        { id: 'n2', type: 'x', position: { x: 0, y: 0 }, data: {} },
+      ],
+      nodeStates: {
+        n1: { parameters: { label: 'A' } },
+        n2: { parameters: { label: 'B' } },
+      },
+    });
+    useGraphStore.getState().regenerateIndices();
+    const states = useGraphStore.getState().nodeStates;
+    const indices = [states.n1.parameters.index, states.n2.parameters.index].sort();
+    expect(indices).toEqual([0, 1]);
+  });
+
+  it('undo restores a deleted annotation with its content', () => {
+    const node = addNote('keep me');
+    useGraphStore.getState().deleteAnnotation(node.id);
+    expect(useGraphStore.getState().nodes).toHaveLength(0);
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.annotation.text).toBe('keep me');
+  });
+});

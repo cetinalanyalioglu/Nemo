@@ -111,6 +111,14 @@ const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
  */
 const DEFAULT_BOX_HEIGHT = 52;
 
+/**
+ * Default on-canvas size (px) of a static circular element; must match the
+ * `--circular-node-size` CSS variable. The reference disc for the library-wide
+ * port-triangle pixel size: a disc at exactly this size renders its ports at
+ * scale 1.
+ */
+const REF_CIRCLE_PX = 40;
+
 /** Arrow key → destination edge, so a moving port can be sent with the keyboard. */
 const ARROW_KEY_SIDE: Record<string, PortSide> = {
   ArrowUp: 'top',
@@ -244,19 +252,6 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     [isCircle, isDynamicCircle, calculatedPorts, portAngles]
   );
 
-  // With many ports fanning evenly around the disc, the (radius-proportional)
-  // port triangles would eventually overlap. Shrink them once the chord spacing
-  // between neighbours drops below the triangle base. Static circles keep 1.
-  const circlePortScale = useMemo(() => {
-    if (!isDynamicCircle) return 1;
-    const n = radialPorts.length;
-    if (n < 2) return 1;
-    const RC = 41 - (0.085 * 41) / 2; // frame ring centreline (see CircularNodeFrame)
-    const base = 0.6 * 41; // frame port base
-    const spacing = 2 * RC * Math.sin(Math.PI / n);
-    return Math.min(1, spacing / (base * 1.06));
-  }, [isDynamicCircle, radialPorts.length]);
-
   // Auto-sized elements grow with their port count. The junction disc grows a
   // little per extra port for visual weight and handle room; the rail's height
   // is driven entirely by its port stack (see railLayout).
@@ -265,6 +260,30 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     const n = radialPorts.length;
     return Math.min(96, 40 + Math.max(0, n - 3) * 7);
   }, [isDynamicCircle, radialPorts.length]);
+
+  // The disc's SVG (and its unit-space port triangles) scales with the node's
+  // on-canvas size, so normalize by the reference disc to keep ports at the
+  // library-wide pixel size on discs of any size. Dynamic discs additionally
+  // shrink their ports once the chord spacing between many fanned neighbours
+  // drops below the triangle base.
+  const circleWidthParam = nodeState?.parameters?.width;
+  const circlePortScale = useMemo(() => {
+    if (!isCircle) return 1;
+    const sizePx = isDynamicCircle
+      ? (circleSizePx ?? REF_CIRCLE_PX)
+      : typeof circleWidthParam === 'number'
+        ? circleWidthParam
+        : REF_CIRCLE_PX;
+    // Cap the upscale on very small discs so port tips don't outgrow the frame.
+    const sizeNorm = Math.min(1.15, REF_CIRCLE_PX / sizePx);
+    if (!isDynamicCircle) return sizeNorm;
+    const n = radialPorts.length;
+    if (n < 2) return sizeNorm;
+    const RC = 41 - (0.085 * 41) / 2; // frame ring centreline (see CircularNodeFrame)
+    const base = 0.6 * 41; // frame port base
+    const spacing = 2 * RC * Math.sin(Math.PI / n);
+    return Math.min(sizeNorm, spacing / (base * 1.06));
+  }, [isCircle, isDynamicCircle, circleSizePx, circleWidthParam, radialPorts.length]);
 
   // Rotating a port to a new angle moves its handle, so React Flow must re-measure
   // this node's handle geometry for incident edges to re-route.
@@ -290,6 +309,14 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // interior-height fraction the port anchors use; top/bottom ports keep the
   // plain even spread.
   const boxPassageFrac = (boxInsetY + (boxGlyph?.portCenterY ?? 0.5)) / (1 + 2 * boxInsetY);
+  // The frame's on-canvas height (px), mirroring the sizing in `style` below, so
+  // the frame can draw its port triangles at the library-wide pixel size.
+  const boxWidthParam = nodeState?.parameters?.width;
+  const boxHeightPx =
+    isBox && boxL
+      ? (typeof boxWidthParam === 'number' ? boxWidthParam : DEFAULT_BOX_HEIGHT * boxL.aspect) /
+        boxL.aspect
+      : undefined;
   const boxPorts = useMemo<BoxPort[]>(() => {
     if (!isBox) return [];
     const out: BoxPort[] = [];
@@ -1202,6 +1229,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           insetX={boxInsetX}
           insetY={boxInsetY}
           ports={boxPorts}
+          heightPx={boxHeightPx}
         />
         {boxPorts.map(renderBoxPort)}
         {!portsLocked && renderGhostTargets()}

@@ -19,9 +19,18 @@ import type { PortSide } from '../../types/flow';
 /** All constants below are in viewBox units; the glyph is a nominal 100 wide. */
 const GW = 100;
 const T = 2; // border thickness (tuned to match the circular border's weight)
-const H = 9; // port-triangle height (radial extent past the border)
-const BASE = 20; // port-triangle base
+const H = 9; // fallback port-triangle height when no pixel size is supplied
+const BASE = 20; // fallback port-triangle base
 const PM = H + 1; // margin around the frame so outward port tips fit the viewBox
+
+/**
+ * On-screen port-triangle size (CSS px at zoom 1), shared across the element
+ * library: the circular element's ports on the default 40px disc and the rail's
+ * ports use the same values, so every frame shows identically-sized ports
+ * regardless of its own viewBox scale.
+ */
+export const PORT_H_PX = 4.7;
+export const PORT_BASE_PX = 9.8;
 
 export type PortDirection = 'target' | 'source';
 
@@ -86,18 +95,20 @@ export const boxLayout = (glyphAspect: number, insetX: number, insetY: number): 
 /** Three-vertex `points` string for one port triangle (base on the border). */
 const trianglePoints = (
   anchor: { x: number; y: number; nx: number; ny: number },
-  direction: PortDirection
+  direction: PortDirection,
+  h: number = H,
+  base: number = BASE
 ): string => {
   const { x, y, nx, ny } = anchor;
   const tx = -ny;
   const ty = nx; // tangent
-  const d = direction === 'source' ? H : -H;
+  const d = direction === 'source' ? h : -h;
   const px = x + d * nx;
   const py = y + d * ny; // tip
   const f = (n: number) => n.toFixed(3);
-  return `${f(x + (BASE / 2) * tx)},${f(y + (BASE / 2) * ty)} ${f(px)},${f(py)} ${f(
-    x - (BASE / 2) * tx
-  )},${f(y - (BASE / 2) * ty)}`;
+  return `${f(x + (base / 2) * tx)},${f(y + (base / 2) * ty)} ${f(px)},${f(py)} ${f(
+    x - (base / 2) * tx
+  )},${f(y - (base / 2) * ty)}`;
 };
 
 interface RectNodeFrameProps {
@@ -107,12 +118,37 @@ interface RectNodeFrameProps {
   insetX: number;
   insetY: number;
   ports: BoxPort[];
+  /**
+   * The node's on-canvas height (CSS px at zoom 1). When given, port triangles
+   * are drawn at the library-wide pixel size (`PORT_H_PX`/`PORT_BASE_PX`)
+   * regardless of this frame's viewBox scale; omitted, the fixed viewBox-unit
+   * fallback applies.
+   */
+  heightPx?: number;
 }
 
-const RectNodeFrame = ({ glyphKey, idPrefix, insetX, insetY, ports }: RectNodeFrameProps) => {
+const RectNodeFrame = ({
+  glyphKey,
+  idPrefix,
+  insetX,
+  insetY,
+  ports,
+  heightPx,
+}: RectNodeFrameProps) => {
   const glyph = resolveGlyph(glyphKey);
   const aspect = glyph?.aspect ?? 1.6;
   const L = boxLayout(aspect, insetX, insetY);
+
+  // Convert the target pixel size into this frame's viewBox units, shrinking
+  // proportionally if the tip would outgrow the viewBox margin.
+  let portH = H;
+  let portBase = BASE;
+  if (heightPx && heightPx > 0) {
+    const unitsPerPx = L.vh / heightPx;
+    const k = Math.min(1, (PM - 0.5) / (PORT_H_PX * unitsPerPx));
+    portH = PORT_H_PX * unitsPerPx * k;
+    portBase = PORT_BASE_PX * unitsPerPx * k;
+  }
 
   return (
     <svg className="box-node-frame" viewBox={`0 0 ${L.vw} ${L.vh}`} aria-hidden>
@@ -140,7 +176,7 @@ const RectNodeFrame = ({ glyphKey, idPrefix, insetX, insetY, ports }: RectNodeFr
         <polygon
           key={p.suffix}
           className="box-node-port"
-          points={trianglePoints(L.portAnchor(p.side, p.offset), p.direction)}
+          points={trianglePoints(L.portAnchor(p.side, p.offset), p.direction, portH, portBase)}
         />
       ))}
       <rect

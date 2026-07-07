@@ -9,6 +9,7 @@ import { useDataStore, selectActiveItem } from '../store/dataStore';
 import { getElkLayoutedElements, getLayoutedElements } from '../utils/layoutUtils';
 import type { LayoutPort } from '../utils/layoutUtils';
 import { logger } from '../utils/logger';
+import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 
 const LockIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 32" aria-hidden>
@@ -60,7 +61,9 @@ export const AutoLayoutControl = memo(() => {
 
     // Read from the ReactFlow instance so nodes carry their measured dimensions,
     // letting the engine lay them out by real size instead of a hardcoded default.
-    const nodes = reactFlowInstance.getNodes();
+    // Annotations stay where the user put them: they are not part of the network,
+    // so the layout engine never sees (or moves) them.
+    const nodes = reactFlowInstance.getNodes().filter((node) => node.type !== ANNOTATION_NODE_TYPE);
     const edges = reactFlowInstance.getEdges();
 
     let layoutedNodes;
