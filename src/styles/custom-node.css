@@ -257,11 +257,12 @@
 
 .port-index {
   outline: calc(var(--debug) * 1px) solid orange;
-  /* Bare bold digits in a compact monospace face, no pill background, so the
-     numbers read as technical markings over any canvas content. */
+  /* Bare digits in a compact monospace face, no pill background; box/rail port
+     numbers sit outside the frame (along the port normal) so they never overlay
+     the element artwork. */
   font-family: ui-monospace, 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--color-text-muted);
   background: transparent;
   z-index: 10;
@@ -673,6 +674,44 @@
   left: calc(100% - 2px);
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* Box and rail ports sit on straight edges, so "above the triangle" would land
+   on the element artwork. Push their numbers outward along the port normal
+   instead, clear of the frame (circular ports keep the tangential placement —
+   above a disc port is already outside the disc). */
+.box-port.port-side-left .port-index,
+.rail-port.port-side-left .port-index {
+  left: auto;
+  right: calc(50% + 9px);
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.box-port.port-side-right .port-index,
+.rail-port.port-side-right .port-index {
+  left: calc(50% + 9px);
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.box-port.port-side-top .port-index {
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: calc(50% + 8px);
+  transform: translateX(-50%);
+}
+
+.box-port.port-side-bottom .port-index {
+  left: 50%;
+  right: auto;
+  top: calc(50% + 8px);
+  bottom: auto;
+  transform: translateX(-50%);
 }
 
 /* Upright caption beneath the disc (name + optional data value). */

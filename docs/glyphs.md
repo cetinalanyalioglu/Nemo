@@ -33,6 +33,21 @@ The thick width matches the hand-drawn Sudden Area Change exactly: its Inkscape 
 
 Filled marks (arrowheads, matrix dots, the equilibrium flame body) use `fill="currentColor"`; a cut-out inside a filled mark uses `fill="var(--color-surface)"`.
 
+## Wall hatching
+
+Distributed pipe-like elements (duct, pipe, Fanno pipe) show the wall material as diagonally hatched bands; compact restriction elements keep plain wall lines.
+The standard geometry in a `0 0 100 60` viewBox: bore `y = 15..45`, hatch bands `y = 6..15` and `y = 45..54`, flow-side walls at 2.64, and a thin (1.3) outer boundary line.
+The two bands mirror their hatch direction about the centerline:
+
+```svg
+<pattern id="__IDP__-hatch-t" patternUnits="userSpaceOnUse" width="3.6" height="3.6"
+         patternTransform="rotate(45)"><rect width="1.1" height="3.6" fill="currentColor"/></pattern>
+<pattern id="__IDP__-hatch-b" patternUnits="userSpaceOnUse" width="3.6" height="3.6"
+         patternTransform="rotate(-45)"><rect width="1.1" height="3.6" fill="currentColor"/></pattern>
+```
+
+Use this pattern for any future wall-material marking instead of ad-hoc ticks.
+
 ## Editing in Inkscape
 
 Every glyph is a plain standalone SVG (`xmlns` + `viewBox`), so the files open directly in Inkscape.

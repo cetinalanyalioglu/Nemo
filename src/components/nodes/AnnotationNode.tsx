@@ -198,6 +198,43 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
     window.addEventListener('pointerup', onUp);
   };
 
+  // Edge stretchers of a text note: dragging the right bar sets an explicit
+  // width, the bottom bar an explicit height; one history record per gesture.
+  const handleStretchStart =
+    (axis: 'width' | 'height') => (e: React.PointerEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const el = noteRef.current;
+      if (!el) return;
+      const start = axis === 'width' ? e.clientX : e.clientY;
+      const startSize = axis === 'width' ? el.offsetWidth : el.offsetHeight;
+      const minSize = axis === 'width' ? 40 : 20;
+      const zoom = getZoom();
+      let hasRecorded = false;
+      const onMove = (ev: PointerEvent) => {
+        if (!hasRecorded) {
+          recordHistory();
+          hasRecorded = true;
+        }
+        const pointer = axis === 'width' ? ev.clientX : ev.clientY;
+        const size = Math.round(clamp(startSize + (pointer - start) / zoom, minSize, 4000));
+        updateAnnotation(id, { style: { [axis]: size } }, { recordHistory: false });
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+
+  // Double-clicking a stretcher clears its dimension: back to content-sizing in
+  // that direction. Swallow the event so it doesn't open the text editor.
+  const handleStretchAutoSize = (axis: 'width' | 'height') => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateAnnotation(id, { style: { [axis]: undefined } });
+  };
+
   const style = { ...ANNOTATION_STYLE_DEFAULTS, ...annotation.style };
 
   const noteCss: React.CSSProperties =
@@ -215,6 +252,10 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           ...(annotation.style.color ? { color: annotation.style.color } : {}),
           ...(annotation.style.background ? { background: annotation.style.background } : {}),
           ...(annotation.style.width ? { width: `${annotation.style.width}px` } : {}),
+          // A fixed height clips overflowing content instead of spilling it.
+          ...(annotation.style.height
+            ? { height: `${annotation.style.height}px`, overflow: 'hidden' }
+            : {}),
           // While editing, freeze the note at its rendered size so the editor
           // swap doesn't resize the node.
           ...(editing && editSize ? { width: `${editSize.w}px`, height: `${editSize.h}px` } : {}),
@@ -404,6 +445,9 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           <textarea
             ref={editorRef}
             className="annotation-editor nodrag"
+            // A fresh note has no measured size to freeze, so give the editor a
+            // workable minimum; an existing note keeps its exact footprint.
+            style={editSize ? undefined : { minWidth: 200, minHeight: 52 }}
             value={draft}
             placeholder="Write a note (Markdown supported)…"
             onChange={(e) => setDraft(e.target.value)}
@@ -422,6 +466,22 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           </div>
         ) : (
           <div className="annotation-placeholder">Double-click to edit…</div>
+        )}
+        {kind === 'text' && selected && !editing && (
+          <>
+            <div
+              className="annotation-stretch annotation-stretch-h nodrag"
+              title="Drag to set the width • double-click to autosize"
+              onPointerDown={handleStretchStart('width')}
+              onDoubleClick={handleStretchAutoSize('width')}
+            />
+            <div
+              className="annotation-stretch annotation-stretch-v nodrag"
+              title="Drag to set the height • double-click to autosize"
+              onPointerDown={handleStretchStart('height')}
+              onDoubleClick={handleStretchAutoSize('height')}
+            />
+          </>
         )}
       </div>
     </>

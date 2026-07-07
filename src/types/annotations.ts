@@ -52,6 +52,8 @@ export interface AnnotationStyle {
   border?: boolean;
   /** Fixed width in px; unset sizes to the content (up to a max width). */
   width?: number;
+  /** Fixed height in px (`text` kind); unset sizes to the content. */
+  height?: number;
 }
 
 /** Runtime payload stored in an annotation node's `data.annotation`. */
