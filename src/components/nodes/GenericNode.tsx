@@ -104,8 +104,12 @@ const SIDE_POSITION: Record<PortSide, Position> = {
 /** Sides offered as drop targets while a port is in move-mode. */
 const ALL_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left'];
 
-/** Default on-canvas width (px) of a `box` element before any resize. */
-const DEFAULT_BOX_WIDTH = 84;
+/**
+ * Default on-canvas height (px) of a `box` element before any resize. The
+ * default fixes the height (width follows the frame aspect) so box elements
+ * share a common vertical size along a flow line regardless of glyph aspect.
+ */
+const DEFAULT_BOX_HEIGHT = 52;
 
 /** Arrow key → destination edge, so a moving port can be sent with the keyboard. */
 const ARROW_KEY_SIDE: Record<string, PortSide> = {
@@ -165,6 +169,9 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeSession>({});
   const [isResizing, setIsResizing] = useState(false);
+  // True while the pointer hovers the element with Alt held: the cursor turns
+  // into a rotate arrow and a drag rotates instead of moving the node.
+  const [rotateIntent, setRotateIntent] = useState(false);
 
   const config = type && model ? model.nodeConfig[type] : undefined;
   const editingStateValue = editingState || { isEditing: false, tempLabel: '' };
@@ -221,6 +228,9 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // auto-measure pass.
   const isAutoSized = isRail || isDynamicCircle;
   const portsLocked = config?.lockPorts ?? false;
+  // Per-element switch for the corner resize grip; hidden unless the model
+  // definition opts in (auto-sized elements never show it).
+  const resizable = (config?.resizable ?? false) && !isAutoSized;
 
   // Per-instance manual port angles (circle only) live in the node's UI data, so
   // rotating a port around the border round-trips through save/load and history.
@@ -268,27 +278,39 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // insets fix the frame geometry (and the node's locked aspect).
   const boxInsetX = config?.glyphInsetX ?? 0;
   const boxInsetY = config?.glyphInsetY ?? 0;
-  const boxGlyphAspect = resolveGlyph(config?.glyph)?.aspect ?? 1.6;
+  const boxGlyph = isBox ? resolveGlyph(config?.glyph) : undefined;
+  const boxGlyphAspect = boxGlyph?.aspect ?? 1.6;
   const boxL = useMemo(
     () => (isBox ? boxLayout(boxGlyphAspect, boxInsetX, boxInsetY) : null),
     [isBox, boxGlyphAspect, boxInsetX, boxInsetY]
   );
+  // Left/right ports anchor to the glyph's flow-passage centerline rather than
+  // the frame's mid-height, so off-axis glyphs (resonator cavity, injector stub)
+  // meet their ports on the main line. Mapped from glyph-height fraction to the
+  // interior-height fraction the port anchors use; top/bottom ports keep the
+  // plain even spread.
+  const boxPassageFrac = (boxInsetY + (boxGlyph?.portCenterY ?? 0.5)) / (1 + 2 * boxInsetY);
   const boxPorts = useMemo<BoxPort[]>(() => {
     if (!isBox) return [];
     const out: BoxPort[] = [];
     ALL_SIDES.forEach((side) => {
       const bucket = portBuckets[side];
+      const onFlowAxis = side === 'left' || side === 'right';
       bucket.forEach((p, i) => {
+        const spread = (i + 1) / (bucket.length + 1);
+        const offset = onFlowAxis
+          ? Math.min(1, Math.max(0, boxPassageFrac + spread - 0.5))
+          : spread;
         out.push({
           suffix: p.suffix,
           side,
-          offset: (i + 1) / (bucket.length + 1),
+          offset,
           direction: p.direction,
         });
       });
     });
     return out;
-  }, [isBox, portBuckets]);
+  }, [isBox, portBuckets, boxPassageFrac]);
 
   // Rail frame: targets stack on the left, sources on the right, each side
   // vertically centred. Height follows the busier side; the label is fixed-size.
@@ -456,10 +478,12 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       };
     }
 
-    // Box frames are aspect-locked: width drives, height follows the frame aspect
-    // (glyph aspect + insets), so the SVG never letterboxes and resize stays true.
+    // Box frames are aspect-locked: an explicit width drives, height follows the
+    // frame aspect (glyph aspect + insets), so the SVG never letterboxes and
+    // resize stays true. The default size is height-driven instead, so unsized
+    // box elements share a common vertical size.
     if (isBox && boxL) {
-      const w = typeof width === 'number' ? width : DEFAULT_BOX_WIDTH;
+      const w = typeof width === 'number' ? width : DEFAULT_BOX_HEIGHT * boxL.aspect;
       return { ...base, width: `${w}px`, height: `${w / boxL.aspect}px`, boxSizing: 'border-box' };
     }
 
@@ -502,7 +526,35 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     hasBottomPort ? 'has-bottom-port' : '',
     activePortSuffix != null ? 'custom-node--port-move' : '',
     isResizing ? 'resizing' : '',
+    rotateIntent ? 'custom-node--rotate' : '',
   ].join(' ');
+
+  // Tracks the Alt-hover combination that arms rotate-mode. The key listeners
+  // are attached only while the pointer is over this element, so a canvas full
+  // of nodes doesn't stack window-level handlers.
+  useEffect(() => {
+    const el = nodeRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => setRotateIntent(e.altKey);
+    const onEnter = (e: MouseEvent) => {
+      setRotateIntent(e.altKey);
+      window.addEventListener('keydown', onKey);
+      window.addEventListener('keyup', onKey);
+    };
+    const onLeave = () => {
+      setRotateIntent(false);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+  }, []);
 
   const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -693,6 +745,28 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       return;
     }
     autoResize(e);
+  };
+
+  /** True when the event originated on a child that owns its own gestures. */
+  const isGestureExempt = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest(
+      '.framed-port, .port-wrapper, .resize-handle, .react-flow__handle, .custom-node-label, input'
+    );
+
+  // Alt-drag anywhere on the element rotates it about its centre (the corner
+  // grip is hidden unless the element opts into resizing). Runs in the capture
+  // phase and swallows the event so React Flow doesn't also start a node drag;
+  // ports, handles, the grip, and the label keep their own gestures.
+  const handleNodePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.altKey || isGestureExempt(e.target)) return;
+    handleRotateStart(e);
+  };
+
+  // Alt-double-click restores the upright orientation.
+  const handleNodeDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!e.altKey || isGestureExempt(e.target)) return;
+    resetRotation(e);
   };
 
   // Alt-drag a circular element's port to move it around the border; Alt-click
@@ -975,7 +1049,13 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       direction: p.direction,
     }));
     return (
-      <div className={nodeClasses} ref={nodeRef} style={style}>
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
         {showContour && dataView.color && (
           <div
             className="custom-node-data-strip"
@@ -1019,7 +1099,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           )}
         </div>
 
-        {selected && !isAutoSized && (
+        {selected && resizable && (
           <div
             className="resize-handle"
             onPointerDown={handleGripPointerDown}
@@ -1040,7 +1120,13 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // is auto-sized (no resize grip).
   if (isRail) {
     return (
-      <div className={nodeClasses} ref={nodeRef} style={style}>
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
         {showContour && dataView.color && (
           <div
             className="custom-node-data-strip"
@@ -1092,7 +1178,13 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // label beneath. Ports re-home via move-mode unless the element locks them.
   if (isBox) {
     return (
-      <div className={nodeClasses} ref={nodeRef} style={style}>
+      <div
+        className={nodeClasses}
+        ref={nodeRef}
+        style={style}
+        onPointerDownCapture={handleNodePointerDownCapture}
+        onDoubleClick={handleNodeDoubleClick}
+      >
         {showContour && dataView.color && (
           <div
             className="custom-node-data-strip"
@@ -1138,7 +1230,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           )}
         </div>
 
-        {selected && (
+        {selected && resizable && (
           <div
             className="resize-handle"
             onPointerDown={handleGripPointerDown}
@@ -1154,7 +1246,13 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   }
 
   return (
-    <div className={nodeClasses} ref={nodeRef} style={style}>
+    <div
+      className={nodeClasses}
+      ref={nodeRef}
+      style={style}
+      onPointerDownCapture={handleNodePointerDownCapture}
+      onDoubleClick={handleNodeDoubleClick}
+    >
       {showContour && dataView.color && (
         <div
           className="custom-node-data-strip"
@@ -1216,7 +1314,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
 
       {renderGhostTargets()}
 
-      {selected && (
+      {selected && resizable && (
         <div
           className="resize-handle"
           onPointerDown={handleGripPointerDown}

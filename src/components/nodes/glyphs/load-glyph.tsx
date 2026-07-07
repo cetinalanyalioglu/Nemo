@@ -10,7 +10,7 @@ import type { GlyphAsset } from './types';
  * (`dangerouslySetInnerHTML`) since it may contain `<defs>`/`<marker>` and raw
  * presentation attributes.
  */
-export const svgGlyph = (raw: string, opticalCenterY = 0.5): GlyphAsset => {
+export const svgGlyph = (raw: string, opticalCenterY = 0.5, portCenterY = 0.5): GlyphAsset => {
   const viewBox = raw.match(/viewBox="([^"]+)"/)?.[1] ?? '0 0 100 100';
   const [, , w, h] = viewBox.split(/\s+/).map(Number);
   const inner = raw.slice(raw.indexOf('>', raw.indexOf('<svg')) + 1, raw.lastIndexOf('</svg>'));
@@ -19,6 +19,7 @@ export const svgGlyph = (raw: string, opticalCenterY = 0.5): GlyphAsset => {
     viewBox,
     aspect: w / h,
     opticalCenterY,
+    portCenterY,
     render: (idPrefix = 'g') => (
       <g dangerouslySetInnerHTML={{ __html: inner.replace(/__IDP__/g, idPrefix) }} />
     ),

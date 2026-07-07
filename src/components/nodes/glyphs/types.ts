@@ -18,6 +18,13 @@ export interface GlyphAsset {
    */
   opticalCenterY: number;
   /**
+   * Fraction (0..1) down the viewBox where the flow-passage centerline runs.
+   * Left/right ports of a box frame anchor to this height so they meet the
+   * passage instead of the frame's mid-height. Use 0.5 for a glyph whose
+   * passage is vertically centred (the default).
+   */
+  portCenterY: number;
+  /**
    * Renders the glyph in its own viewBox coords, filled `currentColor`. Glyphs
    * that carry internal ids (e.g. `<marker>` defs) receive a per-node-instance
    * `idPrefix` to namespace them so they don't collide across nodes; simple

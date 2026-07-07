@@ -47,11 +47,12 @@
   align-items: center;
 }
 
+/* Content-sized so the panel never blankets the canvas: React Flow panels have
+   `pointer-events: all`, so any stretched box would eat clicks meant for the
+   pane below it. */
 .react-flow__controls {
   z-index: 101;
-  position: absolute;
-  right: 10px;
-  left: auto;
+  width: fit-content;
   background: transparent;
   border: none;
   box-shadow: none;

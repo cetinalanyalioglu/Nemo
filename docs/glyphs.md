@@ -48,3 +48,9 @@ Prefer plain filled polygons over markers when possible.
 
 Circular-frame glyphs (math symbols like `mdot`, `p`) that are not optically centred at half height get an entry in the `OPTICAL_CENTER_Y` table in `src/components/nodes/glyphs/index.ts`.
 Box-frame glyphs ignore it.
+
+## Passage centerline
+
+Left/right ports of a box frame anchor to the glyph's flow-passage centerline (the dashed line in the artwork), not to the frame's mid-height.
+A glyph whose passage is not vertically centred (e.g. the Helmholtz resonator's main line under its cavity, the mass source's line under the injector stub) gets an entry in the `PORT_CENTER_Y` table in `src/components/nodes/glyphs/index.ts`: the fraction down the viewBox where the centerline runs.
+Unlisted glyphs anchor at 0.5.

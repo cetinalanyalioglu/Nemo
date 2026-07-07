@@ -202,6 +202,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
       glyphInsetX: node.glyphInsetX,
       glyphInsetY: node.glyphInsetY,
       lockPorts: node.lockPorts,
+      resizable: node.resizable,
       dynamicPorts: node.dynamicPorts ?? false,
       dynamicPortConfig: node.dynamicPortConfig,
       allowedConnections,

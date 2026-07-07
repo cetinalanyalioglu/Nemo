@@ -25,6 +25,17 @@ const OPTICAL_CENTER_Y: Record<string, number> = {
   'helmholtz-resonator': 0.65,
 };
 
+/**
+ * Per-glyph flow-passage centerline overrides: fraction down the viewBox where
+ * the passage centerline (the dashed line in the artwork) runs (see
+ * {@link GlyphAsset.portCenterY}). Left/right box ports anchor to this height;
+ * glyphs not listed keep the mid-height 0.5.
+ */
+const PORT_CENTER_Y: Record<string, number> = {
+  'helmholtz-resonator': 59 / 70, // main line runs under the backing cavity
+  'mass-source': 40 / 64, // main line runs under the injector stub
+};
+
 const RAW_GLYPHS = import.meta.glob('../../../assets/glyphs/*.svg', {
   query: '?raw',
   import: 'default',
@@ -34,7 +45,7 @@ const RAW_GLYPHS = import.meta.glob('../../../assets/glyphs/*.svg', {
 const glyphRegistry: Record<string, GlyphAsset> = Object.fromEntries(
   Object.entries(RAW_GLYPHS).map(([path, raw]) => {
     const key = path.slice(path.lastIndexOf('/') + 1).replace(/\.svg$/, '');
-    return [key, svgGlyph(raw, OPTICAL_CENTER_Y[key] ?? 0.5)];
+    return [key, svgGlyph(raw, OPTICAL_CENTER_Y[key] ?? 0.5, PORT_CENTER_Y[key] ?? 0.5)];
   })
 );
 

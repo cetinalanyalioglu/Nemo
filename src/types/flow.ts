@@ -179,6 +179,8 @@ export interface NodeConfigEntry {
   glyphInsetY?: number;
   /** When true, the element's ports cannot be repositioned by the user. */
   lockPorts?: boolean;
+  /** When true, the element shows the corner resize grip. Defaults to false. */
+  resizable?: boolean;
   dynamicPorts: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   /**
@@ -216,6 +218,8 @@ export interface ModelNodeDefinition {
   glyphInsetY?: number;
   /** When true, the element's ports cannot be repositioned by the user. */
   lockPorts?: boolean;
+  /** When true, the element shows the corner resize grip. Defaults to false. */
+  resizable?: boolean;
   dynamicPorts?: boolean;
   dynamicPortConfig?: DynamicPortConfig;
   ports?: NodePorts;
