@@ -896,3 +896,228 @@ describe('graphStore unset required parameters (edge area)', () => {
     expect(useGraphStore.getState().edgeStates.e1.parameters.area).toBe(0.02);
   });
 });
+
+describe('graphStore clipboard (copy/paste)', () => {
+  const clipModel = buildRuntimeModel(
+    validateModelDefinition({
+      id: 'clip-model',
+      name: 'ClipModel',
+      nodes: {
+        Source: {
+          displayName: 'Source',
+          category: 'E',
+          ports: { target: [], source: ['0'] },
+          parameters: {
+            label: { defaultValue: 'Source' },
+            pressure: { label: 'Pressure', type: 'float', category: 'P', defaultValue: 1 },
+          },
+        },
+        Sink: {
+          displayName: 'Sink',
+          category: 'E',
+          ports: { target: ['0'], source: [] },
+          parameters: { label: { defaultValue: 'Sink' } },
+        },
+      },
+      edges: {
+        flow: {
+          displayName: 'Flow',
+          category: 'C',
+          parameters: { area: { label: 'Area', type: 'float', category: 'P', required: true } },
+        },
+      },
+    })
+  );
+
+  /** A connected Source→Sink pair with generated indices and custom values. */
+  const seedNetwork = () => {
+    useGraphStore.setState({
+      model: clipModel,
+      nodes: [
+        { id: 's1', type: 'Source', position: { x: 100, y: 100 }, data: { rotation: 90 } },
+        { id: 'k1', type: 'Sink', position: { x: 300, y: 100 }, data: {} },
+      ],
+      nodeStates: {
+        s1: { parameters: { label: 'Source1', pressure: 42, index: 0 } },
+        k1: { parameters: { label: 'Sink1', index: 1 } },
+      },
+      edges: [
+        {
+          id: 'e1',
+          source: 's1',
+          target: 'k1',
+          sourceHandle: 's1-port-0',
+          targetHandle: 'k1-port-0',
+          type: 'flow',
+        },
+      ],
+      edgeStates: { e1: { parameters: { area: 0.5, index: 0 } } },
+      nodeCounters: { Source: 1, Sink: 1 },
+      totalNodeCounters: { Source: 1, Sink: 1 },
+    });
+  };
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      nodeStates: {},
+      edgeStates: {},
+      editingStates: {},
+      model: null,
+      locked: false,
+      past: [],
+      future: [],
+      nodeCounters: {},
+      totalNodeCounters: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+    });
+    useConsoleStore.getState().clear();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('pastes a copied node as a fresh element with a bumped label and copied parameters', () => {
+    seedNetwork();
+    // The edge is dropped: its other endpoint is not part of the selection.
+    expect(useGraphStore.getState().copySelection(['s1'])).toBe(1);
+    expect(useGraphStore.getState().pasteClipboard()).toBe(1);
+
+    const s = useGraphStore.getState();
+    expect(s.nodes).toHaveLength(3);
+    expect(s.edges).toHaveLength(1);
+    const pasted = s.nodes.find((n) => n.id !== 's1' && n.id !== 'k1')!;
+    expect(pasted.type).toBe('Source');
+    expect(pasted.position).toEqual({ x: 140, y: 140 });
+    expect(pasted.data.rotation).toBe(90);
+    const parameters = s.nodeStates[pasted.id].parameters;
+    expect(parameters.label).toBe('Source2');
+    expect(parameters.pressure).toBe(42);
+    // Generated indices must never be duplicated.
+    expect(parameters.index).toBeUndefined();
+    expect(s.totalNodeCounters.Source).toBe(2);
+    expect(s.nodeCounters.Source).toBe(2);
+    expect(s.selectedNodeId).toBe(pasted.id);
+  });
+
+  it('pastes a network portion with remapped edge endpoints, handles, and parameters', () => {
+    seedNetwork();
+    expect(useGraphStore.getState().copySelection(['s1', 'k1'])).toBe(3);
+    expect(useGraphStore.getState().pasteClipboard()).toBe(3);
+
+    const s = useGraphStore.getState();
+    expect(s.nodes).toHaveLength(4);
+    expect(s.edges).toHaveLength(2);
+    const newSource = s.nodes.find((n) => n.type === 'Source' && n.id !== 's1')!;
+    const newSink = s.nodes.find((n) => n.type === 'Sink' && n.id !== 'k1')!;
+    const newEdge = s.edges.find((e) => e.id !== 'e1')!;
+    expect(newEdge.source).toBe(newSource.id);
+    expect(newEdge.target).toBe(newSink.id);
+    expect(newEdge.sourceHandle).toBe(`${newSource.id}-port-0`);
+    expect(newEdge.targetHandle).toBe(`${newSink.id}-port-0`);
+    const edgeParameters = s.edgeStates[newEdge.id].parameters;
+    expect(edgeParameters.area).toBe(0.5);
+    expect(edgeParameters.index).toBeUndefined();
+    expect(s.nodeStates[newSink.id].parameters.label).toBe('Sink2');
+  });
+
+  it('keeps labels unique across repeated pastes and cascades the offset', () => {
+    seedNetwork();
+    useGraphStore.getState().copySelection(['s1']);
+    useGraphStore.getState().pasteClipboard();
+    useGraphStore.getState().pasteClipboard();
+
+    const s = useGraphStore.getState();
+    const labels = Object.values(s.nodeStates)
+      .map((st) => st.parameters.label)
+      .sort();
+    expect(labels).toEqual(['Sink1', 'Source1', 'Source2', 'Source3']);
+    const xs = s.nodes
+      .filter((n) => n.type === 'Source')
+      .map((n) => n.position.x)
+      .sort((a, b) => a - b);
+    expect(xs).toEqual([100, 140, 180]);
+  });
+
+  it('is a single undo step and selects the pasted items', () => {
+    seedNetwork();
+    useGraphStore.getState().copySelection(['s1', 'k1']);
+    useGraphStore.getState().pasteClipboard();
+
+    let s = useGraphStore.getState();
+    expect(s.past).toHaveLength(1);
+    expect(s.nodes.filter((n) => n.selected)).toHaveLength(2);
+    expect(s.nodes.filter((n) => n.selected).every((n) => n.id !== 's1' && n.id !== 'k1')).toBe(
+      true
+    );
+    expect(s.edges.filter((e) => e.selected)).toHaveLength(1);
+
+    useGraphStore.getState().undo();
+    s = useGraphStore.getState();
+    expect(s.nodes).toHaveLength(2);
+    expect(s.edges).toHaveLength(1);
+  });
+
+  it('keeps the source label when it is free again (cut and paste)', () => {
+    seedNetwork();
+    useGraphStore.getState().copySelection(['s1']);
+    useGraphStore.getState().deleteNode('s1');
+    useGraphStore.getState().pasteClipboard();
+
+    const s = useGraphStore.getState();
+    const pasted = s.nodes.find((n) => n.type === 'Source')!;
+    expect(s.nodeStates[pasted.id].parameters.label).toBe('Source1');
+  });
+
+  it('pastes an annotation copy with its content and a de-duplicated name', () => {
+    const note = useGraphStore
+      .getState()
+      .addAnnotation({ position: { x: 5, y: 5 }, text: 'hi', style: { bold: true } })!;
+    useGraphStore.getState().updateAnnotation(note.id, { name: 'Note1' });
+    useGraphStore.getState().copySelection([note.id]);
+    expect(useGraphStore.getState().pasteClipboard()).toBe(1);
+
+    const s = useGraphStore.getState();
+    expect(s.nodes).toHaveLength(2);
+    const pasted = s.nodes.find((n) => n.id !== note.id)!;
+    expect(pasted.type).toBe('annotation');
+    expect(pasted.position).toEqual({ x: 45, y: 45 });
+    expect(pasted.data.annotation).toMatchObject({
+      text: 'hi',
+      style: { bold: true },
+      name: 'Note2',
+    });
+    // Annotations never gain model state through a paste.
+    expect(s.nodeStates[pasted.id]).toBeUndefined();
+  });
+
+  it('pastes only the annotations while the canvas is locked', () => {
+    seedNetwork();
+    const note = useGraphStore.getState().addAnnotation({ position: { x: 0, y: 0 }, text: 'n' })!;
+    useGraphStore.getState().copySelection(['s1', note.id]);
+    useGraphStore.setState({ locked: true });
+
+    expect(useGraphStore.getState().pasteClipboard()).toBe(1);
+    const s = useGraphStore.getState();
+    expect(s.nodes.filter((n) => n.type === 'annotation')).toHaveLength(2);
+    expect(s.nodes.filter((n) => n.type === 'Source')).toHaveLength(1);
+    const { entries } = useConsoleStore.getState();
+    expect(entries.some((e) => e.message.includes('pasted the annotations only'))).toBe(true);
+  });
+
+  it('refuses to paste model content on a locked canvas', () => {
+    seedNetwork();
+    useGraphStore.getState().copySelection(['s1']);
+    useGraphStore.setState({ locked: true });
+
+    expect(useGraphStore.getState().pasteClipboard()).toBe(0);
+    expect(useGraphStore.getState().nodes).toHaveLength(2);
+    const { entries } = useConsoleStore.getState();
+    expect(entries.some((e) => e.message.includes('unlock it before pasting'))).toBe(true);
+  });
+});

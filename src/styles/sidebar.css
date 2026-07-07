@@ -1,11 +1,15 @@
 .sidebar {
   position: fixed;
-  left: 0;
+  /* Docked to the right of the navigation rail: the rail keeps its gutter
+     (--layout-sidebar-collapsed-offset) so panes can be switched while a
+     sidebar is open. */
+  left: var(--layout-sidebar-collapsed-offset);
   top: 0;
   width: var(--layout-sidebar-width);
   height: 100vh;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
   transition: all 0.3s ease;
   overflow-y: auto;
   overflow-x: hidden;
@@ -14,7 +18,9 @@
 }
 
 .sidebar:not(.open) {
-  transform: translateX(calc(-1 * var(--layout-sidebar-width)));
+  transform: translateX(
+    calc(-1 * (var(--layout-sidebar-width) + var(--layout-sidebar-collapsed-offset)))
+  );
 }
 
 .toggle-button {

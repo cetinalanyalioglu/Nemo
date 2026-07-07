@@ -24,7 +24,7 @@
 }
 
 .sidebar.open ~ .canvas-container {
-  margin-left: var(--layout-sidebar-width);
+  margin-left: calc(var(--layout-sidebar-width) + var(--layout-sidebar-collapsed-offset));
 }
 
 .canvas-container.properties-open {
