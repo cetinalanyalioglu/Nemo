@@ -503,6 +503,15 @@ const PropertiesPanel = React.memo(() => {
           <span className="panel-title">
             {formatTitle(isEdge ? 'Edge Properties' : 'Node Properties')}
           </span>
+          {/* Element type of the selection: the schematic alone may not make it
+              obvious which library element this is. */}
+          {elementType && (
+            <span className="panel-element-type" title={`Element type: ${elementType}`}>
+              {(isEdge
+                ? edgeInfo[elementType]?.displayName
+                : elementInfo[elementType]?.displayName) ?? elementType}
+            </span>
+          )}
         </div>
 
         {/* Parameter groups, ordered by precedence then alphabetically */}

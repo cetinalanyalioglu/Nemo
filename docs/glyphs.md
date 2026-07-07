@@ -36,7 +36,8 @@ Filled marks (arrowheads, matrix dots, the equilibrium flame body) use `fill="cu
 ## Wall hatching
 
 Distributed pipe-like elements (duct, pipe, Fanno pipe) show the wall material as diagonally hatched bands; compact restriction elements keep plain wall lines.
-The standard geometry in a `0 0 100 60` viewBox: bore `y = 15..45`, hatch bands `y = 6..15` and `y = 45..54`, flow-side walls at 2.64, and a thin (1.3) outer boundary line.
+The standard geometry in a `0 0 100 48` viewBox: bore `y = 10..38`, hatch bands `y = 0..10` and `y = 38..48` running to the very glyph edge, and thin (1.3) flow-side wall lines.
+There is no outer boundary line in the glyph: the negative insets tuck the bands under the node's border ring, which is the canvas-facing border.
 The two bands mirror their hatch direction about the centerline:
 
 ```svg
