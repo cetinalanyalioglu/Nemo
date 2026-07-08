@@ -38,6 +38,8 @@ export interface FramePort {
   angleDeg: number;
   /** Connection direction: `source` points outward, `target` points inward. */
   direction: PortDirection;
+  /** True when an edge is attached: the triangle is tinted ink-gray. */
+  connected?: boolean;
 }
 
 /** Outward unit vector for an angle (math convention; screen y grows down). */
@@ -138,7 +140,7 @@ const CircularNodeFrame = ({
       {ports.map((p) => (
         <polygon
           key={p.suffix}
-          className="circular-node-port"
+          className={`circular-node-port${p.connected ? ' port-connected' : ''}`}
           points={trianglePoints(p.angleDeg, p.direction, BASE * portScale, H * portScale)}
         />
       ))}

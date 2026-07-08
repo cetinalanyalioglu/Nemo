@@ -41,6 +41,8 @@ export interface BoxPort {
   /** 0..1 position along the edge (top/bottom: left→right; left/right: top→bottom). */
   offset: number;
   direction: PortDirection;
+  /** True when an edge is attached: the triangle is tinted ink-gray. */
+  connected?: boolean;
 }
 
 export interface BoxLayout {
@@ -175,7 +177,7 @@ const RectNodeFrame = ({
       {ports.map((p) => (
         <polygon
           key={p.suffix}
-          className="box-node-port"
+          className={`box-node-port${p.connected ? ' port-connected' : ''}`}
           points={trianglePoints(L.portAnchor(p.side, p.offset), p.direction, portH, portBase)}
         />
       ))}
