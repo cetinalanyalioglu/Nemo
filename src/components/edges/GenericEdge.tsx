@@ -1,5 +1,5 @@
-import React, { memo, useMemo } from 'react';
-import { BaseEdge, useReactFlow, useStore, type EdgeProps } from 'reactflow';
+import React, { memo } from 'react';
+import { BaseEdge, useStore, type EdgeProps } from 'reactflow';
 import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { useGraphStore } from '../../store/graphStore';
@@ -9,11 +9,7 @@ import {
   computeEdgePathGeometry,
   computeRotatedEdgePathGeometry,
   EDGE_MIDPOINT_MARKER_RADIUS,
-  FRAMED_PORT_HANDLE_HALF,
-  FRAMED_SHAPES,
-  insetEndpoint,
-  insetEndpointAlongNormal,
-  rotatedPortNormal,
+  measuredPortAnchor,
 } from './edge-path-utils';
 
 /**
@@ -49,32 +45,32 @@ const GenericEdge = ({
   targetY,
   sourcePosition,
   targetPosition,
+  sourceHandleId,
+  targetHandleId,
   selected = false,
   style = {},
 }: EdgeProps) => {
   const { edgePathStyle } = useLayoutState();
-  const { getNode } = useReactFlow();
   const { model } = useModel();
 
-  // React Flow reports each endpoint at the handle's outer edge. For framed
-  // elements (whose handles are centred on the port) that is half a handle-width
-  // proud of the border, so the drawn edge is pulled back inward by that much to
-  // sit flush. Non-framed (rect) nodes are left untouched.
-  const framedInset = (nodeId: string): number => {
-    const shape = model?.nodeConfig[getNode(nodeId)?.type ?? '']?.shape;
-    return shape && FRAMED_SHAPES.has(shape) ? FRAMED_PORT_HANDLE_HALF : 0;
-  };
-  const sourceInset = framedInset(source);
-  const targetInset = framedInset(target);
-
-  // On-canvas rotation of the endpoint nodes: React Flow keeps reporting the
-  // handles' unrotated `Position`, so a rotated element needs its true outward
-  // normal reconstructed for the edge to leave the border orthogonally.
-  const sourceRotation = useStore(
-    (s) => (s.nodeInternals.get(source)?.data?.rotation as number | undefined) ?? 0
+  // Endpoint nodes straight from the store: their measured handle geometry (not
+  // React Flow's reported endpoint props) is the source of truth for where the
+  // edge attaches, so rotated elements keep their edges exactly on the ports.
+  const sourceNode = useStore((s) => s.nodeInternals.get(source));
+  const targetNode = useStore((s) => s.nodeInternals.get(target));
+  const isCircle = (nodeType: string | undefined): boolean =>
+    model?.nodeConfig[nodeType ?? '']?.shape === 'circle';
+  const sourceAnchor = measuredPortAnchor(
+    sourceNode,
+    sourceHandleId,
+    'source',
+    isCircle(sourceNode?.type)
   );
-  const targetRotation = useStore(
-    (s) => (s.nodeInternals.get(target)?.data?.rotation as number | undefined) ?? 0
+  const targetAnchor = measuredPortAnchor(
+    targetNode,
+    targetHandleId,
+    'target',
+    isCircle(targetNode?.type)
   );
   const { showEdgeBadges, showIndices } = useAppearanceState();
   const edgeState = useGraphStore((s) => s.edgeStates[id]);
@@ -98,56 +94,31 @@ const GenericEdge = ({
       ? formatDataValue(dataView.value, precision, notation, dataView.unit)
       : undefined;
 
+  // Anchors resolved from the measured handles: the edge starts and ends at the
+  // exact port points and departs along each port's true outward normal,
+  // whatever the elements' rotation. Before the first handle measurement, fall
+  // back to React Flow's reported endpoints so a freshly-mounted graph still
+  // paints its edges. (Cheap enough to recompute per render — no memo.)
   const {
     path: edgePath,
     labelX,
     labelY,
-  } = useMemo(() => {
-    // Rotated endpoints: inset and depart along the true (rotated) outward
-    // normal. Unrotated graphs keep React Flow's own path helpers verbatim.
-    if (sourceRotation || targetRotation) {
-      const sn = rotatedPortNormal(sourcePosition, sourceRotation);
-      const tn = rotatedPortNormal(targetPosition, targetRotation);
-      const s = insetEndpointAlongNormal(sourceX, sourceY, sn, sourceInset);
-      const t = insetEndpointAlongNormal(targetX, targetY, tn, targetInset);
-      return computeRotatedEdgePathGeometry(
+  } = sourceAnchor && targetAnchor
+    ? computeRotatedEdgePathGeometry(
         {
-          sourceX: s.x,
-          sourceY: s.y,
-          targetX: t.x,
-          targetY: t.y,
-          sourceNormal: sn,
-          targetNormal: tn,
+          sourceX: sourceAnchor.x,
+          sourceY: sourceAnchor.y,
+          targetX: targetAnchor.x,
+          targetY: targetAnchor.y,
+          sourceNormal: sourceAnchor.normal,
+          targetNormal: targetAnchor.normal,
         },
         edgePathStyle
+      )
+    : computeEdgePathGeometry(
+        { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition },
+        edgePathStyle
       );
-    }
-    const s = insetEndpoint(sourceX, sourceY, sourcePosition, sourceInset);
-    const t = insetEndpoint(targetX, targetY, targetPosition, targetInset);
-    return computeEdgePathGeometry(
-      {
-        sourceX: s.x,
-        sourceY: s.y,
-        sourcePosition,
-        targetX: t.x,
-        targetY: t.y,
-        targetPosition,
-      },
-      edgePathStyle
-    );
-  }, [
-    edgePathStyle,
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    sourceInset,
-    targetInset,
-    sourceRotation,
-    targetRotation,
-  ]);
 
   // reactflow's BaseEdge hardcodes the path className and drops any we pass, so
   // the validity-highlight class goes on a wrapping <g> and the CSS targets the

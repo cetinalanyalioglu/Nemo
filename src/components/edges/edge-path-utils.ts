@@ -1,47 +1,15 @@
-import { getBezierPath, getStraightPath, getSmoothStepPath, getSimpleBezierPath } from 'reactflow';
+import {
+  getBezierPath,
+  getStraightPath,
+  getSmoothStepPath,
+  getSimpleBezierPath,
+  internalsSymbol,
+} from 'reactflow';
 import { Position } from 'reactflow';
+import type { Node } from 'reactflow';
 import type { EdgePathStyle } from '../../context/AppStateContext';
 
 export const EDGE_MIDPOINT_MARKER_RADIUS = 6;
-
-/**
- * Half the framed-node (circle/box/rail) handle size, in flow px. React Flow
- * reports a port's connection point at the handle's OUTER edge — half a handle
- * past the element border (`getHandlePosition`: right→`x+width`, left→`x`, …) —
- * so a handle centred on the port point sits half a width proud. Handles stay
- * centred (their hit area belongs over the port, not inside the node body); the
- * drawn edge is instead pulled back inward by this much to meet the element
- * flush. Keep in sync with the framed handle size in custom-node.css.
- */
-export const FRAMED_PORT_HANDLE_HALF = 7;
-
-/** Element shapes whose ports use the centred framed handle (and thus the inset). */
-export const FRAMED_SHAPES = new Set(['circle', 'box', 'rail']);
-
-/**
- * Pulls an edge endpoint inward (toward its node) by `amount` along the port's
- * outward normal, so React Flow's handle-edge connection point lands back on the
- * element border. A `0` amount (non-framed nodes) is a no-op.
- */
-export const insetEndpoint = (
-  x: number,
-  y: number,
-  position: Position,
-  amount: number
-): { x: number; y: number } => {
-  switch (position) {
-    case Position.Left:
-      return { x: x + amount, y };
-    case Position.Right:
-      return { x: x - amount, y };
-    case Position.Top:
-      return { x, y: y + amount };
-    case Position.Bottom:
-      return { x, y: y - amount };
-    default:
-      return { x, y };
-  }
-};
 
 export interface EdgePathGeometry {
   path: string;
@@ -81,11 +49,66 @@ export const rotatedPortNormal = (position: Position, rotationDeg: number): Vec2
   return { x: base.x * cos - base.y * sin, y: base.x * sin + base.y * cos };
 };
 
-/** Pulls an endpoint inward (against the outward normal) by `amount`. */
-export const insetEndpointAlongNormal = (x: number, y: number, n: Vec2, amount: number): Vec2 => ({
-  x: x - n.x * amount,
-  y: y - n.y * amount,
-});
+/** An edge endpoint resolved to the exact port point, with its outward normal. */
+export interface PortAnchor {
+  x: number;
+  y: number;
+  normal: Vec2;
+}
+
+/**
+ * True on-canvas centre of an endpoint's handle, with the port's outward
+ * normal. This bypasses React Flow's own endpoint math, which anchors the edge
+ * at a handle-box EDGE picked by the handle's unrotated `Position`
+ * (`getHandlePosition`: right→`x+width`, left→`x`, …). Our handles are centred
+ * on the port point, so that is half a handle off even upright — and on a
+ * rotated element the measured box is the rotated handle's enlarged AABB, whose
+ * `Position`-edge drifts further with the angle. The AABB *centre*, in
+ * contrast, is rotation-invariant: it is exactly the drawn port point at any
+ * rotation (the rotation transform sits on the node's inner content div, so
+ * handle offsets are measured relative to React Flow's unrotated node origin).
+ *
+ * `radial` (circular elements) derives the normal from the disc centre through
+ * the port, so a manually-rotated port keeps an exact outward departure;
+ * otherwise the handle's side normal is rotated with the element.
+ *
+ * Returns null until React Flow has measured the node (first paint).
+ */
+export const measuredPortAnchor = (
+  node: Node | undefined,
+  handleId: string | null | undefined,
+  type: 'source' | 'target',
+  radial: boolean
+): PortAnchor | null => {
+  const bounds = node?.[internalsSymbol]?.handleBounds?.[type];
+  const handle = (handleId != null ? bounds?.find((h) => h.id === handleId) : bounds?.[0]) ?? null;
+  const { positionAbsolute, width, height } = node ?? {};
+  if (!node || !handle || !positionAbsolute || !width || !height) return null;
+
+  const rotation = typeof node.data?.rotation === 'number' ? (node.data.rotation as number) : 0;
+  // React Flow measures a handle's x/y from its on-screen bounding box (the
+  // rotated AABB) but its width/height from offsetWidth/offsetHeight (the
+  // unrotated box), so the AABB extents are reconstructed from the rotation to
+  // land on the box centre — which is rotation-invariant.
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const aabbW = handle.width * cos + handle.height * sin;
+  const aabbH = handle.width * sin + handle.height * cos;
+  const x = positionAbsolute.x + handle.x + aabbW / 2;
+  const y = positionAbsolute.y + handle.y + aabbH / 2;
+
+  let normal: Vec2;
+  if (radial) {
+    const cx = positionAbsolute.x + width / 2;
+    const cy = positionAbsolute.y + height / 2;
+    const len = Math.hypot(x - cx, y - cy) || 1;
+    normal = { x: (x - cx) / len, y: (y - cy) / len };
+  } else {
+    normal = rotatedPortNormal(handle.position, rotation);
+  }
+  return { x, y, normal };
+};
 
 /** Snaps an arbitrary outward normal to the dominant axis-aligned `Position`. */
 const nearestPosition = (n: Vec2): Position => {
