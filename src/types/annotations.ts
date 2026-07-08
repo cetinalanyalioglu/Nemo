@@ -80,6 +80,11 @@ export interface AnnotationData {
    * from the annotations pane. Useful for background guide images.
    */
   locked?: boolean;
+  /**
+   * When true, the annotation is not drawn on the canvas at all; it can be
+   * shown again from the annotations pane.
+   */
+  hidden?: boolean;
   /** Rotation about the annotation centre, degrees clockwise in [0, 360). */
   rotation?: number;
 }
@@ -117,6 +122,8 @@ export interface SaveFileAnnotation {
   name?: string;
   /** Unselectable-on-canvas flag; omitted when false (the default). */
   locked?: boolean;
+  /** Not-drawn-on-canvas flag; omitted when false (the default). */
+  hidden?: boolean;
   /** Rotation in degrees; omitted when 0. */
   rotation?: number;
   /** Only explicitly-set style fields; omitted entirely when all are default. */
