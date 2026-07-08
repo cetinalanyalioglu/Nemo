@@ -541,6 +541,16 @@ select.annotation-tool-font {
   color: var(--color-accent);
 }
 
+.annotation-list-action.hidden-item {
+  color: var(--color-accent);
+}
+
+/* A hidden item's label reads dimmed so the list mirrors the canvas. */
+.annotation-list-row--hidden .annotation-list-icon,
+.annotation-list-row--hidden .annotation-list-text {
+  opacity: 0.5;
+}
+
 .annotation-list-delete:hover {
   color: var(--color-error-strong);
 }

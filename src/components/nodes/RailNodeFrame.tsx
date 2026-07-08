@@ -41,6 +41,8 @@ export interface RailPort {
   index: number;
   count: number;
   direction: PortDirection;
+  /** True when an edge is attached: the triangle is tinted ink-gray. */
+  connected?: boolean;
 }
 
 export interface RailLayout {
@@ -147,7 +149,7 @@ const RailNodeFrame = ({ glyphKey, idPrefix, maxPorts, ports }: RailNodeFramePro
       {ports.map((p) => (
         <polygon
           key={p.suffix}
-          className="rail-node-port"
+          className={`rail-node-port${p.connected ? ' port-connected' : ''}`}
           points={trianglePoints(L.portAnchor(p.side, p.index, p.count), p.direction)}
         />
       ))}

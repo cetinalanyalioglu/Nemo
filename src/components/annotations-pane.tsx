@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IoChevronBackCircleOutline,
   IoChevronDown,
+  IoEyeOffOutline,
+  IoEyeOutline,
   IoImageOutline,
   IoLockClosed,
   IoLockOpenOutline,
@@ -112,9 +114,10 @@ const AnnotationsPane = React.memo(() => {
     const node = annotations.find((n) => n.id === id);
     if (!node) return;
     // Select the note (deselecting everything else) so its toolbar shows, and
-    // bring it into view. Locked items only centre: they are not selectable.
-    const locked = ((node.data?.annotation ?? {}) as AnnotationData).locked === true;
-    if (!locked) {
+    // bring it into view. Locked items only centre (they are not selectable);
+    // hidden items too, since there is nothing to show a toolbar on.
+    const annotation = (node.data?.annotation ?? {}) as AnnotationData;
+    if (!annotation.locked && !annotation.hidden) {
       onNodesChange(
         nodes.map((n) => ({ type: 'select' as const, id: n.id, selected: n.id === id }))
       );
@@ -200,10 +203,11 @@ const AnnotationsPane = React.memo(() => {
                   }) as AnnotationData;
                   const isImage = annotation.kind === 'image';
                   const isLocked = annotation.locked === true;
+                  const isHidden = annotation.hidden === true;
                   return (
                     <li
                       key={node.id}
-                      className="annotation-list-row"
+                      className={`annotation-list-row${isHidden ? ' annotation-list-row--hidden' : ''}`}
                       onClick={() => focusAnnotation(node.id)}
                       onDoubleClick={() => {
                         setRenamingId(node.id);
@@ -234,6 +238,21 @@ const AnnotationsPane = React.memo(() => {
                       ) : (
                         <span className="annotation-list-text">{itemLabel(annotation)}</span>
                       )}
+                      <button
+                        type="button"
+                        className={`annotation-list-action${isHidden ? ' hidden-item' : ''}`}
+                        title={
+                          isHidden
+                            ? 'Show: draw this item on the canvas again'
+                            : 'Hide: stop drawing this item on the canvas'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateAnnotation(node.id, { hidden: !isHidden });
+                        }}
+                      >
+                        {isHidden ? <IoEyeOffOutline /> : <IoEyeOutline />}
+                      </button>
                       <button
                         type="button"
                         className={`annotation-list-action${isLocked ? ' locked' : ''}`}

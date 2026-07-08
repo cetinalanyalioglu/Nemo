@@ -46,12 +46,14 @@ const isAnnotationNode = (node: Node): boolean => node.type === ANNOTATION_NODE_
 
 /**
  * React Flow node flags derived from an annotation's payload: the layer sets
- * the stacking, and the lock makes the node inert on the canvas (the class
- * disables pointer events so clicks fall through to whatever is underneath).
+ * the stacking, the lock makes the node inert on the canvas (the class
+ * disables pointer events so clicks fall through to whatever is underneath),
+ * and the hide flag takes the node out of rendering entirely.
  * `draggable` is explicit so unlocked notes stay movable on a locked canvas.
  */
 const annotationNodeFlags = (annotation: AnnotationData): Partial<Node> => ({
   zIndex: ANNOTATION_LAYER_Z[annotation.layer ?? 'front'],
+  hidden: annotation.hidden === true,
   draggable: !annotation.locked,
   selectable: !annotation.locked,
   className: annotation.locked ? 'annotation-flow-node--locked' : undefined,
@@ -203,10 +205,11 @@ export interface GraphStore extends GraphData {
   }) => Node | undefined;
   /**
    * Merges a patch into an annotation's text, style, layer, name, lock state,
-   * and/or rotation. Style fields set to `undefined` are removed (reset to the
-   * default); a layer change also restacks the node relative to the model; a
-   * lock change toggles the node's on-canvas selectability. History is recorded
-   * by default; pass `{ recordHistory: false }` for continuous gestures (e.g. a
+   * hide state, and/or rotation. Style fields set to `undefined` are removed
+   * (reset to the default); a layer change also restacks the node relative to
+   * the model; a lock change toggles the node's on-canvas selectability; a hide
+   * change toggles whether the node is drawn at all. History is recorded by
+   * default; pass `{ recordHistory: false }` for continuous gestures (e.g. a
    * color-picker drag or a resize) that record once up front.
    */
   updateAnnotation: (
@@ -217,6 +220,7 @@ export interface GraphStore extends GraphData {
       layer?: AnnotationLayer;
       name?: string;
       locked?: boolean;
+      hidden?: boolean;
       rotation?: number;
     },
     options?: { recordHistory?: boolean }
@@ -337,6 +341,7 @@ const snapshotNode = (node: Node): Node => ({
   ...(node.selectable !== undefined ? { selectable: node.selectable } : {}),
   ...(node.zIndex !== undefined ? { zIndex: node.zIndex } : {}),
   ...(node.className !== undefined ? { className: node.className } : {}),
+  ...(node.hidden !== undefined ? { hidden: node.hidden } : {}),
 });
 
 /** Clones an edge down to the fields that persist (drops selection state). */
@@ -923,6 +928,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       });
       const layer = patch.layer ?? current.layer ?? 'front';
       const locked = patch.locked ?? current.locked ?? false;
+      const hidden = patch.hidden ?? current.hidden ?? false;
       // Blank names clear back to the automatic list label; rotation normalizes
       // into [0, 360) with 0 dropped so untouched notes stay minimal on disk.
       const name = (patch.name ?? current.name ?? '').trim();
@@ -937,16 +943,19 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         layer,
         name,
         locked,
+        hidden,
         rotation,
       };
       if (!name) delete next.name;
       if (!locked) delete next.locked;
+      if (!hidden) delete next.hidden;
       if (!rotation) delete next.rotation;
 
       if (
         next.text === current.text &&
         layer === (current.layer ?? 'front') &&
         locked === (current.locked ?? false) &&
+        hidden === (current.hidden ?? false) &&
         next.name === current.name &&
         rotation === (current.rotation ?? 0) &&
         JSON.stringify(next.style) === JSON.stringify(current.style)
@@ -962,8 +971,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
                 ...n,
                 data: { ...(n.data ?? {}), annotation: next },
                 ...annotationNodeFlags(next),
-                // Locking also drops any live selection so the toolbar closes.
-                ...(locked ? { selected: false } : {}),
+                // Locking or hiding also drops any live selection so the
+                // toolbar closes.
+                ...(locked || hidden ? { selected: false } : {}),
               }
             : n
         ),
@@ -1358,9 +1368,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           id,
           position: { x: node.position.x + offset, y: node.position.y + offset },
           data,
-          // A pasted copy keeps its lock, and locked notes are unselectable,
-          // so only unlocked copies join the fresh selection.
-          selected: !annotation.locked,
+          // A pasted copy keeps its lock and hide flags; locked notes are
+          // unselectable and hidden ones invisible, so only unlocked, visible
+          // copies join the fresh selection.
+          selected: !annotation.locked && !annotation.hidden,
           ...annotationNodeFlags(annotation),
         });
       }
@@ -1507,6 +1518,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
           ...(annotation.name ? { name: annotation.name } : {}),
           ...(annotation.locked ? { locked: true } : {}),
+          ...(annotation.hidden ? { hidden: true } : {}),
           ...(annotation.rotation ? { rotation: annotation.rotation } : {}),
           ...(Object.keys(annotation.style).length > 0 ? { style: annotation.style } : {}),
         };
@@ -1702,6 +1714,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           layer,
           ...(a.name ? { name: a.name } : {}),
           ...(a.locked ? { locked: true } : {}),
+          ...(a.hidden ? { hidden: true } : {}),
           ...(a.rotation ? { rotation: a.rotation } : {}),
         };
         return {

@@ -139,6 +139,20 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // not on every store update (e.g. each node-drag tick).
   const edges = useGraphStore((s) => s.edges);
   const incidentEdgesSignature = useMemo(() => buildIncidentEdgesSignature(edges, id), [edges, id]);
+  // Positional suffixes of this node's ports with at least one incident edge,
+  // so occupied ports can be tinted differently from free ones.
+  const connectedPortSuffixes = useMemo(() => {
+    const suffixes = new Set<string>();
+    const add = (handle: string | null | undefined) => {
+      const match = handle?.match(/-port-(\d+)$/);
+      if (match) suffixes.add(match[1]);
+    };
+    edges.forEach((edge) => {
+      if (edge.source === id) add(edge.sourceHandle);
+      if (edge.target === id) add(edge.targetHandle);
+    });
+    return suffixes;
+  }, [edges, id]);
   const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
   const setNodeDimensions = useGraphStore((s) => s.setNodeDimensions);
   const setNodeRotation = useGraphStore((s) => s.setNodeRotation);
@@ -333,11 +347,12 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           side,
           offset,
           direction: p.direction,
+          connected: connectedPortSuffixes.has(p.suffix),
         });
       });
     });
     return out;
-  }, [isBox, portBuckets, boxPassageFrac]);
+  }, [isBox, portBuckets, boxPassageFrac, connectedPortSuffixes]);
 
   // Rail frame: targets stack on the left, sources on the right, each side
   // vertically centred. Height follows the busier side; the label is fixed-size.
@@ -359,6 +374,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           index: i,
           count: targetCount,
           direction: 'target',
+          connected: connectedPortSuffixes.has(suffix),
         })
       ),
       ...calculatedPorts.source.map(
@@ -368,10 +384,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           index: i,
           count: sourceCount,
           direction: 'source',
+          connected: connectedPortSuffixes.has(suffix),
         })
       ),
     ];
-  }, [isRail, calculatedPorts]);
+  }, [isRail, calculatedPorts, connectedPortSuffixes]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -936,7 +953,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         key={port.suffix}
         className={`port-wrapper nodrag port-side-${port.side} port-dir-${port.direction}${
           isActive ? ' port-wrapper--active' : ''
-        }`}
+        }${connectedPortSuffixes.has(port.suffix) ? ' port-connected' : ''}`}
         onClick={(e) => {
           e.stopPropagation();
           setActivePort(isActive ? null : { nodeId: id, port: port.suffix });
@@ -1074,6 +1091,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
       suffix: p.suffix,
       angleDeg: p.exitAngle,
       direction: p.direction,
+      connected: connectedPortSuffixes.has(p.suffix),
     }));
     return (
       <div

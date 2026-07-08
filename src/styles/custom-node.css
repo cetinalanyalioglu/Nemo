@@ -23,6 +23,10 @@
   --box-node-ink: var(--color-text-secondary);
   --box-node-fill: #e6e6e6;
   --box-node-port: var(--circular-node-port);
+  /* A port with an edge attached: quiet ink gray (matching the border/glyph
+     ink), so the accent stays reserved for the ports still awaiting a
+     connection. */
+  --port-connected: var(--color-text-secondary);
 }
 
 [data-theme='dark'] {
@@ -213,6 +217,12 @@
   background: transparent;
   filter: drop-shadow(0 0 1px var(--color-surface)) drop-shadow(0 0 1px var(--color-surface));
   z-index: 3;
+}
+
+/* Occupied ports fade into the element's ink; hover (below) still accents them
+   so move-mode stays discoverable. */
+.port-wrapper.port-connected .port-icon {
+  color: var(--port-connected);
 }
 
 .port-wrapper:hover .port-icon {
@@ -598,6 +608,13 @@
 
 .circular-node-port {
   fill: var(--circular-node-port);
+}
+
+/* Framed ports (circle/box/rail) with an edge attached: ink-gray triangles. */
+.circular-node-port.port-connected,
+.box-node-port.port-connected,
+.rail-node-port.port-connected {
+  fill: var(--port-connected);
 }
 
 /* The glyph paths are authored with `fill: currentColor`. */
