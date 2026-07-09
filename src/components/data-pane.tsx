@@ -13,6 +13,7 @@ import {
   IoConstructOutline,
   IoCreateOutline,
   IoScanOutline,
+  IoFilmOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
@@ -23,6 +24,7 @@ import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
 import { COLORMAP_OPTIONS, colormapGradient } from '../utils/colormap';
 import MathLabel from './MathLabel';
+import { allValues, isFrameValues } from '../types/data';
 import type { ColormapId, DataItem, DataTarget, Dataset, ValueNotation } from '../types/data';
 
 const DATA_DATASETS_GROUP = '__data_datasets__';
@@ -319,7 +321,8 @@ const DataItemRow = ({ item }: { item: DataItem }) => {
   const isActive = useDataStore((s) =>
     item.target === 'node' ? s.nodeDisplay.itemId === item.id : s.edgeDisplay.itemId === item.id
   );
-  const length = item.values.length;
+  const perFrame = isFrameValues(item.values);
+  const length = perFrame ? (item.values as number[][])[0].length : item.values.length;
 
   // Clicking an already-active item clears it; otherwise selects it.
   const onSelect = () => setDisplayItem(item.target, isActive ? null : item.id);
@@ -337,9 +340,12 @@ const DataItemRow = ({ item }: { item: DataItem }) => {
         <span className={`data-pane-tag data-pane-tag-${item.target}`}>{item.target}</span>
       </button>
       <div className="data-pane-item-meta">
-        <span>{length} values</span>
         <span>
-          {formatRange(item.values)}
+          {length} values
+          {perFrame ? ` × ${item.values.length} frames` : ''}
+        </span>
+        <span>
+          {formatRange(allValues(item.values))}
           {item.unit ? ` ${item.unit}` : ''}
         </span>
       </div>
@@ -373,8 +379,15 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
   };
   const cancelRename = () => setEditing(false);
 
+  const frames = dataset.frames;
+  const animated = Boolean(frames && frames.values.length > 0);
+
   return (
-    <div className={`data-pane-dataset ${collapsed ? 'collapsed' : ''}`}>
+    <div
+      className={`data-pane-dataset ${collapsed ? 'collapsed' : ''} ${
+        animated ? 'data-pane-dataset-animated' : ''
+      }`}
+    >
       <div className="data-pane-dataset-header">
         <button
           type="button"
@@ -385,6 +398,13 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
         >
           <IoChevronDown className="data-pane-dataset-chevron" />
         </button>
+        {animated && (
+          <IoFilmOutline
+            className="data-pane-dataset-animated-badge"
+            title="Animated dataset"
+            aria-label="Animated dataset"
+          />
+        )}
         {editing ? (
           <input
             className="data-pane-dataset-rename"
@@ -430,6 +450,27 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
           <IoTrashOutline />
         </button>
       </div>
+      {!collapsed && animated && frames && (
+        <div className="data-pane-frames-summary">
+          <div className="data-pane-meta-row">
+            <span className="data-pane-meta-label">Frames</span>
+            <span className="data-pane-meta-value">{frames.values.length}</span>
+          </div>
+          <div className="data-pane-meta-row">
+            <span className="data-pane-meta-label">Frame variable</span>
+            <span className="data-pane-meta-value">
+              <MathLabel text={frames.variable} />
+            </span>
+          </div>
+          <div className="data-pane-meta-row">
+            <span className="data-pane-meta-label">Range</span>
+            <span className="data-pane-meta-value">
+              {formatRange(frames.values)}
+              {frames.unit ? ` ${frames.unit}` : ''}
+            </span>
+          </div>
+        </div>
+      )}
       {!collapsed && (dataset.description || (dataset.info && dataset.info.length > 0)) && (
         <div className="data-pane-dataset-meta">
           {dataset.description && (

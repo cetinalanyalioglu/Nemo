@@ -357,6 +357,27 @@
   text-align: right;
 }
 
+/* Animated datasets: a distinctive accent edge plus a film badge in the
+   header, and a frames summary block (frame count / variable / range). */
+.data-pane-dataset-animated {
+  border-left: 3px solid var(--color-accent);
+}
+
+.data-pane-dataset-animated-badge {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-accent);
+}
+
+.data-pane-frames-summary {
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-border-subtle, var(--color-border));
+  background: var(--color-surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .data-pane-scale-visible {
   margin-top: 8px;
 }

@@ -176,3 +176,208 @@ describe('dataStore per-target display ranges', () => {
     expect(useDataStore.getState().nodeDisplay).toMatchObject({ min: 0, max: 1, itemId: null });
   });
 });
+
+describe('dataStore animated datasets', () => {
+  const defaultDisplay = {
+    itemId: null,
+    colormap: 'viridis' as const,
+    min: 0,
+    max: 1,
+    auto: true,
+    showContour: true,
+    showValues: false,
+    precision: 2,
+    notation: 'fixed' as const,
+  };
+
+  /** Looks up the generated id of an item by dataset + item name. */
+  const itemId = (datasetName: string, name: string): string => {
+    const ds = useDataStore.getState().datasets.find((d) => d.name === datasetName);
+    const item = ds?.items.find((i) => i.name === name);
+    if (!item) throw new Error(`item ${datasetName}/${name} not found`);
+    return item.id;
+  };
+
+  /** Imports one animated (3-frame, 2-edge) and one static dataset. */
+  const loadFixtures = () => {
+    useDataStore.getState().loadDatasetsFromObject([
+      {
+        id: 'ds-anim',
+        name: 'Mode 0 animation',
+        includeInSave: true,
+        frames: { variable: 'Phase', unit: 'deg', values: [0, 120, 240] },
+        items: [
+          {
+            id: 'i-p',
+            name: 'p',
+            target: 'edge',
+            values: [
+              [1, 2],
+              [3, 4],
+              [5, 6],
+            ],
+          },
+        ],
+      },
+      {
+        id: 'ds-static',
+        name: 'Mean flow',
+        includeInSave: true,
+        items: [{ id: 'i-m', name: 'mdot', target: 'edge', values: [10, 20] }],
+      },
+    ]);
+  };
+
+  beforeEach(() => {
+    useDataStore.setState({
+      datasets: [],
+      loadCount: 0,
+      pendingDatasets: null,
+      nodeDisplay: { ...defaultDisplay },
+      edgeDisplay: { ...defaultDisplay },
+      playback: { frameIndex: 0, isPlaying: false, speed: 1, loop: true },
+    });
+    useConsoleStore.getState().clear();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  it('loads a file with a frames axis and per-frame item rows', async () => {
+    const payload = JSON.stringify({
+      name: 'Sweep',
+      frames: { variable: 'Frequency', unit: 'Hz', values: [100, 200] },
+      items: [
+        {
+          name: 'p amplitude',
+          target: 'edge',
+          values: [
+            [1, 2, 3],
+            [4, 5, 6],
+          ],
+        },
+      ],
+    });
+    useDataStore.getState().loadDatasetsFromFile(dataFile(payload, 'sweep.json'));
+    await waitForEntry((e) => e.level === 'success');
+    const ds = useDataStore.getState().datasets.at(-1);
+    expect(ds?.frames).toEqual({ variable: 'Frequency', unit: 'Hz', values: [100, 200] });
+    expect(ds?.items[0].values).toEqual([
+      [1, 2, 3],
+      [4, 5, 6],
+    ]);
+  });
+
+  it('rejects a per-frame item whose row count disagrees with the frames axis', async () => {
+    const payload = JSON.stringify({
+      frames: { variable: 'Phase', values: [0, 120, 240] },
+      items: [{ name: 'p', target: 'edge', values: [[1, 2]] }],
+    });
+    useDataStore.getState().loadDatasetsFromFile(dataFile(payload));
+    const entry = await waitForEntry((e) => e.level === 'error');
+    expect(entry.message).toContain('1 frame');
+    expect(entry.message).toContain('3');
+  });
+
+  it('rejects per-frame rows when the file declares no frames axis', async () => {
+    const payload = JSON.stringify({
+      items: [
+        {
+          name: 'p',
+          target: 'edge',
+          values: [
+            [1, 2],
+            [3, 4],
+          ],
+        },
+      ],
+    });
+    useDataStore.getState().loadDatasetsFromFile(dataFile(payload));
+    const entry = await waitForEntry((e) => e.level === 'error');
+    expect(entry.message).toContain('no "frames" axis');
+  });
+
+  it('validates per-frame rows against the canvas element count', async () => {
+    const payload = JSON.stringify({
+      frames: { variable: 'Phase', values: [0, 180] },
+      items: [
+        {
+          name: 'p',
+          target: 'edge',
+          values: [
+            [1, 2, 3],
+            [4, 5, 6],
+          ],
+        },
+      ],
+    });
+    useDataStore.getState().loadDatasetsFromFile(dataFile(payload), { nodeCount: 4, edgeCount: 2 });
+    const entry = await waitForEntry((e) => e.level === 'error');
+    expect(entry.message).toContain('has 3 edge values');
+    expect(entry.message).toContain('canvas has 2');
+  });
+
+  it('auto range spans every frame of an animated item', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mode 0 animation', 'p'));
+    expect(useDataStore.getState().edgeDisplay).toMatchObject({ min: 1, max: 6 });
+  });
+
+  it('clamps setFrame and wraps stepFrame around the frame count', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mode 0 animation', 'p'));
+    useDataStore.getState().setFrame(99);
+    expect(useDataStore.getState().playback.frameIndex).toBe(2);
+    useDataStore.getState().stepFrame(1);
+    expect(useDataStore.getState().playback.frameIndex).toBe(0);
+    useDataStore.getState().stepFrame(-1);
+    expect(useDataStore.getState().playback.frameIndex).toBe(2);
+  });
+
+  it('advanceFrame loops when looping and pauses at the last frame otherwise', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mode 0 animation', 'p'));
+    useDataStore.getState().startPlayback();
+    useDataStore.getState().setFrame(2);
+    useDataStore.getState().advanceFrame();
+    expect(useDataStore.getState().playback).toMatchObject({ frameIndex: 0, isPlaying: true });
+    useDataStore.getState().togglePlaybackLoop(); // loop off
+    useDataStore.getState().setFrame(2);
+    useDataStore.getState().advanceFrame();
+    expect(useDataStore.getState().playback).toMatchObject({ frameIndex: 2, isPlaying: false });
+  });
+
+  it('ignores playback actions when no animated dataset is displayed', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mean flow', 'mdot'));
+    useDataStore.getState().startPlayback();
+    useDataStore.getState().setFrame(2);
+    expect(useDataStore.getState().playback).toMatchObject({ frameIndex: 0, isPlaying: false });
+  });
+
+  it('rewinds the frame cursor when the selection leaves the animated dataset', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mode 0 animation', 'p'));
+    useDataStore.getState().setFrame(2);
+    useDataStore.getState().setDisplayItem('edge', itemId('Mean flow', 'mdot'));
+    expect(useDataStore.getState().playback).toMatchObject({ frameIndex: 0, isPlaying: false });
+  });
+
+  it('stops playback when the animated dataset is removed', () => {
+    loadFixtures();
+    useDataStore.getState().setDisplayItem('edge', itemId('Mode 0 animation', 'p'));
+    useDataStore.getState().startPlayback();
+    const animId = useDataStore.getState().datasets.find((d) => d.frames)?.id;
+    useDataStore.getState().removeDataset(animId!);
+    expect(useDataStore.getState().playback).toMatchObject({ frameIndex: 0, isPlaying: false });
+    expect(useDataStore.getState().edgeDisplay.itemId).toBeNull();
+  });
+
+  it('keeps the frames axis when a dataset is re-imported (save round-trip)', () => {
+    loadFixtures();
+    const stored = useDataStore.getState().datasets.find((d) => d.frames);
+    useDataStore.getState().clearDatasets();
+    useDataStore.getState().loadDatasetsFromObject([stored!]);
+    const reloaded = useDataStore.getState().datasets.at(-1);
+    expect(reloaded?.frames).toEqual({ variable: 'Phase', unit: 'deg', values: [0, 120, 240] });
+  });
+});

@@ -18,6 +18,7 @@ import { CanvasZoomIndicator } from './canvas-zoom-indicator';
 import CanvasHistoryControls from './canvas-history-controls';
 import CanvasTitle from './CanvasTitle';
 import DataLegend from './DataLegend';
+import CanvasPlayer from './CanvasPlayer';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppearanceState, useGridState, useLayoutState } from '../context/AppStateContext';
@@ -329,6 +330,7 @@ const Canvas = () => {
         {showMinimap && <MiniMap />}
         <CanvasTitle />
         <DataLegend />
+        <CanvasPlayer />
         <DataFreezeBridge />
         <LockSyncBridge />
         <FitViewBridge />

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { create } from 'zustand';
 import { colorForValue } from '../utils/colormap';
 import { logger } from '../utils/logger';
+import { allValues, isAnimatedDataset, isFrameValues, valuesAtFrame } from '../types/data';
 import type {
   ColormapId,
   DataDisplayConfig,
@@ -9,11 +10,19 @@ import type {
   DataItem,
   DataItemFileEntry,
   DataTarget,
+  DataValues,
   Dataset,
+  DatasetFrames,
   ValueNotation,
 } from '../types/data';
 
 const DEFAULT_COLORMAP: ColormapId = 'viridis';
+
+/** Frame advance rate at speed 1 (frames per second). */
+export const PLAYBACK_BASE_FPS = 10;
+
+/** Selectable playback speed multipliers. */
+export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
 
 const makeDefaultDisplay = (): DataDisplayConfig => ({
   itemId: null,
@@ -27,8 +36,9 @@ const makeDefaultDisplay = (): DataDisplayConfig => ({
   notation: 'fixed',
 });
 
-/** Computes a [min, max] range over an item's finite values. */
-const computeRange = (values: number[]): { min: number; max: number } => {
+/** Computes a [min, max] range over an item's finite values (all frames). */
+const computeRange = (itemValues: DataValues): { min: number; max: number } => {
+  const values = allValues(itemValues);
   let min = Infinity;
   let max = -Infinity;
   for (const value of values) {
@@ -52,6 +62,25 @@ const generateId = (prefix: string): string => {
   return `${prefix}-${Date.now().toString(36)}-${idCounter}`;
 };
 
+/** Whether `values` is a flat array of numbers. */
+const isNumberRow = (values: unknown): values is number[] =>
+  Array.isArray(values) && values.every((v) => typeof v === 'number');
+
+/** Validates raw item values: a flat series, or rectangular per-frame rows. */
+const validateItemValues = (values: unknown, label: string): DataValues => {
+  if (isNumberRow(values)) return values;
+  if (
+    Array.isArray(values) &&
+    values.length > 0 &&
+    values.every((row) => isNumberRow(row) && row.length === (values[0] as number[]).length)
+  ) {
+    return values as number[][];
+  }
+  throw new Error(
+    `${label} has invalid "values" (expected an array of numbers, or equal-length rows of numbers)`
+  );
+};
+
 /** Validates and normalizes a raw file entry into a DataItem, or throws. */
 const parseItemEntry = (entry: unknown, index: number): DataItem => {
   if (!entry || typeof entry !== 'object') {
@@ -61,9 +90,7 @@ const parseItemEntry = (entry: unknown, index: number): DataItem => {
   if (raw.target !== 'node' && raw.target !== 'edge') {
     throw new Error(`Item #${index + 1} has invalid "target" (expected "node" or "edge")`);
   }
-  if (!Array.isArray(raw.values) || raw.values.some((v) => typeof v !== 'number')) {
-    throw new Error(`Item #${index + 1} has invalid "values" (expected an array of numbers)`);
-  }
+  const values = validateItemValues(raw.values, `Item #${index + 1}`);
   const name =
     typeof raw.name === 'string' && raw.name.trim().length > 0
       ? raw.name.trim()
@@ -74,8 +101,49 @@ const parseItemEntry = (entry: unknown, index: number): DataItem => {
     name,
     target: raw.target,
     unit: typeof raw.unit === 'string' ? raw.unit : undefined,
-    values: raw.values as number[],
+    values,
   };
+};
+
+/** Validates a raw `frames` axis declaration, or throws. */
+const parseFrames = (raw: unknown): DatasetFrames => {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid "frames" (expected an object with "variable" and "values")');
+  }
+  const frames = raw as Partial<DatasetFrames>;
+  if (typeof frames.variable !== 'string' || frames.variable.trim().length === 0) {
+    throw new Error('Invalid "frames": missing frame "variable" name');
+  }
+  if (!isNumberRow(frames.values) || frames.values.length === 0) {
+    throw new Error('Invalid "frames": "values" must be a non-empty array of numbers');
+  }
+  return {
+    variable: frames.variable.trim(),
+    unit: typeof frames.unit === 'string' ? frames.unit : undefined,
+    values: frames.values,
+  };
+};
+
+/**
+ * Checks the frame consistency of a dataset: per-frame items need a frame axis,
+ * and their row count must match it. Returns an error message or null. A flat
+ * item inside an animated dataset is allowed (it is frame-independent).
+ */
+const findFrameMismatch = (dataset: Dataset): string | null => {
+  const frameCount = dataset.frames?.values.length ?? 0;
+  for (const item of dataset.items) {
+    if (!isFrameValues(item.values)) continue;
+    if (frameCount === 0) {
+      return `Dataset rejected: item "${item.name}" holds per-frame rows but the dataset declares no "frames" axis.`;
+    }
+    if (item.values.length !== frameCount) {
+      return (
+        `Dataset rejected: item "${item.name}" has ${item.values.length} frame` +
+        `${item.values.length === 1 ? '' : 's'}, but the "frames" axis has ${frameCount}.`
+      );
+    }
+  }
+  return null;
 };
 
 /** Strips a file extension to derive a default dataset name from a filename. */
@@ -93,10 +161,13 @@ const findCountMismatch = (
   for (const item of dataset.items) {
     const want = item.target === 'node' ? expected.nodeCount : expected.edgeCount;
     const noun = item.target === 'node' ? 'node' : 'edge';
-    if (item.values.length !== want) {
+    // For a per-frame item every row must match; rows are rectangular by
+    // construction, so checking the first row suffices.
+    const got = isFrameValues(item.values) ? item.values[0].length : item.values.length;
+    if (got !== want) {
       return (
-        `Dataset rejected: item "${item.name}" has ${item.values.length} ${noun} ` +
-        `value${item.values.length === 1 ? '' : 's'}, but the canvas has ${want} ` +
+        `Dataset rejected: item "${item.name}" has ${got} ${noun} ` +
+        `value${got === 1 ? '' : 's'}, but the canvas has ${want} ` +
         `${noun}${want === 1 ? '' : 's'}. Data must match the canvas element count.`
       );
     }
@@ -118,8 +189,36 @@ const buildDatasetFromPayload = (payload: DataFilePayload, fallbackName: string)
     typeof payload.name === 'string' && payload.name.trim().length > 0
       ? payload.name.trim()
       : fallbackName;
-  return { id: generateId('ds'), name, items, includeInSave: true };
+  const frames = payload.frames !== undefined ? parseFrames(payload.frames) : undefined;
+  const dataset: Dataset = { id: generateId('ds'), name, items, includeInSave: true, frames };
+  const frameMismatch = findFrameMismatch(dataset);
+  if (frameMismatch) {
+    throw new Error(frameMismatch);
+  }
+  return dataset;
 };
+
+/**
+ * Playback state for the active animated dataset. A single global cursor: the
+ * frame index applies to whichever animated dataset the node/edge displays
+ * reference (per-item resolution clamps to each item's own frame count).
+ */
+export interface PlaybackState {
+  /** Current frame index (0-based). */
+  frameIndex: number;
+  isPlaying: boolean;
+  /** Speed multiplier over {@link PLAYBACK_BASE_FPS}. */
+  speed: number;
+  /** Whether playback wraps at the last frame. */
+  loop: boolean;
+}
+
+const makeDefaultPlayback = (): PlaybackState => ({
+  frameIndex: 0,
+  isPlaying: false,
+  speed: 1,
+  loop: true,
+});
 
 interface DataStore {
   datasets: Dataset[];
@@ -127,6 +226,7 @@ interface DataStore {
   loadCount: number;
   nodeDisplay: DataDisplayConfig;
   edgeDisplay: DataDisplayConfig;
+  playback: PlaybackState;
 
   /**
    * Datasets embedded in a just-loaded case file, awaiting the user's choice of
@@ -170,6 +270,19 @@ interface DataStore {
   toggleShowValues: (target: DataTarget) => void;
   setPrecision: (target: DataTarget, precision: number) => void;
   setNotation: (target: DataTarget, notation: ValueNotation) => void;
+
+  /** Jumps to a frame of the active animated dataset (clamped). */
+  setFrame: (frameIndex: number) => void;
+  /** Steps the frame cursor by `delta`, wrapping around the frame count. */
+  stepFrame: (delta: number) => void;
+  /** Advances one frame during playback; pauses at the end unless looping. */
+  advanceFrame: () => void;
+  startPlayback: () => void;
+  pausePlayback: () => void;
+  /** Stops playback and rewinds to the first frame. */
+  stopPlayback: () => void;
+  setPlaybackSpeed: (speed: number) => void;
+  togglePlaybackLoop: () => void;
 }
 
 /** Expected element counts used to validate a dataset on load (task: reject mismatched data). */
@@ -194,6 +307,31 @@ const findItem = (
   return undefined;
 };
 
+/**
+ * Resolves the animated dataset the displays currently reference, if any: the
+ * dataset of the displayed node item when that dataset is animated, else the
+ * dataset of the displayed edge item. Drives the canvas player and the frame
+ * resolution of the element views.
+ */
+const findActiveAnimation = (
+  datasets: Dataset[],
+  nodeDisplay: DataDisplayConfig,
+  edgeDisplay: DataDisplayConfig
+): Dataset | undefined => {
+  for (const display of [nodeDisplay, edgeDisplay]) {
+    const dataset = findItem(datasets, display.itemId)?.dataset;
+    if (dataset && isAnimatedDataset(dataset)) return dataset;
+  }
+  return undefined;
+};
+
+/** Clamps `frameIndex` to a dataset's frame count. */
+const clampFrame = (dataset: Dataset | undefined, frameIndex: number): number => {
+  const count = dataset?.frames?.values.length ?? 0;
+  if (count === 0) return 0;
+  return Math.max(0, Math.min(count - 1, Math.round(frameIndex)));
+};
+
 /** Clears any display selection whose item is no longer present. */
 const clearStaleDisplays = (state: DataStore, datasets: Dataset[]): Partial<DataStore> => {
   const patch: Partial<DataStore> = { datasets };
@@ -203,6 +341,12 @@ const clearStaleDisplays = (state: DataStore, datasets: Dataset[]): Partial<Data
   if (state.edgeDisplay.itemId && !findItem(datasets, state.edgeDisplay.itemId)) {
     patch.edgeDisplay = { ...state.edgeDisplay, itemId: null };
   }
+  // Rewind and stop playback when no animated dataset is referenced anymore.
+  const node = patch.nodeDisplay ?? state.nodeDisplay;
+  const edge = patch.edgeDisplay ?? state.edgeDisplay;
+  if (!findActiveAnimation(datasets, node, edge)) {
+    patch.playback = { ...state.playback, frameIndex: 0, isPlaying: false };
+  }
   return patch;
 };
 
@@ -211,6 +355,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   loadCount: 0,
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
+  playback: makeDefaultPlayback(),
   pendingDatasets: null,
   scaleRequest: null,
 
@@ -263,9 +408,11 @@ export const useDataStore = create<DataStore>((set, get) => ({
       id: generateId('ds'),
       name: dataset.name,
       includeInSave: dataset.includeInSave ?? true,
-      // Carry self-describing metadata through so it survives a UI re-save.
+      // Carry self-describing metadata and the frame axis through so they
+      // survive a UI re-save.
       description: dataset.description,
       info: dataset.info,
+      frames: dataset.frames,
       items: (dataset.items ?? []).map((item) => ({
         id: generateId('item'),
         name: item.name,
@@ -339,13 +486,20 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const current = s[key];
       const found = findItem(s.datasets, itemId);
       const range = current.auto && found ? computeRange(found.item.values) : null;
-      return {
-        [key]: {
-          ...current,
-          itemId,
-          ...(range ?? {}),
-        },
-      } as Partial<DataStore>;
+      const display = { ...current, itemId, ...(range ?? {}) };
+      const patch = { [key]: display } as Partial<DataStore>;
+      // Rewind the frame cursor when the selection moves to a different
+      // animated dataset (or away from animation entirely).
+      const node = target === 'node' ? display : s.nodeDisplay;
+      const edge = target === 'edge' ? display : s.edgeDisplay;
+      const prevAnim = findActiveAnimation(s.datasets, s.nodeDisplay, s.edgeDisplay);
+      const nextAnim = findActiveAnimation(s.datasets, node, edge);
+      if (!nextAnim) {
+        patch.playback = { ...s.playback, frameIndex: 0, isPlaying: false };
+      } else if (nextAnim.id !== prevAnim?.id) {
+        patch.playback = { ...s.playback, frameIndex: 0 };
+      }
+      return patch;
     });
   },
 
@@ -405,6 +559,70 @@ export const useDataStore = create<DataStore>((set, get) => ({
       return { [key]: { ...s[key], notation } } as Partial<DataStore>;
     });
   },
+
+  setFrame: (frameIndex) => {
+    set((s) => {
+      const anim = findActiveAnimation(s.datasets, s.nodeDisplay, s.edgeDisplay);
+      if (!anim) return {};
+      return { playback: { ...s.playback, frameIndex: clampFrame(anim, frameIndex) } };
+    });
+  },
+
+  stepFrame: (delta) => {
+    set((s) => {
+      const anim = findActiveAnimation(s.datasets, s.nodeDisplay, s.edgeDisplay);
+      const count = anim?.frames?.values.length ?? 0;
+      if (count === 0) return {};
+      const next = (((s.playback.frameIndex + delta) % count) + count) % count;
+      return { playback: { ...s.playback, frameIndex: next } };
+    });
+  },
+
+  advanceFrame: () => {
+    set((s) => {
+      if (!s.playback.isPlaying) return {};
+      const anim = findActiveAnimation(s.datasets, s.nodeDisplay, s.edgeDisplay);
+      const count = anim?.frames?.values.length ?? 0;
+      if (count === 0) return { playback: { ...s.playback, isPlaying: false } };
+      const next = s.playback.frameIndex + 1;
+      if (next >= count) {
+        return s.playback.loop
+          ? { playback: { ...s.playback, frameIndex: 0 } }
+          : { playback: { ...s.playback, frameIndex: count - 1, isPlaying: false } };
+      }
+      return { playback: { ...s.playback, frameIndex: next } };
+    });
+  },
+
+  startPlayback: () => {
+    set((s) => {
+      const anim = findActiveAnimation(s.datasets, s.nodeDisplay, s.edgeDisplay);
+      const count = anim?.frames?.values.length ?? 0;
+      if (count === 0) return {};
+      // Restart from the top when play is hit on the final frame of a
+      // non-looping run; otherwise resume in place.
+      const frameIndex =
+        s.playback.frameIndex >= count - 1 && !s.playback.loop ? 0 : s.playback.frameIndex;
+      return { playback: { ...s.playback, isPlaying: true, frameIndex } };
+    });
+  },
+
+  pausePlayback: () => {
+    set((s) => ({ playback: { ...s.playback, isPlaying: false } }));
+  },
+
+  stopPlayback: () => {
+    set((s) => ({ playback: { ...s.playback, isPlaying: false, frameIndex: 0 } }));
+  },
+
+  setPlaybackSpeed: (speed) => {
+    if (!Number.isFinite(speed) || speed <= 0) return;
+    set((s) => ({ playback: { ...s.playback, speed } }));
+  },
+
+  togglePlaybackLoop: () => {
+    set((s) => ({ playback: { ...s.playback, loop: !s.playback.loop } }));
+  },
 }));
 
 /** Total number of items across all loaded datasets. */
@@ -436,6 +654,21 @@ export const findItemById = (
   state: DataStore,
   itemId: string | null | undefined
 ): { dataset: Dataset; item: DataItem } | undefined => findItem(state.datasets, itemId);
+
+/**
+ * Resolves the animated dataset the displays currently reference, if any (the
+ * one the canvas player controls). Returns the stored object directly so the
+ * reference stays stable for unchanged selections.
+ */
+export const selectActiveAnimation = (state: DataStore): Dataset | undefined =>
+  findActiveAnimation(state.datasets, state.nodeDisplay, state.edgeDisplay);
+
+/**
+ * The series an item exposes at the store's current frame: the matching row of
+ * a per-frame item, or the flat series of a static one.
+ */
+export const currentFrameValues = (state: DataStore, item: DataItem): number[] =>
+  valuesAtFrame(item.values, state.playback.frameIndex);
 
 /** Formats a numeric value for an on-canvas label, with optional unit. */
 export const formatDataValue = (
@@ -471,16 +704,22 @@ export const useElementDataView = (
   const display = useDataStore((s) => (target === 'node' ? s.nodeDisplay : s.edgeDisplay));
   const datasets = useDataStore((s) => s.datasets);
   const item = useMemo(() => findItem(datasets, display.itemId)?.item, [datasets, display.itemId]);
+  // Subscribe to the frame cursor only when this target's item is per-frame, so
+  // elements bound to static items don't re-render on every playback tick.
+  const frameIndex = useDataStore((s) =>
+    item && isFrameValues(item.values) ? s.playback.frameIndex : 0
+  );
 
   return useMemo(() => {
-    if (!item || typeof index !== 'number' || index < 0 || index >= item.values.length) {
+    const values = item ? valuesAtFrame(item.values, frameIndex) : undefined;
+    if (!item || !values || typeof index !== 'number' || index < 0 || index >= values.length) {
       return { color: null, value: undefined, unit: item?.unit };
     }
-    const value = item.values[index];
+    const value = values[index];
     return {
       color: colorForValue(display.colormap, value, display.min, display.max),
       value,
       unit: item.unit,
     };
-  }, [item, index, display.colormap, display.min, display.max]);
+  }, [item, index, frameIndex, display.colormap, display.min, display.max]);
 };

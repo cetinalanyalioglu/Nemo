@@ -8,6 +8,7 @@ import { isParameterVisible } from '../utils/parameter-conditions';
 import { sortCategories } from '../utils/category-order';
 import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
+import { valuesAtFrame } from '../types/data';
 import type { DataTarget } from '../types/data';
 import '../styles/properties-panel.css';
 import {
@@ -55,6 +56,7 @@ const ElementDataSection = ({
   index: number | undefined;
 }) => {
   const datasets = useDataStore((s) => s.datasets);
+  const frameIndex = useDataStore((s) => s.playback.frameIndex);
   const {
     propertiesPanel: { collapsedGroups },
     actions,
@@ -89,9 +91,11 @@ const ElementDataSection = ({
           </p>
         )}
         {rows.map(({ dataset, item }) => {
+          // A per-frame item is read at the playback cursor's current frame.
+          const series = valuesAtFrame(item.values, frameIndex);
           const value =
-            typeof index === 'number' && index >= 0 && index < item.values.length
-              ? item.values[index]
+            typeof index === 'number' && index >= 0 && index < series.length
+              ? series[index]
               : undefined;
           return (
             <div key={item.id} className="element-data-row">

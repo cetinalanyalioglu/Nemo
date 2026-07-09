@@ -1,0 +1,91 @@
+/* Canvas playback overlay for animated datasets (bottom-center Panel). */
+.canvas-player {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Frame variable readout (left) and frame index / count (right). */
+.canvas-player-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.canvas-player-variable {
+  color: var(--color-text-body);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-player-frame {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-player-scrubber {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.canvas-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.canvas-player-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-surface);
+  color: var(--color-text-control);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canvas-player-button:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.canvas-player-button.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.canvas-player-button svg {
+  font-size: 13px;
+}
+
+.canvas-player-speed {
+  height: 26px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-surface);
+  color: var(--color-text-control);
+  font-size: 11px;
+  cursor: pointer;
+}

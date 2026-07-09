@@ -5,7 +5,7 @@ import { IoGitNetwork } from 'react-icons/io5';
 import { useAppState, useGridState, useLayoutState } from '../context/AppStateContext';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
-import { useDataStore, selectActiveItem } from '../store/dataStore';
+import { useDataStore, selectActiveItem, currentFrameValues } from '../store/dataStore';
 import { getElkLayoutedElements, getLayoutedElements } from '../utils/layoutUtils';
 import type { LayoutPort } from '../utils/layoutUtils';
 import { logger } from '../utils/logger';
@@ -302,10 +302,12 @@ export const ScaleToVisibleBridge = memo(() => {
     const nodeInternals = store.getState().nodeInternals;
     const graph = useGraphStore.getState();
 
-    // Resolve the value mapped to an element via its generated index.
+    // Resolve the value mapped to an element via its generated index; a
+    // per-frame item is read at the playback cursor's current frame.
+    const itemValues = currentFrameValues(useDataStore.getState(), item);
     const valueAtIndex = (index: unknown): number | null => {
-      if (typeof index !== 'number' || index < 0 || index >= item.values.length) return null;
-      const value = item.values[index];
+      if (typeof index !== 'number' || index < 0 || index >= itemValues.length) return null;
+      const value = itemValues[index];
       return Number.isFinite(value) ? value : null;
     };
 

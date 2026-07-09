@@ -7,6 +7,12 @@
  * each node/edge: `values[i]` belongs to the element whose generated index is
  * `i`. Multiple datasets can be loaded at once and any item from any dataset can
  * be assigned to the node or edge display independently.
+ *
+ * A dataset may additionally carry a **frame axis** ({@link DatasetFrames}): a
+ * named frame variable with one value per frame. Its items then hold one value
+ * row per frame (`values[k][i]` -> element `i` at frame `k`) and the canvas
+ * offers playback over the frames. The frame variable is self-describing (name
+ * and unit come from the data), so the model never leaks into the code.
  */
 
 /** Whether an item colors nodes or edges. */
@@ -22,6 +28,32 @@ export type ColormapId =
   | 'coolwarm'
   | 'grayscale';
 
+/**
+ * An item's values: a flat series ordered by element index (`values[i]` ->
+ * element with index `i`), or — inside an animated dataset — one such row per
+ * frame (`values[k][i]` -> element `i` at frame `k`).
+ */
+export type DataValues = number[] | number[][];
+
+/** Whether an item's values hold per-frame rows rather than a flat series. */
+export const isFrameValues = (values: DataValues): values is number[][] =>
+  values.length > 0 && Array.isArray(values[0]);
+
+/**
+ * The series an item exposes at a given frame: the matching row of a per-frame
+ * item (clamped to the last row), or the flat series of a static item, which is
+ * frame-independent.
+ */
+export const valuesAtFrame = (values: DataValues, frameIndex: number): number[] => {
+  if (!isFrameValues(values)) return values;
+  const clamped = Math.max(0, Math.min(values.length - 1, frameIndex));
+  return values[clamped];
+};
+
+/** Every value of an item, frames flattened (for range computation). */
+export const allValues = (values: DataValues): number[] =>
+  isFrameValues(values) ? values.flat() : values;
+
 /** A single loaded data item (one node or edge variable). */
 export interface DataItem {
   /** Stable id assigned on load (not present in the source file). */
@@ -32,8 +64,8 @@ export interface DataItem {
   target: DataTarget;
   /** Optional unit string shown in the pane and legend. */
   unit?: string;
-  /** Values ordered by element index; `values[i]` -> element with index `i`. */
-  values: number[];
+  /** Values ordered by element index; per-frame rows in an animated dataset. */
+  values: DataValues;
 }
 
 /**
@@ -55,6 +87,21 @@ export interface DatasetMetaEntry {
   description?: string;
 }
 
+/**
+ * The frame axis of an animated dataset: a named frame variable (phase, a swept
+ * frequency, a parameter, ...) with one value per frame. Like dataset metadata,
+ * the variable is self-describing — the UI displays whatever name/unit the data
+ * declares and never interprets it.
+ */
+export interface DatasetFrames {
+  /** Display name of the frame variable (e.g. "Phase", "Frequency"). */
+  variable: string;
+  /** Optional unit shown next to the frame value in the player. */
+  unit?: string;
+  /** The frame variable's value at each frame, in playback order. */
+  values: number[];
+}
+
 /** A loaded dataset: the named group of items present in one file. */
 export interface Dataset {
   /** Stable id assigned on load. */
@@ -69,7 +116,13 @@ export interface Dataset {
   description?: string;
   /** Optional self-describing metadata entries, rendered read-only. */
   info?: DatasetMetaEntry[];
+  /** Present on an animated dataset: the frame axis its per-frame items follow. */
+  frames?: DatasetFrames;
 }
+
+/** Whether a dataset is animated (carries a frame axis). */
+export const isAnimatedDataset = (dataset: Dataset): boolean =>
+  Boolean(dataset.frames && dataset.frames.values.length > 0);
 
 /**
  * The shape of a single item as authored in a JSON data file. Mirrors
@@ -79,7 +132,7 @@ export interface DataItemFileEntry {
   name: string;
   target: DataTarget;
   unit?: string;
-  values: number[];
+  values: DataValues;
 }
 
 /**
@@ -94,6 +147,8 @@ export interface DataFilePayload {
   items?: DataItemFileEntry[];
   /** Legacy alias for `items`. */
   datasets?: DataItemFileEntry[];
+  /** Present when the file holds an animated dataset. */
+  frames?: DatasetFrames;
 }
 
 /** Numeric notation used when printing value labels on the canvas. */
