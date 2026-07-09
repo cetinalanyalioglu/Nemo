@@ -1,6 +1,6 @@
 export type ThemeId = 'light' | 'dark';
 
-export const THEME_STORAGE_KEY = 'fnetlib-theme';
+export const THEME_STORAGE_KEY = 'nemo-theme';
 
 export const THEME_OPTIONS: { value: ThemeId; label: string }[] = [
   { value: 'light', label: 'Light' },

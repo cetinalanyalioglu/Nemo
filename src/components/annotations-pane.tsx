@@ -25,7 +25,7 @@ const ADD_GROUP = '__annotations_add__';
 const ITEMS_GROUP = '__annotations_items__';
 
 /** MIME type carried by a palette drag that drops a new annotation. */
-export const ANNOTATION_DRAG_MIME = 'application/fnetlibui-annotation';
+export const ANNOTATION_DRAG_MIME = 'application/nemo-annotation';
 
 /** First non-empty line of the note, Markdown markers stripped, for the list. */
 const previewText = (text: string): string => {

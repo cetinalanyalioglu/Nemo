@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Build/launch/drive recipe for verifying FNetLibUI canvas changes end-to-end in a real browser.
+description: Build/launch/drive recipe for verifying Nemo canvas changes end-to-end in a real browser.
 ---
 
-# Verifying FNetLibUI changes
+# Verifying Nemo changes
 
 Vite + React + React Flow v11 app. No test harness for the canvas — verify by
 driving the real app.
@@ -21,8 +21,8 @@ Then drive `http://localhost:5199/` with Playwright (browser MCP tools work).
 - **Drop an element**: dispatch `dragover` + `drop` DragEvents on `.react-flow`
   with a `DataTransfer` carrying `application/reactflow` = element type
   (`Duct`, `MassFlowInlet`, `JunctionStaticP`, …; types live in
-  `public/models/fns-flow-network.yaml`). Annotations use the
-  `application/fnetlibui-annotation` MIME.
+  `public/models/nefes.yaml`). Annotations use the
+  `application/nemo-annotation` MIME.
 - **Connect ports**: real mouse drag from one `[data-handleid="{nodeId}-port-{n}"]`
   center to another (mouse.down → move with steps → up).
 - **Rotate an element**: Playwright's Alt+mouse-drag does NOT arm the rotate

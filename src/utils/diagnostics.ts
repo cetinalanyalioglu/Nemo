@@ -178,7 +178,7 @@ export const downloadDiagnostics = (report: DiagnosticsReport = collectDiagnosti
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `fnetlib-diagnostics-${report.capturedAt.replace(/[:.]/g, '-')}.json`;
+  anchor.download = `nemo-diagnostics-${report.capturedAt.replace(/[:.]/g, '-')}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 };
@@ -189,7 +189,7 @@ export const copyDiagnostics = async (
   await navigator.clipboard.writeText(serializeDiagnostics(report));
 };
 
-export interface FNetLibDiagnosticsApi {
+export interface NemoDiagnosticsApi {
   collectDiagnostics: typeof collectDiagnostics;
   downloadDiagnostics: typeof downloadDiagnostics;
   copyDiagnostics: typeof copyDiagnostics;
@@ -198,12 +198,12 @@ export interface FNetLibDiagnosticsApi {
 
 declare global {
   interface Window {
-    __FNETLIB__?: FNetLibDiagnosticsApi;
+    __NEMO__?: NemoDiagnosticsApi;
   }
 }
 
 export const installDiagnosticsBridge = (): void => {
-  if (window.__FNETLIB__) return;
+  if (window.__NEMO__) return;
 
   window.addEventListener('error', (event) => {
     pushCapturedError({
@@ -236,7 +236,7 @@ export const installDiagnosticsBridge = (): void => {
 
   const printDiagnostics = (): DiagnosticsReport => {
     const report = collectDiagnostics();
-    console.group('[FNetLib] Diagnostics');
+    console.group('[Nemo] Diagnostics');
     console.log('Summary', {
       model: report.graph.modelId,
       nodes: report.graph.nodeCount,
@@ -253,7 +253,7 @@ export const installDiagnosticsBridge = (): void => {
     return report;
   };
 
-  window.__FNETLIB__ = {
+  window.__NEMO__ = {
     collectDiagnostics,
     downloadDiagnostics,
     copyDiagnostics,
@@ -261,6 +261,6 @@ export const installDiagnosticsBridge = (): void => {
   };
 
   console.info(
-    '[FNetLib] Diagnostics ready. Run __FNETLIB__.printDiagnostics(), __FNETLIB__.downloadDiagnostics(), or __FNETLIB__.copyDiagnostics().'
+    '[Nemo] Diagnostics ready. Run __NEMO__.printDiagnostics(), __NEMO__.downloadDiagnostics(), or __NEMO__.copyDiagnostics().'
   );
 };

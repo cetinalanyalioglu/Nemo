@@ -2,7 +2,7 @@ version: 2.1.0
 meta:
   title: Element Gallery
 model:
-  id: fns-flow-network
+  id: nefes
   globalAttributes: {}
   nodes:
   - id: MassFlowInlet1-gal

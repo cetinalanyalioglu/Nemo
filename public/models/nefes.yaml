@@ -7,8 +7,7 @@
 #     from nefes.io import load_case
 #     solution = load_case("<saved-case>.yaml").solve()
 #
-# The model id keeps its historical value ("fns-flow-network") so existing save
-# files remain loadable; the solver's loader (nefes.io.yaml_in.MODEL_ID) matches it.
+# The model id must match the solver's loader (nefes.io.yaml_in.MODEL_ID).
 #
 # Conventions matching the solver:
 #   - All solution variables live on EDGES; each edge needs its flow area.
@@ -49,7 +48,7 @@
 # model; they are hidden (via a model-scoped visibleIf on "Thermo model") and
 # ignored when the perfect-gas model is selected.
 
-id: fns-flow-network
+id: nefes
 name: Nefes Flow Network
 description: Compressible flow-network element library for the Nefes solver (mean flow + acoustics).
 forceUniqueNodeLabels: true
