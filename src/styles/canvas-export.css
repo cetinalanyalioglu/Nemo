@@ -1,26 +1,57 @@
-/* Canvas export control: the capture button lives in the bottom-left Controls
-   cluster; its format popover opens to the right so it clears the toolbar. */
+/* Canvas export control: a standalone capture button pinned to the top-right of
+   the canvas; its format popover opens downward, aligned to the button's right. */
 
 .canvas-export {
-  position: relative;
+  z-index: 101;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.canvas-export-button {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-input);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.react-flow__controls-button.react-flow__controls-export.active {
+.canvas-export-button:hover:not(:disabled) {
+  background-color: var(--color-surface-control-hover);
+}
+
+.canvas-export-button.active {
   background-color: var(--color-accent);
-  color: var(--color-text-on-accent);
   border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
-.react-flow__controls-button.react-flow__controls-export.active svg,
-.react-flow__controls-button.react-flow__controls-export.active svg path {
-  fill: currentColor;
+.canvas-export-button:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.canvas-export-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .canvas-export-menu {
   position: absolute;
-  left: calc(100% + 8px);
-  bottom: 0;
+  top: calc(100% + 6px);
+  right: 0;
   z-index: 102;
   display: flex;
   flex-direction: column;

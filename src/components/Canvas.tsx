@@ -327,7 +327,6 @@ const Canvas = () => {
           <SnapToGridControl />
           <AutoLayoutControl />
           <FlowInteractiveToggle />
-          <CanvasExportControl />
         </Controls>
         {showMinimap && <MiniMap />}
         <CanvasTitle />
@@ -340,6 +339,7 @@ const Canvas = () => {
         <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />
+      <CanvasExportControl />
     </div>
   );
 };
