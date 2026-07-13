@@ -260,18 +260,24 @@
   position: absolute;
   top: 0;
   left: 50%;
-  transform: translate(-50%, calc(-100% - 2px));
+  /* Sit snugly above the element (small gap); matches the edge-index badge font. */
+  transform: translate(-50%, calc(-100% + 4px));
   white-space: nowrap;
   line-height: 1;
+  font-family: Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  z-index: 10;
 }
 
 .port-index {
   outline: calc(var(--debug) * 1px) solid orange;
-  /* Bare digits in a compact monospace face, no pill background; box/rail port
-     numbers sit outside the frame (along the port normal) so they never overlay
-     the element artwork. */
-  font-family: ui-monospace, 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
-  font-size: 8px;
+  /* Bare digits, no pill background. Same face as the edge-index badge, ~30%
+     smaller. Framed-port numbers are placed inside (source) / outside (target)
+     the element along the port normal — see the .port-dir rules below. */
+  font-family: Arial, sans-serif;
+  font-size: 6.5px;
   font-weight: 400;
   color: var(--color-text-muted);
   background: transparent;
@@ -669,66 +675,48 @@
   opacity: 1;
 }
 
-/* On framed ports (circular / box / rail) the pill floats beside the triangle,
-   clear of the edge path: above a left/right port, right of a top/bottom port. */
+/* On framed ports (circular / box / rail) the number sits along the port normal:
+   OUTGOING (source) ports show it just INSIDE the element, INCOMING (target) ports
+   just OUTSIDE — always clear of the edge path. The wrapper is centred on the port
+   point, so we shift the number from centre by the inside/outside offsets. */
 .framed-port .port-index {
   position: absolute;
-  padding: 0 2px;
-  border-radius: 2px;
-  line-height: 1.2;
+  left: 50%;
+  top: 50%;
+  line-height: 1;
   pointer-events: none;
 }
 
-.framed-port.port-side-left .port-index,
-.framed-port.port-side-right .port-index {
-  left: 50%;
-  bottom: calc(100% - 2px);
-  transform: translateX(-50%);
+/* Left edge: interior is to the right. */
+.framed-port.port-side-left.port-dir-source .port-index {
+  transform: translate(calc(-50% + 8px), -50%);
+}
+.framed-port.port-side-left.port-dir-target .port-index {
+  transform: translate(calc(-50% - 9px), -50%);
 }
 
-.framed-port.port-side-top .port-index,
-.framed-port.port-side-bottom .port-index {
-  left: calc(100% - 2px);
-  top: 50%;
-  transform: translateY(-50%);
+/* Right edge: interior is to the left. */
+.framed-port.port-side-right.port-dir-source .port-index {
+  transform: translate(calc(-50% - 8px), -50%);
+}
+.framed-port.port-side-right.port-dir-target .port-index {
+  transform: translate(calc(-50% + 9px), -50%);
 }
 
-/* Box and rail ports sit on straight edges, so "above the triangle" would land
-   on the element artwork. Push their numbers outward along the port normal
-   instead, clear of the frame (circular ports keep the tangential placement —
-   above a disc port is already outside the disc). */
-.box-port.port-side-left .port-index,
-.rail-port.port-side-left .port-index {
-  left: auto;
-  right: calc(50% + 9px);
-  top: 50%;
-  bottom: auto;
-  transform: translateY(-50%);
+/* Top edge: interior is below. */
+.framed-port.port-side-top.port-dir-source .port-index {
+  transform: translate(-50%, calc(-50% + 8px));
+}
+.framed-port.port-side-top.port-dir-target .port-index {
+  transform: translate(-50%, calc(-50% - 9px));
 }
 
-.box-port.port-side-right .port-index,
-.rail-port.port-side-right .port-index {
-  left: calc(50% + 9px);
-  right: auto;
-  top: 50%;
-  bottom: auto;
-  transform: translateY(-50%);
+/* Bottom edge: interior is above. */
+.framed-port.port-side-bottom.port-dir-source .port-index {
+  transform: translate(-50%, calc(-50% - 8px));
 }
-
-.box-port.port-side-top .port-index {
-  left: 50%;
-  right: auto;
-  top: auto;
-  bottom: calc(50% + 8px);
-  transform: translateX(-50%);
-}
-
-.box-port.port-side-bottom .port-index {
-  left: 50%;
-  right: auto;
-  top: calc(50% + 8px);
-  bottom: auto;
-  transform: translateX(-50%);
+.framed-port.port-side-bottom.port-dir-target .port-index {
+  transform: translate(-50%, calc(-50% + 9px));
 }
 
 /* Upright caption beneath the disc (name + optional data value). */
