@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ControlButton } from 'reactflow';
-import { IoDownloadOutline } from 'react-icons/io5';
+import { IoCameraOutline } from 'react-icons/io5';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { exportCanvas } from '../utils/canvas-export';
 import type { ExportFormat } from '../utils/canvas-export';
@@ -73,7 +73,7 @@ const CanvasExportControl = memo(() => {
         disabled={!reactFlowInstance || !!busy}
         onClick={() => setOpen((o) => !o)}
       >
-        <IoDownloadOutline />
+        <IoCameraOutline />
       </ControlButton>
       {open && (
         <div className="canvas-export-menu" role="menu">
