@@ -728,9 +728,11 @@
 /* Upright caption beneath the disc (name + optional data value). */
 .circular-node-caption {
   position: absolute;
-  top: 100%;
+  /* Anchor to the disc bottom (~91% of the box; the disc is inset in the viewBox)
+     rather than the container bottom, so the gap stays tight at any disc size. */
+  top: 91%;
   left: 50%;
-  transform: translate(-50%, 4px);
+  transform: translate(-50%, 2px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -858,7 +860,7 @@
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translate(-50%, 4px);
+  transform: translate(-50%, 1px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -977,7 +979,7 @@
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translate(-50%, 4px);
+  transform: translate(-50%, 1px);
   display: flex;
   flex-direction: column;
   align-items: center;
