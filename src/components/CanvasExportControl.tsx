@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { ControlButton } from 'reactflow';
 import { IoCameraOutline } from 'react-icons/io5';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { exportCanvas } from '../utils/canvas-export';
@@ -14,10 +13,13 @@ const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
 ];
 
 /**
- * Canvas control that exports the current flow network as vector graphics.
- * A small popover offers SVG / PNG / PDF; the export captures only the graph
- * content (nodes, edges, visible annotations, active legend) with a transparent
- * background — never the surrounding UI chrome.
+ * Top-right canvas control that exports the current flow network as vector
+ * graphics. A small popover offers SVG / PNG / PDF; the export captures only the
+ * graph content (nodes, edges, visible annotations, active legend) with a
+ * transparent background — never the surrounding UI chrome.
+ *
+ * Rendered as a standalone absolutely-positioned control (mirroring
+ * `CanvasHistoryControls`), not inside React Flow's `<Controls>` cluster.
  */
 const CanvasExportControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
@@ -63,9 +65,9 @@ const CanvasExportControl = memo(() => {
 
   return (
     <div className="canvas-export" ref={wrapRef}>
-      <ControlButton
+      <button
         type="button"
-        className={`react-flow__controls-export ${open ? 'active' : ''}`}
+        className={`canvas-export-button ${open ? 'active' : ''}`}
         title="Export canvas (SVG, PNG, PDF)"
         aria-label="Export canvas"
         aria-haspopup="menu"
@@ -74,7 +76,7 @@ const CanvasExportControl = memo(() => {
         onClick={() => setOpen((o) => !o)}
       >
         <IoCameraOutline />
-      </ControlButton>
+      </button>
       {open && (
         <div className="canvas-export-menu" role="menu">
           <span className="canvas-export-menu-title">Export as</span>
