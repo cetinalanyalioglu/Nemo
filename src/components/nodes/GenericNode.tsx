@@ -893,7 +893,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     return (
       <div
         key={port.suffix}
-        className={`box-port framed-port nodrag port-side-${port.side}${
+        className={`box-port framed-port nodrag port-side-${port.side} port-dir-${port.direction}${
           isActive ? ' port-wrapper--active' : ''
         }`}
         style={{ left: `${(a.x / boxL.vw) * 100}%`, top: `${(a.y / boxL.vh) * 100}%` }}
@@ -926,7 +926,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     return (
       <div
         key={port.suffix}
-        className={`rail-port framed-port nodrag port-side-${port.side}`}
+        className={`rail-port framed-port nodrag port-side-${port.side} port-dir-${port.direction}`}
         style={{ left: `${(a.x / railL.vw) * 100}%`, top: `${(a.y / railL.vh) * 100}%` }}
       >
         <Handle
@@ -1109,7 +1109,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           />
         )}
         {elementIndexLabel !== undefined && (
-          <span className="element-index-label port-index">{elementIndexLabel}</span>
+          <span className="element-index-label">{elementIndexLabel}</span>
         )}
 
         <CircularNodeFrame
@@ -1180,7 +1180,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           />
         )}
         {elementIndexLabel !== undefined && (
-          <span className="element-index-label port-index">{elementIndexLabel}</span>
+          <span className="element-index-label">{elementIndexLabel}</span>
         )}
 
         <RailNodeFrame
@@ -1238,7 +1238,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
           />
         )}
         {elementIndexLabel !== undefined && (
-          <span className="element-index-label port-index">{elementIndexLabel}</span>
+          <span className="element-index-label">{elementIndexLabel}</span>
         )}
 
         <RectNodeFrame
@@ -1307,7 +1307,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
         />
       )}
       {elementIndexLabel !== undefined && (
-        <span className="element-index-label port-index">{elementIndexLabel}</span>
+        <span className="element-index-label">{elementIndexLabel}</span>
       )}
       {showValues && dataView.value !== undefined && (
         <span className="custom-node-data-value">
