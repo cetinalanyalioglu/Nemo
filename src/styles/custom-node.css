@@ -685,38 +685,44 @@
   top: 50%;
   line-height: 1;
   pointer-events: none;
+  /* Small offsets from the port anchor (= the triangle's base, which sits on the
+     border for both source and target). Kept just past the number's half-extent
+     so it hugs the arrow's wide face. Horizontal digits need less than stacked
+     vertical ones. */
+  --port-num-h: 4px;
+  --port-num-v: 4.5px;
 }
 
 /* Left edge: interior is to the right. */
 .framed-port.port-side-left.port-dir-source .port-index {
-  transform: translate(calc(-50% + 8px), -50%);
+  transform: translate(calc(-50% + var(--port-num-h)), -50%);
 }
 .framed-port.port-side-left.port-dir-target .port-index {
-  transform: translate(calc(-50% - 9px), -50%);
+  transform: translate(calc(-50% - var(--port-num-h)), -50%);
 }
 
 /* Right edge: interior is to the left. */
 .framed-port.port-side-right.port-dir-source .port-index {
-  transform: translate(calc(-50% - 8px), -50%);
+  transform: translate(calc(-50% - var(--port-num-h)), -50%);
 }
 .framed-port.port-side-right.port-dir-target .port-index {
-  transform: translate(calc(-50% + 9px), -50%);
+  transform: translate(calc(-50% + var(--port-num-h)), -50%);
 }
 
 /* Top edge: interior is below. */
 .framed-port.port-side-top.port-dir-source .port-index {
-  transform: translate(-50%, calc(-50% + 8px));
+  transform: translate(-50%, calc(-50% + var(--port-num-v)));
 }
 .framed-port.port-side-top.port-dir-target .port-index {
-  transform: translate(-50%, calc(-50% - 9px));
+  transform: translate(-50%, calc(-50% - var(--port-num-v)));
 }
 
 /* Bottom edge: interior is above. */
 .framed-port.port-side-bottom.port-dir-source .port-index {
-  transform: translate(-50%, calc(-50% - 8px));
+  transform: translate(-50%, calc(-50% - var(--port-num-v)));
 }
 .framed-port.port-side-bottom.port-dir-target .port-index {
-  transform: translate(-50%, calc(-50% + 9px));
+  transform: translate(-50%, calc(-50% + var(--port-num-v)));
 }
 
 /* Upright caption beneath the disc (name + optional data value). */
