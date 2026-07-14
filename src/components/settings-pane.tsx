@@ -43,7 +43,7 @@ const LAYOUT_DIRECTION_OPTIONS: { value: LayoutDirection; label: string }[] = [
   { value: 'UP', label: 'Bottom to top' },
 ];
 
-const LAYOUT_SEP_MIN = 20;
+const LAYOUT_SEP_MIN = 10;
 const LAYOUT_SEP_MAX = 400;
 const LAYOUT_SEP_STEP = 10;
 

@@ -548,8 +548,20 @@ export function buildCanvasSvg(instance: ReactFlowInstance): BuiltCanvasSvg | nu
     return null;
   }
 
-  // Legend, placed to the right of the graph. Recompute bounds to include it.
-  const legend = buildLegend(bbox.x + bbox.width + LEGEND_GAP, bbox.y);
+  // Legend: reproduce it where it visually sits over the canvas so the export is
+  // WYSIWYG and honors any user drag. Project the live overlay's top-left corner
+  // into flow coordinates; if it isn't in the DOM, fall back to a spot just right
+  // of the graph. Recompute bounds to include it.
+  const legendEl = flowEl.querySelector<HTMLElement>('.data-legend');
+  let legendX = bbox.x + bbox.width + LEGEND_GAP;
+  let legendY = bbox.y;
+  if (legendEl) {
+    const rect = legendEl.getBoundingClientRect();
+    const flowPos = instance.screenToFlowPosition({ x: rect.left, y: rect.top });
+    legendX = flowPos.x;
+    legendY = flowPos.y;
+  }
+  const legend = buildLegend(legendX, legendY);
   if (legend) content.appendChild(legend.group);
   const full = graphics.getBBox();
 

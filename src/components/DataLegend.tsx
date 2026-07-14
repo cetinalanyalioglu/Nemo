@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { Panel } from 'reactflow';
 import '../styles/data-legend.css';
 import { useDataStore, selectActiveItem, selectActiveDataset } from '../store/dataStore';
@@ -56,6 +56,42 @@ const DataLegend = memo(() => {
   const edgeItem = useDataStore((s) => selectActiveItem(s, 'edge'));
   const edgeDataset = useDataStore((s) => selectActiveDataset(s, 'edge'));
 
+  // User-set drag offset from the default top-right anchor. Kept in component
+  // state (the component stays mounted even while the legend is hidden), so a
+  // dragged position survives toggling the contour off and back on.
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(
+    null
+  );
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      // Keep the gesture from reaching ReactFlow, which would pan the canvas.
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current = { startX: e.clientX, startY: e.clientY, baseX: offset.x, baseY: offset.y };
+    },
+    [offset.x, offset.y]
+  );
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    setOffset({
+      x: drag.current.baseX + (e.clientX - drag.current.startX),
+      y: drag.current.baseY + (e.clientY - drag.current.startY),
+    });
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    drag.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
+
+  // Double-click snaps the legend back to its default top-right anchor.
+  const onDoubleClick = useCallback(() => setOffset({ x: 0, y: 0 }), []);
+
   // The legend explains the colormap contour, so each target appears only when
   // its own contour is enabled and an item is selected.
   const showNode = nodeDisplay.showContour && !!nodeItem && !!nodeDataset;
@@ -63,7 +99,16 @@ const DataLegend = memo(() => {
   if (!showNode && !showEdge) return null;
 
   return (
-    <Panel position="top-right" className="data-legend">
+    <Panel
+      position="top-right"
+      className="data-legend"
+      style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onDoubleClick={onDoubleClick}
+      title="Drag to move · double-click to reset"
+    >
       {showNode && (
         <LegendItem target="node" dataset={nodeDataset!} item={nodeItem!} display={nodeDisplay} />
       )}

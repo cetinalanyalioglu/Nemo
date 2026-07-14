@@ -19,7 +19,12 @@ import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
 import '../styles/data-pane.css';
 import { useAppState } from '../context/AppStateContext';
-import { useDataStore, selectItemCount } from '../store/dataStore';
+import {
+  useDataStore,
+  selectItemCount,
+  EDGE_THICKNESS_SCALE_MIN,
+  EDGE_THICKNESS_SCALE_MAX,
+} from '../store/dataStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
 import { COLORMAP_OPTIONS, colormapGradient } from '../utils/colormap';
@@ -107,9 +112,106 @@ const BooleanField = ({ label, checked, onToggle }: BooleanFieldProps) => (
 /** A flat option for the per-target variable selector: an item plus its dataset. */
 type ItemOption = { item: DataItem; datasetName: string };
 
+/** Collects every loaded item whose target matches, tagged with its dataset. */
+const useItemOptions = (target: DataTarget): ItemOption[] => {
+  const datasets = useDataStore((s) => s.datasets);
+  return useMemo<ItemOption[]>(() => {
+    const list: ItemOption[] = [];
+    for (const dataset of datasets) {
+      for (const item of dataset.items) {
+        if (item.target === target) list.push({ item, datasetName: dataset.name });
+      }
+    }
+    return list;
+  }, [datasets, target]);
+};
+
+/**
+ * Edge-only controls for scaling stroke width by a data variable: a toggle, an
+ * independent variable selector, and the "scale" (max width, px) stepper.
+ */
+const EdgeThicknessControls = () => {
+  const config = useDataStore((s) => s.edgeThickness);
+  const toggle = useDataStore((s) => s.toggleEdgeThickness);
+  const setItem = useDataStore((s) => s.setEdgeThicknessItem);
+  const setScale = useDataStore((s) => s.setEdgeThicknessScale);
+  const options = useItemOptions('edge');
+
+  return (
+    <>
+      <BooleanField label="Scale thickness by data" checked={config.enabled} onToggle={toggle} />
+
+      <div className="parameter-row">
+        <label className="parameter-label" htmlFor="data-edge-thickness-item">
+          Thickness variable
+        </label>
+        <div className="parameter-input-container">
+          <select
+            id="data-edge-thickness-item"
+            className="parameter-select"
+            value={config.itemId ?? ''}
+            disabled={!config.enabled}
+            onChange={(e) => setItem(e.target.value || null)}
+          >
+            <option value="">None</option>
+            {options.map(({ item, datasetName }) => (
+              <option key={item.id} value={item.id}>
+                {datasetName} / {item.name}
+              </option>
+            ))}
+          </select>
+          <IoChevronDown className="parameter-select-icon" aria-hidden />
+        </div>
+      </div>
+
+      <div className="parameter-row">
+        <label className="parameter-label" htmlFor="data-edge-thickness-scale">
+          Scale
+        </label>
+        <div className="parameter-input-container">
+          <input
+            id="data-edge-thickness-scale"
+            type="number"
+            className="parameter-input"
+            value={config.scale}
+            min={EDGE_THICKNESS_SCALE_MIN}
+            max={EDGE_THICKNESS_SCALE_MAX}
+            step={1}
+            disabled={!config.enabled}
+            onChange={(e) => {
+              const parsed = parseFloat(e.target.value);
+              if (!Number.isNaN(parsed)) setScale(parsed);
+            }}
+          />
+          <div className="number-controls">
+            <button
+              type="button"
+              className="number-control-btn"
+              disabled={!config.enabled}
+              onClick={() => setScale(config.scale + 1)}
+              aria-label="Increase"
+            >
+              <IoAdd />
+            </button>
+            <button
+              type="button"
+              className="number-control-btn"
+              disabled={!config.enabled}
+              onClick={() => setScale(config.scale - 1)}
+              aria-label="Decrease"
+            >
+              <IoRemove />
+            </button>
+          </div>
+          <span className="parameter-unit">px</span>
+        </div>
+      </div>
+    </>
+  );
+};
+
 /** Per-target (node/edge) display controls: variable, colormap, and range. */
 const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
-  const datasets = useDataStore((s) => s.datasets);
   const display = useDataStore((s) => (target === 'node' ? s.nodeDisplay : s.edgeDisplay));
   const setDisplayItem = useDataStore((s) => s.setDisplayItem);
   const setColormap = useDataStore((s) => s.setColormap);
@@ -122,15 +224,7 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
   const setNotation = useDataStore((s) => s.setNotation);
 
   // Free selection: any item from any dataset matching this target.
-  const options = useMemo<ItemOption[]>(() => {
-    const list: ItemOption[] = [];
-    for (const dataset of datasets) {
-      for (const item of dataset.items) {
-        if (item.target === target) list.push({ item, datasetName: dataset.name });
-      }
-    }
-    return list;
-  }, [datasets, target]);
+  const options = useItemOptions(target);
   const gradient = useMemo(() => colormapGradient(display.colormap), [display.colormap]);
 
   const handleMinChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,6 +405,9 @@ const TargetDisplayControls = ({ target }: { target: DataTarget }) => {
           </div>
         </div>
       </div>
+
+      {/* Stroke width scaled by data is meaningful only for edges. */}
+      {target === 'edge' && <EdgeThicknessControls />}
     </>
   );
 };
@@ -364,7 +461,10 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
     sidebar: { collapsedGroups },
     actions,
   } = useAppState();
-  const collapsed = !!collapsedGroups[dataset.id];
+  // Dataset cards start collapsed: an id absent from the map reads as collapsed,
+  // and the header toggles an explicit boolean so the first click opens it.
+  const collapsed = collapsedGroups[dataset.id] ?? true;
+  const toggleCollapsed = () => actions.sidebar.setGroupCollapsed(dataset.id, !collapsed);
 
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(dataset.name);
@@ -392,7 +492,7 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
         <button
           type="button"
           className="data-pane-dataset-toggle"
-          onClick={() => actions.sidebar.toggleGroup(dataset.id)}
+          onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Expand ${dataset.name}` : `Collapse ${dataset.name}`}
         >
@@ -422,7 +522,7 @@ const DatasetGroup = ({ dataset }: { dataset: Dataset }) => {
             type="button"
             className="data-pane-dataset-name"
             title={dataset.name}
-            onClick={() => actions.sidebar.toggleGroup(dataset.id)}
+            onClick={toggleCollapsed}
             onDoubleClick={startRename}
           >
             {dataset.name}

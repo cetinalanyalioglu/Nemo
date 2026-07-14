@@ -53,6 +53,7 @@ type AppActions = {
   sidebar: {
     toggle: () => void;
     toggleGroup: (category: string) => void;
+    setGroupCollapsed: (category: string, collapsed: boolean) => void;
     selectPane: (pane: SidebarPane) => void;
   };
   propertiesPanel: {
@@ -134,8 +135,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     edgePathStyle: 'bezier',
     layoutEngine: 'elk',
     layoutDirection: 'RIGHT',
-    nodeSep: 80,
-    rankSep: 100,
+    nodeSep: 40,
+    rankSep: 40,
     showMinimap: true,
   });
 
@@ -172,6 +173,16 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         ...prev.collapsedGroups,
         [category]: !prev.collapsedGroups[category],
       },
+    }));
+  }, []);
+
+  // Sets an explicit collapsed state. Groups that default to collapsed (dataset
+  // cards) need this rather than toggleGroup, whose absent-means-expanded flip
+  // would take two clicks to open from the default.
+  const sidebarSetGroupCollapsed = useCallback((category: string, collapsed: boolean) => {
+    setSidebar((prev) => ({
+      ...prev,
+      collapsedGroups: { ...prev.collapsedGroups, [category]: collapsed },
     }));
   }, []);
 
@@ -269,6 +280,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       sidebar: {
         toggle: sidebarToggle,
         toggleGroup: sidebarToggleGroup,
+        setGroupCollapsed: sidebarSetGroupCollapsed,
         selectPane: sidebarSelectPane,
       },
       propertiesPanel: {
@@ -308,6 +320,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       updateZoom,
       sidebarToggle,
       sidebarToggleGroup,
+      sidebarSetGroupCollapsed,
       sidebarSelectPane,
       propertiesPanelToggle,
       propertiesPanelToggleGroup,
