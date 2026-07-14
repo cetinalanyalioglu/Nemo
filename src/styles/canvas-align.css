@@ -1,0 +1,46 @@
+/* Alignment cluster: a small two-button row pinned top-left, just below the
+   undo/redo history controls. Aligns the centers of the selected nodes. Shares
+   the exact button spec of the history/export controls. */
+
+.canvas-align-controls {
+  z-index: 101;
+  position: absolute;
+  top: 78px;
+  left: 10px;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.canvas-align-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-input);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.canvas-align-button:hover:not(:disabled) {
+  background-color: var(--color-surface-control-hover);
+}
+
+.canvas-align-button:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.canvas-align-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
