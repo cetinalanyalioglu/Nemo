@@ -39,6 +39,10 @@
 # built-in NASA Glenn / CEA database (no file to supply).  For the reacting model:
 #   - give every inlet / mass source an explicit Composition (e.g.
 #     "O2:0.21, N2:0.79" or "CH4:1.0") on a mole or mass basis;
+#   - leave Stream mode on "Auto" to make each distinct feed composition a transported
+#     stream, or set it to "Declared" and list the named streams in "Declared streams"
+#     (each feed's Composition is then a blend over them, e.g. "air:20, H2:1"), so a
+#     single premixed inlet can carry a live mixture fraction without a dedicated fuel inlet;
 #   - leave Species on "auto" to derive the product slate from those feeds, or list
 #     the species explicitly;
 #   - drop an Equilibrium Flame where the mixture ignites -- edges default to the
@@ -101,6 +105,43 @@ parameters:
       fuel like "Jet-A(L)") are allowed in the composition and contribute their
       enthalpy; equilibrium products are gas-phase.
     visibleIf: { parameter: thermoModel, equals: equilibrium }
+  streamMode:
+    label: Stream mode
+    type: select
+    defaultValue: auto
+    category: Gas
+    description: >-
+      How the reacting model's transported feed streams are set. "Auto" discovers
+      them from the distinct inlet / mass-source compositions (each feed names a
+      species mixture). "Declared" fixes a named set of streams up front (below);
+      each feed then states its composition as a blend over those streams, so a
+      single premixed inlet can carry a live mixture fraction (equivalence ratio)
+      without a dedicated fuel inlet.
+    options:
+      - { value: auto, label: Auto (from feeds) }
+      - { value: declared, label: Declared }
+    visibleIf: { parameter: thermoModel, equals: equilibrium }
+  streams:
+    label: Declared streams
+    type: string
+    defaultValue: ""
+    category: Gas
+    description: >-
+      The named feed streams, written as "label = species:frac, ...; label = ..."
+      (streams separated by ";", each a label and a species mixture). Example:
+      "air = O2:0.21, N2:0.79; H2 = H2:1". Each feed's composition is then a blend
+      over these labels (e.g. "air:20, H2:1"). Used only in "Declared" stream mode.
+    visibleIf: { parameter: streamMode, equals: declared }
+  streamBasis:
+    label: Declared stream basis
+    type: select
+    defaultValue: mole
+    category: Gas
+    options:
+      - { value: mole, label: Mole fractions }
+      - { value: mass, label: Mass fractions }
+    description: Whether the declared stream compositions above are mole or mass fractions.
+    visibleIf: { parameter: streamMode, equals: declared }
   referencePressure:
     label: Reference pressure
     type: float
@@ -210,7 +251,9 @@ nodes:
         description: >-
           Species mixture of the supplied stream for the reacting model, e.g.
           "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
-          equilibrium model; ignored by the perfect-gas model.
+          equilibrium model; ignored by the perfect-gas model. In "Declared" stream
+          mode the entries are a blend over the declared streams instead, e.g.
+          "air:20, H2:1".
       basis:
         label: Composition basis
         type: select
@@ -310,7 +353,9 @@ nodes:
         description: >-
           Species mixture of the supplied stream for the reacting model, e.g.
           "O2:0.21, N2:0.79" or "CH4:1.0" (JSON is also accepted). Required by the
-          equilibrium model; ignored by the perfect-gas model.
+          equilibrium model; ignored by the perfect-gas model. In "Declared" stream
+          mode the entries are a blend over the declared streams instead, e.g.
+          "air:20, H2:1".
       basis:
         label: Composition basis
         type: select
@@ -411,7 +456,8 @@ nodes:
         description: >-
           Species mixture drawn into the network on backflow (ingestion) for the
           reacting model, e.g. "O2:0.21, N2:0.79". Used only when the flow reverses
-          at this outlet; ignored by the perfect-gas model.
+          at this outlet; ignored by the perfect-gas model. In "Declared" stream
+          mode the entries are a blend over the declared streams instead.
       basis:
         label: Composition basis
         type: select
@@ -1115,7 +1161,8 @@ nodes:
         description: >-
           Species mixture of the injected stream for the reacting model, e.g.
           "CH4:1.0" for a fuel injector. Required by the equilibrium model; ignored
-          by the perfect-gas model.
+          by the perfect-gas model. In "Declared" stream mode the entries are a
+          blend over the declared streams instead, e.g. "H2:1".
       basis:
         label: Composition basis
         type: select
