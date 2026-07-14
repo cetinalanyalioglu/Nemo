@@ -105,17 +105,41 @@ function inlineTree(live: Element, clone: Element): void {
 const el = (name: string): SVGElement => document.createElementNS(SVG_NS, name);
 
 /**
+ * The pure-translation part of an element's CSS transform, in layout px, or
+ * {0,0} when the transform isn't a plain translate. Percentage translates —
+ * e.g. the `translate(-50%, …)` that centers node captions horizontally on the
+ * element — resolve to px in the computed matrix, so this recovers the centering
+ * shift that `offsetLeft` alone misses. Rotations/scales are skipped: the export
+ * re-applies node rotation itself, so only translations belong in the unrotated
+ * local frame.
+ */
+function translateOf(node: HTMLElement): { x: number; y: number } {
+  const transform = getComputedStyle(node).transform;
+  if (!transform || transform === 'none') return { x: 0, y: 0 };
+  const match = /^matrix\(([^)]+)\)$/.exec(transform);
+  if (!match) return { x: 0, y: 0 };
+  const p = match[1].split(',').map((v) => parseFloat(v));
+  // matrix(a, b, c, d, e, f); a pure translation has a=1, b=0, c=0, d=1.
+  if (p.length !== 6 || p[0] !== 1 || p[1] !== 0 || p[2] !== 0 || p[3] !== 1) {
+    return { x: 0, y: 0 };
+  }
+  return { x: p[4] || 0, y: p[5] || 0 };
+}
+
+/**
  * Position (layout px) of `child` relative to `ancestor`, summing the
- * offsetParent chain. Layout offsets ignore CSS transforms, so this returns the
- * child's place in the node's unrotated, unzoomed local frame — flow units.
+ * offsetParent chain. Layout offsets ignore CSS transforms, so each element's
+ * own centering translate is folded back in via {@link translateOf}; the result
+ * is the child's place in the node's unrotated, unzoomed local frame — flow units.
  */
 function offsetWithin(child: HTMLElement, ancestor: HTMLElement): { x: number; y: number } {
   let x = 0;
   let y = 0;
   let node: HTMLElement | null = child;
   while (node && node !== ancestor && ancestor.contains(node)) {
-    x += node.offsetLeft;
-    y += node.offsetTop;
+    const t = translateOf(node);
+    x += node.offsetLeft + t.x;
+    y += node.offsetTop + t.y;
     node = node.offsetParent as HTMLElement | null;
   }
   return { x, y };
