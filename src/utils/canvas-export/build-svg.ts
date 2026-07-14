@@ -203,6 +203,31 @@ function boxFrom(box: HTMLElement, x: number, y: number, w: number, h: number): 
 /** Selectors for the visible on-node text pieces reconstructed natively. */
 const NODE_TEXT_SELECTORS = ['.custom-node-label', '.custom-node-type', '.custom-node-data-value'];
 
+/**
+ * The element-index badge (shown by "Show indices") is absolutely positioned
+ * and centered above the node via a CSS transform, which `textFrom`'s offset
+ * math cannot read. Emit it directly, centered on the node and just above its
+ * top edge, so it survives the export.
+ */
+function indexLabelFrom(nodeEl: HTMLElement, posX: number, posY: number, w: number): SVGElement | null {
+  const live = nodeEl.querySelector<HTMLElement>('.element-index-label');
+  if (!live) return null;
+  const raw = (live.textContent ?? '').trim();
+  if (!raw) return null;
+  const cs = getComputedStyle(live);
+  const fontSize = parseFloat(cs.fontSize) || 9;
+  const text = el('text');
+  text.setAttribute('text-anchor', 'middle');
+  text.setAttribute('font-family', cs.fontFamily.replace(/"/g, "'"));
+  text.setAttribute('font-size', String(fontSize));
+  text.setAttribute('font-weight', cs.fontWeight);
+  text.setAttribute('fill', cs.color);
+  text.setAttribute('x', String(posX + w / 2));
+  text.setAttribute('y', String(posY - 3));
+  text.textContent = raw;
+  return text;
+}
+
 function harvestModelNode(
   nodeEl: HTMLElement,
   posX: number,
@@ -239,6 +264,9 @@ function harvestModelNode(
       if (t) parts.push(t);
     });
   }
+
+  const indexLabel = indexLabelFrom(nodeEl, posX, posY, w);
+  if (indexLabel) parts.push(indexLabel);
 
   if (parts.length === 0) return null;
   return maybeRotate(parts, rotation, posX + w / 2, posY + h / 2);
@@ -290,9 +318,13 @@ function harvestEdges(flowEl: Element): SVGElement {
   group.setAttribute('class', 'export-edges');
   flowEl.querySelectorAll<SVGGElement>('.react-flow__edge').forEach((edge) => {
     const clone = edge.cloneNode(true) as SVGGElement;
+    // Inline paint while the clone still mirrors the live subtree, so the
+    // lockstep walk stays aligned. Pruning the interaction path first would
+    // shift every later sibling (notably the midpoint marker) onto the wrong
+    // live element and let it inherit that path's invisible paint.
+    inlineTree(edge, clone);
     // Drop the invisible fat interaction path used for hit-testing.
     clone.querySelectorAll('.react-flow__edge-interaction').forEach((e) => e.remove());
-    inlineTree(edge, clone);
     clone.removeAttribute('class');
     group.appendChild(clone);
   });
