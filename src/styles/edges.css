@@ -2,7 +2,7 @@
   --edge-width: 1px;
   --highlight-width: 1px;
   --edge-marker-radius: 6px;
-  --edge-marker-stroke-width: 1.5px;
+  --edge-marker-stroke-width: var(--edge-width);
 }
 
 .edge-midpoint-marker__halo {
@@ -32,7 +32,7 @@
 
 .edge-midpoint-marker__index {
   font-family: Arial, sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   fill: var(--color-text-muted);
   pointer-events: none;
   user-select: none;

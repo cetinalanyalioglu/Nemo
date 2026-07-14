@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { colorForValue } from '../utils/colormap';
+import { colorForValue, normalize } from '../utils/colormap';
 import { logger } from '../utils/logger';
 import { allValues, isAnimatedDataset, isFrameValues, valuesAtFrame } from '../types/data';
 import type {
@@ -34,6 +34,35 @@ const makeDefaultDisplay = (): DataDisplayConfig => ({
   showValues: false,
   precision: 2,
   notation: 'fixed',
+});
+
+/** Allowed range (px) of the edge-thickness scale controller. */
+export const EDGE_THICKNESS_SCALE_MIN = 1;
+export const EDGE_THICKNESS_SCALE_MAX = 40;
+const DEFAULT_EDGE_THICKNESS_SCALE = 6;
+/** The thinnest edges are this fraction of `scale` (at the low end of the range). */
+const EDGE_THICKNESS_MIN_FACTOR = 0.15;
+
+/**
+ * Edge-thickness mapping: scales each edge's stroke width by a chosen edge
+ * variable. Independent of the colormap contour, so an edge can be colored by
+ * one variable and sized by another. Width runs linearly from
+ * `EDGE_THICKNESS_MIN_FACTOR · scale` (at the variable's minimum) to `scale`
+ * (at its maximum).
+ */
+export interface EdgeThicknessConfig {
+  /** Whether edge stroke width is driven by data. */
+  enabled: boolean;
+  /** Id of the edge item whose value sets the width, or null when none. */
+  itemId: string | null;
+  /** Stroke width (px) at the top of the variable's value range. */
+  scale: number;
+}
+
+const makeDefaultEdgeThickness = (): EdgeThicknessConfig => ({
+  enabled: false,
+  itemId: null,
+  scale: DEFAULT_EDGE_THICKNESS_SCALE,
 });
 
 /** Computes a [min, max] range over an item's finite values (all frames). */
@@ -226,6 +255,7 @@ interface DataStore {
   loadCount: number;
   nodeDisplay: DataDisplayConfig;
   edgeDisplay: DataDisplayConfig;
+  edgeThickness: EdgeThicknessConfig;
   playback: PlaybackState;
 
   /**
@@ -270,6 +300,13 @@ interface DataStore {
   toggleShowValues: (target: DataTarget) => void;
   setPrecision: (target: DataTarget, precision: number) => void;
   setNotation: (target: DataTarget, notation: ValueNotation) => void;
+
+  /** Toggles whether edge stroke width is scaled by the thickness variable. */
+  toggleEdgeThickness: () => void;
+  /** Selects the edge variable that drives stroke width (null clears it). */
+  setEdgeThicknessItem: (itemId: string | null) => void;
+  /** Sets the stroke width (px) at the top of the variable's range (clamped). */
+  setEdgeThicknessScale: (scale: number) => void;
 
   /** Jumps to a frame of the active animated dataset (clamped). */
   setFrame: (frameIndex: number) => void;
@@ -341,6 +378,9 @@ const clearStaleDisplays = (state: DataStore, datasets: Dataset[]): Partial<Data
   if (state.edgeDisplay.itemId && !findItem(datasets, state.edgeDisplay.itemId)) {
     patch.edgeDisplay = { ...state.edgeDisplay, itemId: null };
   }
+  if (state.edgeThickness.itemId && !findItem(datasets, state.edgeThickness.itemId)) {
+    patch.edgeThickness = { ...state.edgeThickness, itemId: null };
+  }
   // Rewind and stop playback when no animated dataset is referenced anymore.
   const node = patch.nodeDisplay ?? state.nodeDisplay;
   const edge = patch.edgeDisplay ?? state.edgeDisplay;
@@ -355,6 +395,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   loadCount: 0,
   nodeDisplay: makeDefaultDisplay(),
   edgeDisplay: makeDefaultDisplay(),
+  edgeThickness: makeDefaultEdgeThickness(),
   playback: makeDefaultPlayback(),
   pendingDatasets: null,
   scaleRequest: null,
@@ -477,6 +518,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       pendingDatasets: null,
       nodeDisplay: { ...s.nodeDisplay, itemId: null },
       edgeDisplay: { ...s.edgeDisplay, itemId: null },
+      edgeThickness: { ...s.edgeThickness, itemId: null },
     }));
   },
 
@@ -558,6 +600,20 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const key = displayKey(target);
       return { [key]: { ...s[key], notation } } as Partial<DataStore>;
     });
+  },
+
+  toggleEdgeThickness: () => {
+    set((s) => ({ edgeThickness: { ...s.edgeThickness, enabled: !s.edgeThickness.enabled } }));
+  },
+
+  setEdgeThicknessItem: (itemId) => {
+    set((s) => ({ edgeThickness: { ...s.edgeThickness, itemId } }));
+  },
+
+  setEdgeThicknessScale: (scale) => {
+    if (!Number.isFinite(scale)) return;
+    const clamped = Math.max(EDGE_THICKNESS_SCALE_MIN, Math.min(EDGE_THICKNESS_SCALE_MAX, scale));
+    set((s) => ({ edgeThickness: { ...s.edgeThickness, scale: clamped } }));
   },
 
   setFrame: (frameIndex) => {
@@ -722,4 +778,32 @@ export const useElementDataView = (
       unit: item.unit,
     };
   }, [item, index, frameIndex, display.colormap, display.min, display.max]);
+};
+
+/**
+ * Hook returning the data-driven stroke width (px) for one edge at a given
+ * index, or null when thickness mapping is off or no value is available (so the
+ * caller falls back to the default `--edge-width`). The width scales linearly
+ * from `EDGE_THICKNESS_MIN_FACTOR · scale` at the variable's minimum to `scale`
+ * at its maximum, with the range taken over all of the variable's values.
+ */
+export const useEdgeThicknessWidth = (index: number | undefined): number | null => {
+  const config = useDataStore((s) => s.edgeThickness);
+  const datasets = useDataStore((s) => s.datasets);
+  const item = useMemo(() => findItem(datasets, config.itemId)?.item, [datasets, config.itemId]);
+  // Subscribe to the frame cursor only for a per-frame thickness variable.
+  const frameIndex = useDataStore((s) =>
+    item && isFrameValues(item.values) ? s.playback.frameIndex : 0
+  );
+
+  return useMemo(() => {
+    if (!config.enabled || !item || typeof index !== 'number') return null;
+    const values = valuesAtFrame(item.values, frameIndex);
+    if (index < 0 || index >= values.length) return null;
+    const value = values[index];
+    if (!Number.isFinite(value)) return null;
+    const { min, max } = computeRange(item.values);
+    const t = normalize(value, min, max);
+    return config.scale * (EDGE_THICKNESS_MIN_FACTOR + (1 - EDGE_THICKNESS_MIN_FACTOR) * t);
+  }, [config.enabled, config.scale, item, index, frameIndex]);
 };

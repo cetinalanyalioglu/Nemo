@@ -3,7 +3,12 @@ import { BaseEdge, useStore, type EdgeProps } from 'reactflow';
 import { useAppearanceState, useLayoutState } from '../../context/AppStateContext';
 import { useModel } from '../../context/ModelContext';
 import { useGraphStore } from '../../store/graphStore';
-import { useDataStore, useElementDataView, formatDataValue } from '../../store/dataStore';
+import {
+  useDataStore,
+  useElementDataView,
+  useEdgeThicknessWidth,
+  formatDataValue,
+} from '../../store/dataStore';
 import EdgeMidpointMarker from './EdgeMidpointMarker';
 import {
   computeEdgePathGeometry,
@@ -94,6 +99,13 @@ const GenericEdge = ({
       ? formatDataValue(dataView.value, precision, notation, dataView.unit)
       : undefined;
 
+  // Data-driven stroke width: when thickness mapping is on, an inline
+  // strokeWidth overrides the uniform `--edge-width` CSS rule; otherwise the
+  // edge keeps the default width. Merged into the forwarded style so canvas
+  // export (which reads the computed stroke width) picks it up automatically.
+  const thicknessWidth = useEdgeThicknessWidth(dataIndex);
+  const edgeStyle = thicknessWidth != null ? { ...style, strokeWidth: thicknessWidth } : style;
+
   // Anchors resolved from the measured handles: the edge starts and ends at the
   // exact port points and departs along each port's true outward normal,
   // whatever the elements' rotation. Before the first handle measurement, fall
@@ -125,7 +137,7 @@ const GenericEdge = ({
   // descendant path (`.custom-edge-issue .react-flow__edge-path`).
   return (
     <g className={`custom-edge${isHighlighted ? ' custom-edge-issue' : ''}`}>
-      <BaseEdge id={id} path={edgePath} style={style} />
+      <BaseEdge id={id} path={edgePath} style={edgeStyle} />
       {showEdgeBadges && (
         <EdgeMidpointMarker
           labelX={labelX}
