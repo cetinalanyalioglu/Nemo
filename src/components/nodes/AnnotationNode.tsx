@@ -365,7 +365,11 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           textAlign: style.align,
           ...(annotation.style.color ? { color: annotation.style.color } : {}),
           ...(annotation.style.background ? { background: annotation.style.background } : {}),
-          ...(annotation.style.width ? { width: `${annotation.style.width}px` } : {}),
+          // An explicit width overrides the default wrap cap (max-width), which
+          // otherwise silently clamps the note past ~420px however far it's dragged.
+          ...(annotation.style.width
+            ? { width: `${annotation.style.width}px`, maxWidth: 'none' }
+            : {}),
           // A fixed height clips overflowing content instead of spilling it.
           ...(annotation.style.height
             ? { height: `${annotation.style.height}px`, overflow: 'hidden' }

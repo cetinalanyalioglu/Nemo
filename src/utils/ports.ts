@@ -1,3 +1,4 @@
+import type { Edge } from 'reactflow';
 import type {
   DynamicPortConfig,
   DynamicPortSide,
@@ -75,6 +76,102 @@ export const isPortCountParameter = (
     dynamicPortConfig.target?.countParameter === paramName ||
     dynamicPortConfig.source?.countParameter === paramName
   );
+};
+
+/** The port number a `{nodeId}-port-{n}` handle refers to, or null if unrelated. */
+const portNumberOf = (handle: string | null | undefined, prefix: string): number | null => {
+  if (!handle || !handle.startsWith(prefix)) return null;
+  const n = Number(handle.slice(prefix.length));
+  return Number.isInteger(n) ? n : null;
+};
+
+/**
+ * Recomputes edge handles after a dynamic-port count change, dropping FREE ports
+ * in preference to connected ones. Ports are positional and contiguous (targets
+ * `0..T-1`, sources `T..T+S-1`), so shrinking a side — or shifting the target
+ * block when the target count changes — renumbers handles; every incident edge
+ * is remapped to its port's new number. When a side must lose more ports than it
+ * has free, the surplus (highest-numbered) connected ports are dropped and their
+ * edges removed.
+ *
+ * Returns the rewired edges, the ids of edges dropped because their port was
+ * removed, and whether anything changed (so callers can skip a no-op write).
+ */
+export const remapPortsAfterCountChange = (
+  nodeId: string,
+  config: { ports: NodePorts; dynamicPorts?: boolean; dynamicPortConfig?: DynamicPortConfig },
+  oldParameters: Record<string, unknown> | undefined,
+  newParameters: Record<string, unknown> | undefined,
+  edges: Edge[]
+): { edges: Edge[]; removedEdgeIds: string[]; changed: boolean } => {
+  const unchanged = { edges, removedEdgeIds: [] as string[], changed: false };
+  if (!config.dynamicPorts || !config.dynamicPortConfig) return unchanged;
+
+  const oldLayout = computePortLayout(config.ports, true, config.dynamicPortConfig, oldParameters);
+  const newLayout = computePortLayout(config.ports, true, config.dynamicPortConfig, newParameters);
+
+  const prefix = `${nodeId}-port-`;
+  const portOf = (handle: string | null | undefined) => portNumberOf(handle, prefix);
+
+  // The ports of this node that currently carry an edge.
+  const connected = new Set<number>();
+  for (const edge of edges) {
+    const s = portOf(edge.sourceHandle);
+    if (s !== null) connected.add(s);
+    const t = portOf(edge.targetHandle);
+    if (t !== null) connected.add(t);
+  }
+
+  // Old ports of one side that survive: connected ports are kept before free
+  // ones (each group by ascending number), up to the new count — so free ports
+  // are the first to go, and only surplus connections are dropped.
+  const survivors = (oldPorts: string[], keepCount: number): number[] => {
+    const nums = oldPorts.map(Number);
+    if (keepCount >= nums.length) return nums;
+    const byPriority = [...nums].sort((a, b) => {
+      const rank = (n: number) => (connected.has(n) ? 0 : 1);
+      return rank(a) - rank(b) || a - b;
+    });
+    return byPriority.slice(0, keepCount).sort((a, b) => a - b);
+  };
+
+  // Map each surviving old port number to its slot in the new layout. Sources are
+  // read positionally from the new layout so static/dynamic numbering both hold.
+  const newTarget = newLayout.target.map(Number);
+  const newSource = newLayout.source.map(Number);
+  const remap = new Map<number, number>();
+  survivors(oldLayout.target, newTarget.length).forEach((old, i) => remap.set(old, newTarget[i]));
+  survivors(oldLayout.source, newSource.length).forEach((old, j) => remap.set(old, newSource[j]));
+
+  const removedEdgeIds: string[] = [];
+  let changed = false;
+  const result: Edge[] = [];
+  for (const edge of edges) {
+    const sPort = portOf(edge.sourceHandle);
+    const tPort = portOf(edge.targetHandle);
+    if (sPort === null && tPort === null) {
+      result.push(edge); // edge doesn't touch this node's ports
+      continue;
+    }
+    // A port this edge used no longer exists: drop the edge with it.
+    if ((sPort !== null && !remap.has(sPort)) || (tPort !== null && !remap.has(tPort))) {
+      removedEdgeIds.push(edge.id);
+      changed = true;
+      continue;
+    }
+    let next = edge;
+    if (sPort !== null && remap.get(sPort) !== sPort) {
+      next = { ...next, sourceHandle: `${prefix}${remap.get(sPort)}` };
+      changed = true;
+    }
+    if (tPort !== null && remap.get(tPort) !== tPort) {
+      next = { ...next, targetHandle: `${prefix}${remap.get(tPort)}` };
+      changed = true;
+    }
+    result.push(next);
+  }
+
+  return changed ? { edges: result, removedEdgeIds, changed } : unchanged;
 };
 
 /** A node port with its positional handle suffix and side. */
