@@ -6,7 +6,7 @@ import yaml from 'js-yaml';
 import { debugLog } from '../utils/debug';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
-import { isPortCountParameter } from '../utils/ports';
+import { isPortCountParameter, remapPortsAfterCountChange } from '../utils/ports';
 import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 import { useDataStore } from './dataStore';
 import { ANNOTATION_LAYER_Z, ANNOTATION_NODE_TYPE } from '../types/annotations';
@@ -730,22 +730,43 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         }
       }
 
+      const nodeConfig = state.model?.nodeConfig[nodeType];
+      const isPortCount = isPortCountParameter(
+        nodeConfig?.dynamicPorts,
+        nodeConfig?.dynamicPortConfig,
+        paramName
+      );
+
       if (shouldRecord) {
         get().recordHistory();
       }
 
-      set((s) => ({
-        nodeStates: {
+      set((s) => {
+        const prevParams = s.nodeStates[nodeId]?.parameters;
+        const parameters = { ...prevParams, [paramName]: value };
+        const nodeStates = {
           ...s.nodeStates,
-          [nodeId]: {
-            ...s.nodeStates[nodeId],
-            parameters: {
-              ...s.nodeStates[nodeId]?.parameters,
-              [paramName]: value,
-            },
-          },
-        },
-      }));
+          [nodeId]: { ...s.nodeStates[nodeId], parameters },
+        };
+        if (!isPortCount || !nodeConfig) return { nodeStates };
+
+        // A dynamic-port count change renumbers this node's ports. Rewire the
+        // incident edges to the survivors — dropping free ports before connected
+        // ones — so a connected port isn't lost while a free one remains. Done
+        // here (not just the node's prune effect) so the whole change is atomic
+        // and a single undo step.
+        const remap = remapPortsAfterCountChange(
+          nodeId,
+          nodeConfig,
+          prevParams,
+          parameters,
+          s.edges
+        );
+        if (!remap.changed) return { nodeStates };
+        const edgeStates = { ...s.edgeStates };
+        for (const id of remap.removedEdgeIds) delete edgeStates[id];
+        return { nodeStates, edges: remap.edges, edgeStates };
+      });
 
       return true;
     },
