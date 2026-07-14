@@ -20,6 +20,7 @@ import CanvasTitle from './CanvasTitle';
 import DataLegend from './DataLegend';
 import CanvasPlayer from './CanvasPlayer';
 import CanvasExportControl from './CanvasExportControl';
+import CanvasAlignControls from './canvas-align-controls';
 import { useGraphStore } from '../store/graphStore';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useAppearanceState, useGridState, useLayoutState } from '../context/AppStateContext';
@@ -339,6 +340,7 @@ const Canvas = () => {
         <CanvasZoomIndicator />
       </ReactFlow>
       <CanvasHistoryControls />
+      <CanvasAlignControls />
       <CanvasExportControl />
     </div>
   );
