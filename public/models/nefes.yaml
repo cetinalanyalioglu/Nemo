@@ -1446,7 +1446,7 @@ nodes:
       target:
         countParameter: leftPorts
         default: 2
-        min: 2
+        min: 1
       source:
         countParameter: rightPorts
         default: 1
@@ -1461,7 +1461,7 @@ nodes:
         label: Target ports
         type: number
         defaultValue: 2
-        min: 2
+        min: 1
         step: 1
         category: Ports
         description: Number of target (incoming) ports
