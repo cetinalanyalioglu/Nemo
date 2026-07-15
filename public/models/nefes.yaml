@@ -21,7 +21,7 @@
 #     source/target handles, so keep handles attached to the intended ports.
 #   - JunctionStaticP is valid only where all ports run at low Mach number; use
 #     LosslessSplitter for plenums/manifolds feeding fast branches.
-#   - MixingJunction (Mixer) is the merge counterpart of the splitter: many inflows into a
+#   - Mixer is the merge counterpart of the splitter: many inflows into a
 #     single outflow, obeying the second law at any port Mach number.  At its default
 #     recovery = 1 each inflow must be pinned by the network (a prescribed rate or a branch
 #     resistance); lower recovery toward 0 for bare feeds.
@@ -1495,12 +1495,12 @@ nodes:
     # Only valid where all port Mach numbers are low -- use LosslessSplitter for
     # plenums feeding fast branches.
 
-  MixingJunction:
+  Mixer:
     displayName: Mixer
     category: Multi port elements
     icon: BsFunnelFill
     shape: rail
-    glyph: mixing-junction
+    glyph: mixer
     dynamicPorts: true
     # The mirror of the splitter: many inflows on the left, a single outflow on the
     # right. The one outlet is a hidden count fixed at 1 (rightPorts, below); only the
