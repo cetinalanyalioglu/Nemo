@@ -21,9 +21,10 @@
 #     source/target handles, so keep handles attached to the intended ports.
 #   - JunctionStaticP is valid only where all ports run at low Mach number; use
 #     LosslessSplitter for plenums/manifolds feeding fast branches.
-#   - MixingJunction (Mixer) is the general merge: it obeys the second law at any port
-#     Mach number.  At its default recovery = 1 each inflow must be pinned by the network
-#     (a prescribed rate or a branch resistance); lower recovery toward 0 for bare feeds.
+#   - MixingJunction (Mixer) is the merge counterpart of the splitter: many inflows into a
+#     single outflow, obeying the second law at any port Mach number.  At its default
+#     recovery = 1 each inflow must be pinned by the network (a prescribed rate or a branch
+#     resistance); lower recovery toward 0 for bare feeds.
 #
 # Scope: v1 is subsonic (flowing or quiescent).  Supersonic inlets/outlets are
 # deferred and intentionally omitted from this library.  The Duct element is
@@ -1498,14 +1499,18 @@ nodes:
     displayName: Mixer
     category: Multi port elements
     icon: BsFunnelFill
-    shape: circle
+    shape: rail
     glyph: mixing-junction
     dynamicPorts: true
+    # The mirror of the splitter: many inflows on the left, a single outflow on the
+    # right. The one outlet is a hidden count fixed at 1 (rightPorts, below); only the
+    # inflow count is user-set. The underlying Nefes element is a general manifold, so
+    # the single-outlet shape is a UI convention (as the splitter's single inlet is).
     dynamicPortConfig:
       target:
         countParameter: leftPorts
         default: 2
-        min: 1
+        min: 2
       source:
         countParameter: rightPorts
         default: 1
@@ -1517,21 +1522,24 @@ nodes:
       label:
         defaultValue: Mixer
       leftPorts:
-        label: Target ports
+        label: Input ports
         type: number
         defaultValue: 2
-        min: 1
+        min: 2
         step: 1
         category: Ports
-        description: Number of target (incoming) ports
+        description: Number of inflow (incoming) ports the mixer merges
       rightPorts:
-        label: Source ports
+        # Fixed single outlet, hidden from the panel (the mixer merges N inflows into
+        # one outflow). Declared so the source side is a counted port, numbered without
+        # colliding with the inflow ports.
+        label: Output ports
         type: number
         defaultValue: 1
         min: 1
-        step: 1
+        visible: false
         category: Ports
-        description: Number of source (outgoing) ports
+        description: The mixer has a single outlet.
       recovery:
         label: Dynamic-head recovery
         type: float
@@ -1548,10 +1556,11 @@ nodes:
           (a prescribed rate or a branch resistance); lower it toward 0 for bare
           total-pressure feeds. Never manufactures total pressure (second law).
     # Common effective total pressure on all ports: each inflow gives up a mixing loss so
-    # the node total pressure never rises above the feeds (entropy production >= 0). The
-    # general merge -- valid at any port Mach number, unlike the static-p Junction -- and,
-    # unlike the Splitter, it merges streams of unequal total pressure. Lengthless: no
-    # chamber compliance (model a resonating plenum with a Junction or Cavity volume).
+    # the node total pressure never rises above the feeds (entropy production >= 0, the
+    # Delta s >= 0 on the rail glyph). The merge counterpart of the Splitter -- valid at any
+    # port Mach number, unlike the static-p Junction -- and, unlike the Splitter, it merges
+    # streams of unequal total pressure. Lengthless: no chamber compliance (model a
+    # resonating plenum with a Junction or Cavity volume).
 
   LosslessSplitter:
     displayName: Lossless Splitter
