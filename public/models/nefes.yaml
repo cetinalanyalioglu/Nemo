@@ -21,6 +21,9 @@
 #     source/target handles, so keep handles attached to the intended ports.
 #   - JunctionStaticP is valid only where all ports run at low Mach number; use
 #     LosslessSplitter for plenums/manifolds feeding fast branches.
+#   - MixingJunction (Mixer) is the general merge: it obeys the second law at any port
+#     Mach number.  At its default recovery = 1 each inflow must be pinned by the network
+#     (a prescribed rate or a branch resistance); lower recovery toward 0 for bare feeds.
 #
 # Scope: v1 is subsonic (flowing or quiescent).  Supersonic inlets/outlets are
 # deferred and intentionally omitted from this library.  The Duct element is
@@ -1490,6 +1493,65 @@ nodes:
     # Helmholtz resonator), not a manifold parameter.
     # Only valid where all port Mach numbers are low -- use LosslessSplitter for
     # plenums feeding fast branches.
+
+  MixingJunction:
+    displayName: Mixer
+    category: Multi port elements
+    icon: BsFunnelFill
+    shape: circle
+    glyph: mixing-junction
+    dynamicPorts: true
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 2
+        min: 1
+      source:
+        countParameter: rightPorts
+        default: 1
+        min: 1
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Mixer
+      leftPorts:
+        label: Target ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of target (incoming) ports
+      rightPorts:
+        label: Source ports
+        type: number
+        defaultValue: 1
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of source (outgoing) ports
+      recovery:
+        label: Dynamic-head recovery
+        type: float
+        defaultValue: 1.0
+        category: Parameters
+        min: 0
+        max: 1
+        step: 0.01
+        description: >-
+          Sets each inflow's mixing loss between the least-dissipative ideal (1, the
+          default: the outlet leaves at the weakest feed's total pressure) and the full
+          dump of its dynamic head (0, the robust plenum). At recovery 1 the mixer adds
+          no flow resistance of its own, so each inflow must be pinned by the network
+          (a prescribed rate or a branch resistance); lower it toward 0 for bare
+          total-pressure feeds. Never manufactures total pressure (second law).
+    # Common effective total pressure on all ports: each inflow gives up a mixing loss so
+    # the node total pressure never rises above the feeds (entropy production >= 0). The
+    # general merge -- valid at any port Mach number, unlike the static-p Junction -- and,
+    # unlike the Splitter, it merges streams of unequal total pressure. Lengthless: no
+    # chamber compliance (model a resonating plenum with a Junction or Cavity volume).
 
   LosslessSplitter:
     displayName: Lossless Splitter
