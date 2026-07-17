@@ -31,18 +31,27 @@ const PAD_X = PORT_H + 3; // margin so outward port tips fit the viewBox
 const PAD_Y = 4;
 const RX = 9; // corner radius
 const LABEL_H = 44; // fixed label height (design units); never scales with the rail
+/** Inset (design units) from each rounded corner within which a moved port may
+    sit, so a dragged port never lands on a corner arc. */
+const EDGE_INSET = RX + 2;
 
 export type PortDirection = 'target' | 'source';
 
-/** A rail port: a side (left/right), plus its index within that side's stack. */
+/** A rail port. Auto ports stack on the left/right at their `index`; a
+    manually-moved port carries an explicit `side` and `offset` instead. */
 export interface RailPort {
   suffix: string;
-  side: Extract<PortSide, 'left' | 'right'>;
+  /** Side the port renders on. Auto ports are left/right; a moved port may sit on
+      any side (it also carries an explicit `offset`). */
+  side: PortSide;
   index: number;
   count: number;
   direction: PortDirection;
   /** True when an edge is attached: the triangle is tinted ink-gray. */
   connected?: boolean;
+  /** Normalized position [0,1] along `side` for a manually-moved port. When
+      undefined the port uses its automatic stacked slot (`index`/`count`). */
+  offset?: number;
 }
 
 export interface RailLayout {
@@ -59,6 +68,14 @@ export interface RailLayout {
     index: number,
     count: number
   ) => { x: number; y: number; nx: number; ny: number };
+  /** Point on the border for an arbitrary side + normalized offset, plus its
+      outward normal. Used for manually-moved ports. */
+  anchorAt: (side: PortSide, offset: number) => { x: number; y: number; nx: number; ny: number };
+  /** Nearest movable side + normalized offset for a point in viewBox units — the
+      drag projection (closest point on the four corner-inset border segments). */
+  project: (x: number, y: number) => { side: PortSide; offset: number };
+  /** Usable straight length (design units) of a side's movable segment. */
+  sideLength: (side: PortSide) => number;
 }
 
 /** Pure rail geometry, shared by the renderer and GenericNode (handles/size). */
@@ -75,20 +92,77 @@ export const railLayout = (maxPorts: number, glyphAspect: number): RailLayout =>
   const vh = oh + 2 * PAD_Y;
   const iy = PAD_Y + T; // interior top
 
+  // Border centreline rectangle: port bases sit on it, so the stroke covers them.
+  const leftX = PAD_X + T / 2;
+  const rightX = PAD_X + ow - T / 2;
+  const topY = PAD_Y + T / 2;
+  const botY = PAD_Y + oh - T / 2;
+
+  // Usable straight span on each side, inset from the rounded corners so a moved
+  // port never lands on a corner arc. Collapses to the side midpoint when a side
+  // is too short to admit the inset (narrow rails), so a port still centres cleanly.
+  const usable = (lo: number, hi: number): [number, number] => {
+    const a = lo + EDGE_INSET;
+    const b = hi - EDGE_INSET;
+    if (a <= b) return [a, b];
+    const mid = (lo + hi) / 2;
+    return [mid, mid];
+  };
+  const [vTop, vBot] = usable(topY, botY); // left/right run top → bottom
+  const [hLeft, hRight] = usable(leftX, rightX); // top/bottom run left → right
+
+  // Each movable side as a segment (a → b) with its outward normal.
+  type Seg = { ax: number; ay: number; bx: number; by: number; nx: number; ny: number };
+  const segments: Record<PortSide, Seg> = {
+    left: { ax: leftX, ay: vTop, bx: leftX, by: vBot, nx: -1, ny: 0 },
+    right: { ax: rightX, ay: vTop, bx: rightX, by: vBot, nx: 1, ny: 0 },
+    top: { ax: hLeft, ay: topY, bx: hRight, by: topY, nx: 0, ny: -1 },
+    bottom: { ax: hLeft, ay: botY, bx: hRight, by: botY, nx: 0, ny: 1 },
+  };
+
   return {
     vw,
     vh,
     t: T,
     rx: RX,
     fillRect: { x: PAD_X, y: PAD_Y, w: ow, h: oh },
-    borderRect: { x: PAD_X + T / 2, y: PAD_Y + T / 2, w: ow - T, h: oh - T },
+    borderRect: { x: leftX, y: topY, w: ow - T, h: oh - T },
     label: { x: vw / 2 - lw / 2, y: vh / 2 - LABEL_H / 2, w: lw, h: LABEL_H },
     portAnchor: (side, index, count) => {
       const span = (count - 1) * PITCH;
       const y0 = iy + (ih - span) / 2;
       const y = y0 + index * PITCH;
-      if (side === 'left') return { x: PAD_X + T / 2, y, nx: -1, ny: 0 };
-      return { x: PAD_X + ow - T / 2, y, nx: 1, ny: 0 };
+      if (side === 'left') return { x: leftX, y, nx: -1, ny: 0 };
+      return { x: rightX, y, nx: 1, ny: 0 };
+    },
+    anchorAt: (side, offset) => {
+      const s = segments[side];
+      const t = Math.min(1, Math.max(0, offset));
+      return { x: s.ax + t * (s.bx - s.ax), y: s.ay + t * (s.by - s.ay), nx: s.nx, ny: s.ny };
+    },
+    sideLength: (side) => {
+      const s = segments[side];
+      return Math.hypot(s.bx - s.ax, s.by - s.ay);
+    },
+    project: (x, y) => {
+      let best: { side: PortSide; offset: number } = { side: 'left', offset: 0 };
+      let bestDist = Infinity;
+      (Object.keys(segments) as PortSide[]).forEach((side) => {
+        const s = segments[side];
+        const dx = s.bx - s.ax;
+        const dy = s.by - s.ay;
+        const len2 = dx * dx + dy * dy;
+        let t = len2 === 0 ? 0 : ((x - s.ax) * dx + (y - s.ay) * dy) / len2;
+        t = Math.min(1, Math.max(0, t));
+        const cx = s.ax + t * dx;
+        const cy = s.ay + t * dy;
+        const dist = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { side, offset: t };
+        }
+      });
+      return best;
     },
   };
 };
@@ -108,6 +182,28 @@ const trianglePoints = (
   return `${f(x + (PORT_BASE / 2) * tx)},${f(y + (PORT_BASE / 2) * ty)} ${f(px)},${f(py)} ${f(
     x - (PORT_BASE / 2) * tx
   )},${f(y - (PORT_BASE / 2) * ty)}`;
+};
+
+/** Resolve a rail port to its point on the border: an explicit `offset` (a moved
+    port) wins over the automatic stacked slot. Shared by the frame (triangles)
+    and GenericNode (handles) so both land on the same point. */
+export const resolveRailAnchor = (
+  L: RailLayout,
+  p: RailPort
+): { x: number; y: number; nx: number; ny: number } =>
+  p.offset != null
+    ? L.anchorAt(p.side, p.offset)
+    : L.portAnchor(p.side as 'left' | 'right', p.index, p.count);
+
+/** Snap a normalized along-side offset to the rail's row rhythm (PITCH), centred
+    on the side, so a moved port lines up with the automatic stack. The angle-snap
+    analog for the rail. */
+export const snapRailOffset = (L: RailLayout, side: PortSide, offset: number): number => {
+  const len = L.sideLength(side);
+  if (len <= 0) return 0.5;
+  const c = len / 2;
+  const snapped = c + Math.round((offset * len - c) / PITCH) * PITCH;
+  return Math.min(1, Math.max(0, snapped / len));
 };
 
 interface RailNodeFrameProps {
@@ -150,7 +246,7 @@ const RailNodeFrame = ({ glyphKey, idPrefix, maxPorts, ports }: RailNodeFramePro
         <polygon
           key={p.suffix}
           className={`rail-node-port${p.connected ? ' port-connected' : ''}`}
-          points={trianglePoints(L.portAnchor(p.side, p.index, p.count), p.direction)}
+          points={trianglePoints(resolveRailAnchor(L, p), p.direction)}
         />
       ))}
       <rect

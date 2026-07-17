@@ -30,6 +30,8 @@ import type {
   PortAngles,
   PortPlacements,
   PortSide,
+  RailPortAnchor,
+  RailPortAnchors,
   SaveFilePayload,
 } from '../types/flow';
 
@@ -188,6 +190,19 @@ export interface GraphStore extends GraphData {
     nodeId: string,
     portNumber: string,
     angle: number | undefined,
+    options?: { recordHistory?: boolean }
+  ) => void;
+  /**
+   * Sets a per-instance manual placement (side + normalized offset [0,1] along it)
+   * for a rail element's port, or clears the override when `anchor` is undefined.
+   * Presentation-only: stored in `node.data`. History is recorded by default;
+   * pass `{ recordHistory: false }` for the intermediate ticks of a drag that
+   * records once up front.
+   */
+  setRailPortAnchor: (
+    nodeId: string,
+    portNumber: string,
+    anchor: RailPortAnchor | undefined,
     options?: { recordHistory?: boolean }
   ) => void;
   /**
@@ -868,6 +883,46 @@ export const useGraphStore = create<GraphStore>((set, get) => {
             angles[portNumber] = normalized;
           }
           return { ...n, data: { ...(n.data ?? {}), portAngles: angles } };
+        }),
+      }));
+    },
+
+    setRailPortAnchor: (nodeId, portNumber, anchor, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot set rail port anchor: node "${nodeId}" not found.`);
+        return;
+      }
+      const current = (node.data?.railPortAnchors ?? {}) as RailPortAnchors;
+      // Clamp + round the offset so drag ticks don't fill the save file with noise.
+      const normalized: RailPortAnchor | undefined =
+        anchor === undefined
+          ? undefined
+          : {
+              side: anchor.side,
+              offset: Math.round(Math.min(1, Math.max(0, anchor.offset)) * 1000) / 1000,
+            };
+      const existing = current[portNumber];
+      // No-op when nothing changes (same anchor, or clearing an unset override).
+      if (
+        normalized === undefined
+          ? !(portNumber in current)
+          : !!existing && existing.side === normalized.side && existing.offset === normalized.offset
+      ) {
+        return;
+      }
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.id !== nodeId) return n;
+          const anchors = { ...((n.data?.railPortAnchors ?? {}) as RailPortAnchors) };
+          if (normalized === undefined) {
+            delete anchors[portNumber];
+          } else {
+            anchors[portNumber] = normalized;
+          }
+          return { ...n, data: { ...(n.data ?? {}), railPortAnchors: anchors } };
         }),
       }));
     },
