@@ -109,6 +109,84 @@ parameters:
       fuel like "Jet-A(L)") are allowed in the composition and contribute their
       enthalpy; equilibrium products are gas-phase.
     visibleIf: { parameter: thermoModel, equals: equilibrium }
+  speciesReducer:
+    label: Species reducer
+    type: select
+    defaultValue: equilibrium_sampling
+    category: Gas
+    description: >-
+      How the automatic product slate is trimmed. "Equilibrium sampling" keeps the
+      species that are non-trace at equilibrium across the feed-mixing range; "None"
+      keeps every reachable candidate species.
+    options:
+      - { value: equilibrium_sampling, label: Equilibrium sampling }
+      - { value: none, label: None (keep all) }
+    visibleIf:
+      and:
+        - { parameter: thermoModel, equals: equilibrium }
+        - { parameter: species, equals: auto }
+  speciesReduceThreshold:
+    label: Trace threshold
+    type: float
+    defaultValue: 0
+    category: Gas
+    min: 0
+    description: >-
+      Trace mole-fraction cutoff for the automatic slate: a species is kept when its
+      peak equilibrium mole fraction over the feed-mixing range clears it. Larger keeps
+      fewer species, smaller keeps more. Leave 0 to use the reducer's own default.
+    visibleIf:
+      and:
+        - { parameter: thermoModel, equals: equilibrium }
+        - { parameter: species, equals: auto }
+        - { parameter: speciesReducer, equals: equilibrium_sampling }
+  speciesReduceAbove:
+    label: Reduce above count
+    type: number
+    defaultValue: 0
+    category: Gas
+    min: 0
+    step: 1
+    description: >-
+      Candidate count above which reduction runs; below it every reachable species is
+      kept. Lower it to trim a lean slate, raise it to keep a broad one whole. Leave 0
+      to use the built-in gate.
+    visibleIf:
+      and:
+        - { parameter: thermoModel, equals: equilibrium }
+        - { parameter: species, equals: auto }
+        - { parameter: speciesReducer, equals: equilibrium_sampling }
+  speciesMax:
+    label: Max species
+    type: number
+    defaultValue: 0
+    category: Gas
+    min: 0
+    step: 1
+    description: >-
+      Ceiling on the number of species kept in the automatic slate. Species are ranked
+      by peak equilibrium mole fraction and the slate filled to this many, after the feed
+      species and one carrier of every fed-in element. A ceiling, not a target: it only
+      drops the lowest-ranked non-trace species, so to size a slate pair it with a small
+      trace threshold. Leave 0 for no cap.
+    visibleIf:
+      and:
+        - { parameter: thermoModel, equals: equilibrium }
+        - { parameter: species, equals: auto }
+        - { parameter: speciesReducer, equals: equilibrium_sampling }
+  speciesMust:
+    label: Must-keep species
+    type: string
+    defaultValue: ""
+    category: Gas
+    description: >-
+      Species to keep in the automatic slate regardless of abundance (a marker or
+      pollutant that is trace at equilibrium), as a comma-separated list, e.g. "NO, NO2".
+      Each must be buildable from the fed-in elements.
+    visibleIf:
+      and:
+        - { parameter: thermoModel, equals: equilibrium }
+        - { parameter: species, equals: auto }
   streamMode:
     label: Stream mode
     type: select
