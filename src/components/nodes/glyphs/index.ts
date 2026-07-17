@@ -33,7 +33,6 @@ const OPTICAL_CENTER_Y: Record<string, number> = {
  */
 const PORT_CENTER_Y: Record<string, number> = {
   'helmholtz-resonator': 59 / 70, // main line runs under the backing cavity
-  'mass-source': 40 / 64, // main line runs under the injector stub
 };
 
 const RAW_GLYPHS = import.meta.glob('../../../assets/glyphs/*.svg', {
