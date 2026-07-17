@@ -530,6 +530,56 @@ describe('graphStore setPortAngle', () => {
   });
 });
 
+describe('graphStore setRailPortAnchor', () => {
+  const seedNode = () =>
+    useGraphStore.setState({
+      nodes: [{ id: 'n1', type: 'Mixer', position: { x: 0, y: 0 }, data: {} }],
+      nodeStates: { n1: { parameters: { label: 'Mixer' } } },
+      nodeCounters: { Mixer: 1 },
+      past: [],
+      future: [],
+      locked: false,
+    });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('stores a clamped, rounded side + offset in the node UI data', () => {
+    seedNode();
+    useGraphStore.getState().setRailPortAnchor('n1', '0', { side: 'top', offset: 1.2345 });
+    expect(useGraphStore.getState().nodes[0].data.railPortAnchors).toEqual({
+      '0': { side: 'top', offset: 1 },
+    });
+  });
+
+  it('clears the override when the anchor is undefined', () => {
+    seedNode();
+    useGraphStore.getState().setRailPortAnchor('n1', '0', { side: 'bottom', offset: 0.5 });
+    useGraphStore.getState().setRailPortAnchor('n1', '0', undefined);
+    expect(useGraphStore.getState().nodes[0].data.railPortAnchors).toEqual({});
+  });
+
+  it('is a no-op (no history) when the anchor is unchanged', () => {
+    seedNode();
+    useGraphStore.getState().setRailPortAnchor('n1', '0', { side: 'left', offset: 0.25 });
+    const pastLen = useGraphStore.getState().past.length;
+    useGraphStore.getState().setRailPortAnchor('n1', '0', { side: 'left', offset: 0.25 });
+    expect(useGraphStore.getState().past.length).toBe(pastLen);
+  });
+
+  it('records one undo step so a move can be reverted', () => {
+    seedNode();
+    useGraphStore.getState().setRailPortAnchor('n1', '0', { side: 'top', offset: 0.5 });
+    useGraphStore.getState().undo();
+    expect(useGraphStore.getState().nodes[0].data.railPortAnchors ?? {}).toEqual({});
+  });
+});
+
 describe('graphStore annotations', () => {
   beforeEach(() => {
     useGraphStore.setState({

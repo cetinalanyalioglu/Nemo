@@ -15,7 +15,7 @@ import CircularNodeFrame, { portHandlePoint } from './CircularNodeFrame';
 import type { FramePort } from './CircularNodeFrame';
 import RectNodeFrame, { boxLayout } from './RectNodeFrame';
 import type { BoxPort } from './RectNodeFrame';
-import RailNodeFrame, { railLayout } from './RailNodeFrame';
+import RailNodeFrame, { railLayout, resolveRailAnchor, snapRailOffset } from './RailNodeFrame';
 import type { RailPort } from './RailNodeFrame';
 import { resolveGlyph } from './glyphs';
 import type {
@@ -26,6 +26,7 @@ import type {
   PortAngles,
   PortPlacements,
   PortSide,
+  RailPortAnchors,
 } from '../../types/flow';
 
 type ResizeSession = {
@@ -164,6 +165,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const setPortPlacement = useGraphStore((s) => s.setPortPlacement);
   const setPortAngle = useGraphStore((s) => s.setPortAngle);
+  const setRailPortAnchor = useGraphStore((s) => s.setRailPortAnchor);
   const setActivePort = useGraphStore((s) => s.setActivePort);
   // The suffix of this node's port currently in move-mode, or null. A primitive
   // selector so a change to the active port only re-renders the two nodes it
@@ -257,6 +259,12 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // Per-instance manual port angles (circle only) live in the node's UI data, so
   // rotating a port around the border round-trips through save/load and history.
   const portAngles = (data as { portAngles?: PortAngles } | undefined)?.portAngles;
+
+  // Per-instance manual rail-port placements (side + offset along it), the rail
+  // analog of portAngles. Also in the node's UI data, so an Alt-dragged rail port
+  // round-trips through save/load and history.
+  const railPortAnchors = (data as { railPortAnchors?: RailPortAnchors } | undefined)
+    ?.railPortAnchors;
 
   // Circle ports resolved to outward angles on the border: manual angle wins,
   // else automatic radial distribution. Only computed for circular frames.
@@ -366,29 +374,44 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     if (!isRail) return [];
     const targetCount = calculatedPorts.target.length;
     const sourceCount = calculatedPorts.source.length;
+    // A manual anchor (from an Alt-drag) overrides the port's automatic side and
+    // adds an explicit offset; untouched ports keep their default stacked slot.
+    const build = (
+      suffix: string,
+      side: 'left' | 'right',
+      index: number,
+      count: number,
+      direction: 'target' | 'source'
+    ): RailPort => {
+      const anchor = railPortAnchors?.[suffix];
+      return {
+        suffix,
+        side: anchor ? anchor.side : side,
+        index,
+        count,
+        direction,
+        connected: connectedPortSuffixes.has(suffix),
+        ...(anchor ? { offset: anchor.offset } : {}),
+      };
+    };
     return [
-      ...calculatedPorts.target.map(
-        (suffix, i): RailPort => ({
-          suffix,
-          side: 'left',
-          index: i,
-          count: targetCount,
-          direction: 'target',
-          connected: connectedPortSuffixes.has(suffix),
-        })
-      ),
-      ...calculatedPorts.source.map(
-        (suffix, i): RailPort => ({
-          suffix,
-          side: 'right',
-          index: i,
-          count: sourceCount,
-          direction: 'source',
-          connected: connectedPortSuffixes.has(suffix),
-        })
+      ...calculatedPorts.target.map((suffix, i) => build(suffix, 'left', i, targetCount, 'target')),
+      ...calculatedPorts.source.map((suffix, i) =>
+        build(suffix, 'right', i, sourceCount, 'source')
       ),
     ];
-  }, [isRail, calculatedPorts, connectedPortSuffixes]);
+  }, [isRail, calculatedPorts, connectedPortSuffixes, railPortAnchors]);
+
+  // Moving a rail port relocates its handle, so React Flow must re-measure this
+  // node's handle geometry for incident edges to re-route (mirrors the circle's
+  // anglesSignature effect). Size is unchanged — moving a port never resizes the bar.
+  const railAnchorsSignature = useMemo(
+    () => JSON.stringify(railPortAnchors ?? {}),
+    [railPortAnchors]
+  );
+  useEffect(() => {
+    if (isRail) updateNodeInternals(id);
+  }, [railAnchorsSignature, isRail, id, updateNodeInternals]);
 
   // Moving a port changes which side its handle sits on, so React Flow must
   // re-measure the node's handle geometry for edges to re-route to the new edge.
@@ -856,6 +879,61 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     window.addEventListener('mouseup', onUp);
   };
 
+  // Alt-drag a rail element's port to slide it along the borders; Alt-click (no
+  // drag) clears the manual placement, restoring the automatic stack. The rail
+  // analog of handlePortAngleMouseDown: instead of an angle, the pointer is
+  // projected (in node-local viewBox units, undoing rotation + zoom) onto the
+  // rounded-rect perimeter, so a port slides continuously and wraps around corners
+  // onto the top/bottom edges. Snapping aligns the along-side position to the
+  // rail's row rhythm rather than to angles; Shift inverts the snap choice.
+  const handleRailPortMouseDown = (e: React.MouseEvent<HTMLDivElement>, suffix: string) => {
+    if (!e.altKey || !railL) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = nodeRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Rotation pivots on the node centre, which is invariant under the rotation,
+    // so the centre captured here stays valid for the whole gesture.
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const zoom = getZoom();
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const { vw, vh } = railL;
+
+    let moved = false;
+    let hasRecorded = false;
+
+    const onMove = (ev: MouseEvent) => {
+      moved = true;
+      if (!hasRecorded) {
+        recordHistory();
+        hasRecorded = true;
+      }
+      // Screen delta from the node centre → node-local viewBox units: undo the
+      // node's rotation and the canvas zoom (matches the resize projection).
+      const dx = ev.clientX - cx;
+      const dy = ev.clientY - cy;
+      const vx = vw / 2 + (dx * cos + dy * sin) / zoom;
+      const vy = vh / 2 + (-dx * sin + dy * cos) / zoom;
+      const hit = railL.project(vx, vy);
+      const shouldSnap = rotationSnap !== ev.shiftKey;
+      const offset = shouldSnap ? snapRailOffset(railL, hit.side, hit.offset) : hit.offset;
+      setRailPortAnchor(id, suffix, { side: hit.side, offset }, { recordHistory: false });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (!moved) setRailPortAnchor(id, suffix, undefined);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   // Renders one circular-element port: an absolutely-positioned hit area on the
   // border (at the port's angle) carrying the invisible React Flow handle. The
   // visible triangle is drawn by CircularNodeFrame; this only handles connection
@@ -917,17 +995,28 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
     );
   };
 
-  // Renders one rail-element port: an absolutely-positioned hit area on the left
-  // or right border, stacked at its index (the visible triangle is drawn by
-  // RailNodeFrame). Rail ports are fixed to their side, so there is no move-mode.
+  // Renders one rail-element port: an absolutely-positioned hit area on the border
+  // (its automatic stacked slot, or a manual point from an Alt-drag), carrying the
+  // invisible React Flow handle. The visible triangle is drawn by RailNodeFrame;
+  // this only handles connection and Alt-drag repositioning. Runs on
+  // mousedown-capture with the Alt modifier so a plain press still falls through to
+  // the handle (which starts an edge). Ports lock when the element opts in.
   const renderRailPort = (port: RailPort) => {
     if (!railL) return null;
-    const a = railL.portAnchor(port.side, port.index, port.count);
+    const a = resolveRailAnchor(railL, port);
     return (
       <div
         key={port.suffix}
         className={`rail-port framed-port nodrag port-side-${port.side} port-dir-${port.direction}`}
         style={{ left: `${(a.x / railL.vw) * 100}%`, top: `${(a.y / railL.vh) * 100}%` }}
+        title={
+          portsLocked
+            ? undefined
+            : 'Alt-drag to move this port along the rail; Alt-click to reset (Shift toggles snapping)'
+        }
+        onMouseDownCapture={
+          portsLocked ? undefined : (e) => handleRailPortMouseDown(e, port.suffix)
+        }
       >
         <Handle
           type={port.direction}

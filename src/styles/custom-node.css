@@ -328,6 +328,14 @@
     grab;
 }
 
+/* Over a circle/rail port, Alt-drag repositions the PORT along the border rather
+   than rotating the node, so the port shows a move cursor instead of the rotate
+   arrow the rest of the element carries while Alt is held. */
+.custom-node--rotate .circular-port,
+.custom-node--rotate .rail-port {
+  cursor: grab;
+}
+
 .custom-node-label {
   font-size: 12px;
   font-weight: 600;

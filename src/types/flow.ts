@@ -136,6 +136,16 @@ export type PortAngles = Record<string, number>;
 export type PortPlacements = Record<string, PortSide>;
 
 /**
+ * Per-*instance* manual placement of a rail element's (mixer/splitter) ports: the
+ * side the port renders on plus a normalized offset [0,1] along it. Keyed by the
+ * port's positional suffix and stored in the node's UI data, so it round-trips
+ * through save/load and history and takes precedence over the automatic stack.
+ * The rail analog of {@link PortAngles}; presentation-only, never in the model.
+ */
+export type RailPortAnchor = { side: PortSide; offset: number };
+export type RailPortAnchors = Record<string, RailPortAnchor>;
+
+/**
  * Describes how the number of ports on one side of a node is derived from a
  * parameter, enabling data-driven dynamic-port elements.
  */
