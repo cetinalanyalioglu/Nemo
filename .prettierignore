@@ -6,6 +6,16 @@ dist/
 # Coverage directory
 coverage/
 
+# Generated husky internals
+.husky/_/
+
+# Lockfile is npm-managed
+package-lock.json
+
+# Local tooling and scratch space, not project source
+.claude/
+scratch/
+
 # Misc
 .DS_Store
 .env

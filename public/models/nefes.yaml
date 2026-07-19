@@ -180,7 +180,7 @@ parameters:
   speciesMust:
     label: Must-keep species
     type: string
-    defaultValue: ""
+    defaultValue: ''
     category: Gas
     description: >-
       Species to keep in the automatic slate regardless of abundance (a marker or
@@ -209,7 +209,7 @@ parameters:
   streams:
     label: Declared streams
     type: string
-    defaultValue: ""
+    defaultValue: ''
     category: Gas
     description: >-
       The named feed streams, written as "label = species:frac, ...; label = ..."
