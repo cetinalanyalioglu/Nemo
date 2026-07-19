@@ -48,8 +48,8 @@ edges:
     displayName: Generic Edge
     category: Generic Connections
     parameters: {}
-  
-"nodes":
+
+'nodes':
   generic:
     displayName: Generic Node
     category: Dynamic Port Elements
