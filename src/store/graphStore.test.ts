@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from './graphStore';
+import { selectIndicesReady } from './graph-selectors';
 import { useConsoleStore } from './consoleStore';
 import type { ConsoleLogEntry } from '../types/console';
 import {
@@ -691,6 +692,43 @@ describe('graphStore annotations', () => {
     const states = useGraphStore.getState().nodeStates;
     const indices = [states.n1.parameters.index, states.n2.parameters.index].sort();
     expect(indices).toEqual([0, 1]);
+  });
+
+  // Annotations never receive an index, so counting them as unindexed nodes left
+  // indices permanently "not ready" and disabled the Show indices toggle.
+  it('reports indices ready after renumbering a canvas that holds an annotation', () => {
+    useGraphStore.setState({
+      nodes: [
+        { id: 'n1', type: 'x', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'a1',
+          type: 'annotation',
+          position: { x: 0, y: 0 },
+          data: { annotation: { text: 'note', style: {} } },
+        },
+      ],
+      nodeStates: { n1: { parameters: { label: 'A' } } },
+    });
+    expect(selectIndicesReady(useGraphStore.getState())).toBe(false);
+
+    useGraphStore.getState().regenerateIndices();
+    expect(selectIndicesReady(useGraphStore.getState())).toBe(true);
+  });
+
+  it('reports indices not ready for a canvas holding only annotations', () => {
+    useGraphStore.setState({
+      nodes: [
+        {
+          id: 'a1',
+          type: 'annotation',
+          position: { x: 0, y: 0 },
+          data: { annotation: { text: 'note', style: {} } },
+        },
+      ],
+      nodeStates: {},
+    });
+    useGraphStore.getState().regenerateIndices();
+    expect(selectIndicesReady(useGraphStore.getState())).toBe(false);
   });
 
   it('undo restores a deleted annotation with its content', () => {

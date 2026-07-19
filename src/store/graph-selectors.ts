@@ -1,13 +1,23 @@
 import type { Edge } from 'reactflow';
 import type { GraphStore } from './graphStore';
+import { ANNOTATION_NODE_TYPE } from '../types/annotations';
 
-/** True when every node and edge has an assigned index. */
+/**
+ * True when every model node and edge has an assigned index.
+ *
+ * Annotations are React Flow nodes but live outside the model, so `computeIndices`
+ * never assigns them one. They must be excluded here too — otherwise a single
+ * text note on the canvas leaves this permanently false, and everything gated on
+ * it (the "Show indices" toggle, the data pane) stays disabled however often the
+ * user runs Renumber.
+ */
 export const selectIndicesReady = (s: GraphStore): boolean => {
-  if (s.nodes.length === 0) {
+  const modelNodes = s.nodes.filter((node) => node.type !== ANNOTATION_NODE_TYPE);
+  if (modelNodes.length === 0) {
     return false;
   }
 
-  for (const node of s.nodes) {
+  for (const node of modelNodes) {
     const index = s.nodeStates[node.id]?.parameters?.index;
     if (index === undefined || index === null) {
       return false;
