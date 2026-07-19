@@ -127,6 +127,8 @@
 .annotation-content h4 {
   margin: 0 0 0.3em;
   line-height: 1.25;
+  font-weight: var(--font-heading-weight);
+  letter-spacing: var(--font-heading-tracking);
 }
 
 .annotation-content h1 {

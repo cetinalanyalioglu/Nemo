@@ -1,4 +1,19 @@
 /*
+ * IBM Plex, the docs' typeface, self-hosted rather than pulled from Google
+ * Fonts so the app keeps working offline and makes no third-party request.
+ * The sans is the variable cut (one file covers every weight); the mono has
+ * no variable build, so only the two weights the UI uses are pulled in.
+ *
+ * All unicode subsets are kept rather than latin alone: annotations are
+ * free text and may be written in any script. This costs build output, not
+ * bandwidth -- @font-face unicode-range means a browser fetches only the
+ * subsets a page actually renders (~25 kB for latin).
+ */
+@import '@fontsource-variable/ibm-plex-sans/index.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+/*
  * Nefes model theme.
  *
  * Ported from the Nefes documentation site (~/Projects/Nefes/docs/_theme/
@@ -64,6 +79,18 @@
 
   /* Node fill tracks the surface ramp (see custom-node.css). */
   --box-node-fill: #e4e7eb;
+
+  /*
+   * Typography, matching the docs' $font-family-* stacks. The fallbacks are
+   * kept because canvas SVG exports copy the computed font-family verbatim,
+   * so a viewer without IBM Plex still lands on a sane face.
+   */
+  --font-sans:
+    'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-heading-weight: 600;
+  --font-heading-tracking: -0.01em;
 }
 
 /*
