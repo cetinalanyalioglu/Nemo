@@ -58,6 +58,14 @@ const TOOLBAR_Z_INDEX = 1200;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+/**
+ * Which edge of the note a stretch handle sits on. `end` (right/bottom) grows
+ * the note away from its origin and leaves the origin alone; `start`
+ * (left/top) grows it towards the origin, so the node has to move to keep the
+ * opposite edge visually anchored.
+ */
+type StretchEdge = 'start' | 'end';
+
 interface StepperInputProps {
   value: number | undefined;
   /** Base the +/- buttons step from when `value` is unset. */
@@ -147,6 +155,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
   const layer = annotation.layer ?? 'front';
   const rotation = annotation.rotation ?? 0;
   const updateAnnotation = useGraphStore((s) => s.updateAnnotation);
+  const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const deleteAnnotation = useGraphStore((s) => s.deleteAnnotation);
   const recordHistory = useGraphStore((s) => s.recordHistory);
   const { getZoom } = useReactFlow();
@@ -275,7 +284,8 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
   // Edge stretchers of a text note: dragging the right bar sets an explicit
   // width, the bottom bar an explicit height; one history record per gesture.
   const handleStretchStart =
-    (axis: 'width' | 'height') => (e: React.PointerEvent<HTMLDivElement>) => {
+    (axis: 'width' | 'height', edge: StretchEdge = 'end') =>
+    (e: React.PointerEvent<HTMLDivElement>) => {
       e.stopPropagation();
       e.preventDefault();
       const el = noteRef.current;
@@ -285,6 +295,13 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
       const startSize = axis === 'width' ? el.offsetWidth : el.offsetHeight;
       const minSize = axis === 'width' ? 40 : 20;
       const zoom = getZoom();
+      // A leading-edge handle grows the note as the pointer moves *against* the
+      // axis, and the node origin has to follow so the opposite edge stays put.
+      const direction = edge === 'start' ? -1 : 1;
+      const startPosition =
+        edge === 'start'
+          ? useGraphStore.getState().nodes.find((n) => n.id === id)?.position
+          : undefined;
       let hasRecorded = false;
       const onMove = (ev: PointerEvent) => {
         if (!hasRecorded) {
@@ -293,8 +310,38 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
         }
         const delta = projectDelta(ev.clientX - startX, ev.clientY - startY);
         const along = axis === 'width' ? delta.x : delta.y;
-        const size = Math.round(clamp(startSize + along / zoom, minSize, 4000));
+        const size = Math.round(clamp(startSize + (direction * along) / zoom, minSize, 4000));
         updateAnnotation(id, { style: { [axis]: size } }, { recordHistory: false });
+        if (startPosition) {
+          /*
+           * Hold the far edge still while this one moves. React Flow positions
+           * the unrotated box by its top-left and CSS spins it about its
+           * centre, so growing by `g` along the node-frame axis `e` slides that
+           * centre and the origin has to absorb both terms:
+           *
+           *   dp = -(g / 2) * (R(theta) * e + e)
+           *
+           * `g` is the growth actually applied, read back after clamping so a
+           * drag past the minimum size stops moving the note instead of
+           * sliding it while the width no longer changes.
+           */
+          const growth = size - startSize;
+          const rad = (rotation * Math.PI) / 180;
+          const ex = axis === 'width' ? 1 : 0;
+          const ey = axis === 'width' ? 0 : 1;
+          const rx = ex * Math.cos(rad) - ey * Math.sin(rad);
+          const ry = ex * Math.sin(rad) + ey * Math.cos(rad);
+          onNodesChange([
+            {
+              id,
+              type: 'position',
+              position: {
+                x: startPosition.x - (growth / 2) * (rx + ex),
+                y: startPosition.y - (growth / 2) * (ry + ey),
+              },
+            },
+          ]);
+        }
       };
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
@@ -366,10 +413,45 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
 
   // Double-clicking a stretcher clears its dimension: back to content-sizing in
   // that direction. Swallow the event so it doesn't open the text editor.
-  const handleStretchAutoSize = (axis: 'width' | 'height') => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    updateAnnotation(id, { style: { [axis]: undefined } });
-  };
+  const handleStretchAutoSize =
+    (axis: 'width' | 'height', edge: StretchEdge = 'end') =>
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const el = noteRef.current;
+      const startSize = el ? (axis === 'width' ? el.offsetWidth : el.offsetHeight) : null;
+      const startPosition =
+        edge === 'start'
+          ? useGraphStore.getState().nodes.find((n) => n.id === id)?.position
+          : undefined;
+      updateAnnotation(id, { style: { [axis]: undefined } });
+      if (!startPosition || startSize === null || !el) return;
+      /*
+       * Autosizing from a leading edge has to hold the far edge too, or the
+       * note jumps sideways where the drag would have kept it still. The
+       * content-driven size is only knowable after layout, so measure on the
+       * next frame and apply the same compensation the drag uses.
+       */
+      requestAnimationFrame(() => {
+        const endSize = axis === 'width' ? el.offsetWidth : el.offsetHeight;
+        const growth = endSize - startSize;
+        if (growth === 0) return;
+        const rad = (rotation * Math.PI) / 180;
+        const ex = axis === 'width' ? 1 : 0;
+        const ey = axis === 'width' ? 0 : 1;
+        const rx = ex * Math.cos(rad) - ey * Math.sin(rad);
+        const ry = ex * Math.sin(rad) + ey * Math.cos(rad);
+        onNodesChange([
+          {
+            id,
+            type: 'position',
+            position: {
+              x: startPosition.x - (growth / 2) * (rx + ex),
+              y: startPosition.y - (growth / 2) * (ry + ey),
+            },
+          },
+        ]);
+      });
+    };
 
   const style = { ...ANNOTATION_STYLE_DEFAULTS, ...annotation.style };
 
@@ -655,6 +737,12 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
               title="Drag to set the width • double-click to autosize"
               onPointerDown={handleStretchStart('width')}
               onDoubleClick={handleStretchAutoSize('width')}
+            />
+            <div
+              className="annotation-stretch annotation-stretch-h-left nodrag"
+              title="Drag to set the width • double-click to autosize"
+              onPointerDown={handleStretchStart('width', 'start')}
+              onDoubleClick={handleStretchAutoSize('width', 'start')}
             />
             <div
               className="annotation-stretch annotation-stretch-v nodrag"
