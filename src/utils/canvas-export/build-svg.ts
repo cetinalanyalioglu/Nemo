@@ -255,12 +255,17 @@ function boxFrom(box: HTMLElement, x: number, y: number, w: number, h: number): 
 const NODE_TEXT_SELECTORS = ['.custom-node-label', '.custom-node-type', '.custom-node-data-value'];
 
 /**
- * The element-index badge (shown by "Show indices") is absolutely positioned
+ * The element-index badge (Settings > Appearance > Indices) is absolutely positioned
  * and centered above the node via a CSS transform, which `textFrom`'s offset
  * math cannot read. Emit it directly, centered on the node and just above its
  * top edge, so it survives the export.
  */
-function indexLabelFrom(nodeEl: HTMLElement, posX: number, posY: number, w: number): SVGElement | null {
+function indexLabelFrom(
+  nodeEl: HTMLElement,
+  posX: number,
+  posY: number,
+  w: number
+): SVGElement | null {
   const live = nodeEl.querySelector<HTMLElement>('.element-index-label');
   if (!live) return null;
   const raw = (live.textContent ?? '').trim();
