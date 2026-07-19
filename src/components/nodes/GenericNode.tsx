@@ -178,7 +178,7 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   const { model } = useModel();
   const { snapToGrid, size: gridSize } = useGridState();
   const { snap: rotationSnap, increment: rotationIncrement } = useRotationState();
-  const { showIndices } = useAppearanceState();
+  const { showIndices, showElementNames } = useAppearanceState();
 
   // Data visualization: color this node by the active node dataset (keyed on
   // the generated index) and optionally print its value below the node.
@@ -1221,11 +1221,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
               spellCheck={false}
               size={Math.max(editingStateValue.tempLabel.length, 1)}
             />
-          ) : (
+          ) : showElementNames ? (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
               {String(nodeState.parameters.label)}
             </div>
-          )}
+          ) : null}
           {showValues && dataView.value !== undefined && (
             <span className="custom-node-data-value">
               {formatDataValue(dataView.value, precision, notation, dataView.unit)}
@@ -1292,11 +1292,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
               spellCheck={false}
               size={Math.max(editingStateValue.tempLabel.length, 1)}
             />
-          ) : (
+          ) : showElementNames ? (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
               {String(nodeState.parameters.label)}
             </div>
-          )}
+          ) : null}
           {showValues && dataView.value !== undefined && (
             <span className="custom-node-data-value">
               {formatDataValue(dataView.value, precision, notation, dataView.unit)}
@@ -1353,11 +1353,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
               spellCheck={false}
               size={Math.max(editingStateValue.tempLabel.length, 1)}
             />
-          ) : (
+          ) : showElementNames ? (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
               {String(nodeState.parameters.label)}
             </div>
-          )}
+          ) : null}
           {showValues && dataView.value !== undefined && (
             <span className="custom-node-data-value">
               {formatDataValue(dataView.value, precision, notation, dataView.unit)}
@@ -1429,11 +1429,11 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
               // would overflow a short label).
               size={Math.max(editingStateValue.tempLabel.length, 1)}
             />
-          ) : (
+          ) : showElementNames ? (
             <div className="custom-node-label" onDoubleClick={() => contextStartEditing(id)}>
               {String(nodeState.parameters.label)}
             </div>
-          )}
+          ) : null}
           <div className="custom-node-type">{type}</div>
         </div>
       </div>

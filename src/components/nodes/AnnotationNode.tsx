@@ -36,6 +36,19 @@ const FONT_OPTIONS: Array<{ value: AnnotationFont; label: string }> = [
 const DEFAULT_IMAGE_WIDTH = 240;
 
 /**
+ * `<input type="color">` only accepts `#rrggbb`, but an unstyled note inherits
+ * its color from the theme, which `getComputedStyle` reports as `rgb(…)`.
+ * Converts so the picker opens on the color the note actually shows instead of
+ * a hardcoded gray that matches neither theme.
+ */
+function rgbToHex(value: string): string | null {
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(value);
+  if (!m) return null;
+  const hex = (n: string) => Number(n).toString(16).padStart(2, '0');
+  return `#${hex(m[1])}${hex(m[2])}${hex(m[3])}`;
+}
+
+/**
  * Stacking of the floating style toolbar. React Flow gives the toolbar the
  * selected node's z-index + 1, which for a back-layer annotation is deeply
  * negative: the toolbar would render behind the pane and stop taking clicks.
@@ -351,6 +364,12 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
 
   const style = { ...ANNOTATION_STYLE_DEFAULTS, ...annotation.style };
 
+  // Seed for the text-color picker. An unset color renders as the inherited
+  // theme ink, so read it back off the live note rather than guessing; the read
+  // happens only while the toolbar is mounted (i.e. the note is selected).
+  const inheritedColor =
+    (selected && noteRef.current && rgbToHex(getComputedStyle(noteRef.current).color)) || '#6c757d';
+
   const noteCss: React.CSSProperties =
     kind === 'image'
       ? {
@@ -518,7 +537,7 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
                 <span className="annotation-tool-color-label">A</span>
                 <input
                   type="color"
-                  value={annotation.style.color ?? '#808080'}
+                  value={annotation.style.color ?? inheritedColor}
                   onPointerDown={() => recordHistory()}
                   onChange={(e) => patchStyle({ color: e.target.value }, { recordHistory: false })}
                 />

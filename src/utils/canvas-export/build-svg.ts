@@ -72,10 +72,37 @@ const STROKE_PROPS = [
   'stroke-linejoin',
 ] as const;
 
+/**
+ * Typography that comes from the stylesheet rather than from attributes — e.g.
+ * the edge index badge's 8px Arial in `edges.css`. The exported SVG carries no
+ * <style> block, so anything not inlined here falls back to the SVG defaults
+ * (`font-size: medium`, serif) and the text renders far too large.
+ * Only applied to text-bearing elements, where these properties have meaning.
+ */
+const TEXT_PROPS = [
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'letter-spacing',
+  'text-anchor',
+  'dominant-baseline',
+] as const;
+
+const TEXT_TAGS = new Set(['text', 'tspan', 'textPath']);
+
 /** Copies resolved presentation styles from a live SVG element onto its clone. */
 function inlinePaint(live: Element, clone: Element): void {
   const cs = getComputedStyle(live);
   const style = (clone as SVGElement).style;
+  if (TEXT_TAGS.has(clone.tagName)) {
+    for (const prop of TEXT_PROPS) {
+      const value = cs.getPropertyValue(prop).trim();
+      // `normal` is the initial value for the optional properties here
+      // (weight/style/letter-spacing), so dropping it keeps the markup lean.
+      if (value && value !== 'normal') style.setProperty(prop, value);
+    }
+  }
   // Paint goes into the inline style, not an attribute: many glyphs author ink
   // as `style="fill:currentColor"`, and an inline style beats a presentation
   // attribute — so an attribute would leave `currentColor` (→ black) in place.

@@ -26,6 +26,8 @@ export type AppearanceState = {
   showEdgeBadges: boolean;
   showIndices: boolean;
   showPortNumbers: boolean;
+  /** Element name captions under the nodes (the editable label, not the type). */
+  showElementNames: boolean;
 };
 
 export type LayoutState = {
@@ -79,6 +81,7 @@ type AppActions = {
     toggleEdgeBadges: () => void;
     toggleShowIndices: () => void;
     togglePortNumbers: () => void;
+    toggleElementNames: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -130,6 +133,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     showEdgeBadges: true,
     showIndices: false,
     showPortNumbers: false,
+    showElementNames: true,
   }));
   const [layoutState, setLayout] = useState<LayoutState>({
     edgePathStyle: 'bezier',
@@ -248,6 +252,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance((prev) => ({ ...prev, showPortNumbers: !prev.showPortNumbers }));
   }, []);
 
+  const appearanceToggleElementNames = useCallback(() => {
+    setAppearance((prev) => ({ ...prev, showElementNames: !prev.showElementNames }));
+  }, []);
+
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
     setLayout((prev) => ({ ...prev, edgePathStyle: style }));
   }, []);
@@ -306,6 +314,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         toggleEdgeBadges: appearanceToggleEdgeBadges,
         toggleShowIndices: appearanceToggleShowIndices,
         togglePortNumbers: appearanceTogglePortNumbers,
+        toggleElementNames: appearanceToggleElementNames,
       },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
@@ -336,6 +345,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearanceToggleEdgeBadges,
       appearanceToggleShowIndices,
       appearanceTogglePortNumbers,
+      appearanceToggleElementNames,
       layoutSetEdgePathStyle,
       layoutSetLayoutEngine,
       layoutSetLayoutDirection,

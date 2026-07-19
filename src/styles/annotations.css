@@ -7,7 +7,11 @@
   max-width: 420px;
   padding: 6px 10px;
   border-radius: 6px;
-  color: var(--color-text-body);
+  /* Canvas ink, not document body text: the same gray that draws element
+     frames, glyphs and type sublabels. Notes are marginalia around the model,
+     so they should sit at the canvas's weight rather than the near-black used
+     for pane copy. An explicit per-note color (toolbar picker) overrides this. */
+  color: var(--color-text-secondary);
   line-height: 1.45;
   cursor: grab;
 }
@@ -145,6 +149,46 @@
 
 .annotation-content a {
   color: var(--color-accent);
+}
+
+/* KaTeX defaults are sized for standalone documents: 1.21em glyphs and 1em
+   display margins both overwhelm a compact note. Pull them back to the
+   surrounding text size so a formula reads as part of the sentence, and let the
+   math inherit `currentColor` so a custom note color carries into it. */
+.annotation-content .katex {
+  font-size: 1.05em;
+  color: inherit;
+}
+
+.annotation-content .katex-display {
+  margin: 0.35em 0;
+}
+
+/* A formula wider than the note scrolls inside its own line instead of forcing
+   the whole node wider than its set width. */
+.annotation-content .katex-display > .katex {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+/* Tables (GFM) — hairline grid in the canvas border gray. */
+.annotation-content table {
+  border-collapse: collapse;
+  margin: 0 0 0.4em;
+}
+
+.annotation-content th,
+.annotation-content td {
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.annotation-content th {
+  background: var(--color-surface-muted);
+  font-weight: 600;
 }
 
 /* Inline Markdown-source editor (double-click). The note div freezes at its

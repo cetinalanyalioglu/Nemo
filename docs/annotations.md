@@ -10,7 +10,9 @@ They form their own presentation layer, designed to grow (shapes, further media)
   Click a row to centre (and select) the item; double-click it to give the item a **name** (shown instead of the text preview or the `(image)` stand-in; rename to blank to clear).
 - Each row carries a **lock** toggle: a locked annotation cannot be selected or dragged on the canvas — clicks pass through it to whatever is underneath — which makes a back-layer image usable as a tracing guide while placing elements on top.
   Locked items are managed (unlocked, renamed, deleted) from the pane.
-- Double-click a note to edit its **Markdown** source (headings, emphasis, lists, links, images; raw HTML is intentionally not rendered).
+- Double-click a note to edit its **Markdown** source (headings, emphasis, lists, links, images, plus GitHub-flavored tables, strikethrough and task lists; raw HTML is intentionally not rendered).
+- **Math** is typeset with KaTeX: `$…$` inline, and `$$` on its own line above and below the formula for a centered display block. A single-line `$$…$$` renders inline. A malformed formula shows as highlighted source rather than breaking the note.
+- Markdown is standard CommonMark, so a heading needs a space after the hashes — `# Title`, not `#Title` — and four or more leading spaces make a code block instead.
   Blur or `Ctrl+Enter` commits; `Escape` cancels.
   The note keeps its rendered size while the editor is open.
 - Selecting a note opens a floating toolbar above it with the style controls: font family, size (stepper), bold/italic, alignment, text and background colors (with a reset to the theme defaults), layer (front/back), border, and a fixed width (clear for automatic).
