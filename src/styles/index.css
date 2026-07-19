@@ -1,4 +1,6 @@
 @import './theme.css';
+/* Model themes layer over the default pair; must follow theme.css. */
+@import './model-themes/nefes.css';
 
 body {
   margin: 0;

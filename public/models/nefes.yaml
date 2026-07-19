@@ -60,6 +60,9 @@ id: nefes
 name: Nefes Flow Network
 description: Compressible flow-network element library for the Nefes solver (mean flow + acoustics).
 forceUniqueNodeLabels: true
+# Bundled theme (src/styles/model-themes/nefes.css): the ember palette from the
+# Nefes documentation site. Omit this key to use Nemo's default theme pair.
+theme: nefes
 
 parameters:
   thermoModel:

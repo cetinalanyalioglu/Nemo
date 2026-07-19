@@ -1,0 +1,115 @@
+/*
+ * Nefes model theme.
+ *
+ * Ported from the Nefes documentation site (~/Projects/Nefes/docs/_theme/
+ * nefes-light.scss and nefes-dark.scss) so a network built here reads as part
+ * of the same family as the solver's docs and figures. The docs palette is
+ * itself derived from nefes/plotting/theme.py, which means canvas exports sit
+ * naturally beside plots produced by the solver.
+ *
+ * The accent is an ember orange -- the combustion note in the figure colorway.
+ * The ink scale carries a cool, slightly blue cast rather than neutral gray.
+ *
+ * Only the accent, surface, border and text families are overridden. Status
+ * colours (success/error/invalid) are deliberately left global so their
+ * meaning never shifts between models.
+ *
+ * Both blocks are anchored on :root deliberately. Component stylesheets such
+ * as custom-node.css declare their own tokens under a bare :root and are
+ * bundled after this file, so a plain [data-model-theme] selector ties on
+ * specificity and loses on source order.
+ */
+
+:root[data-model-theme='nefes'] {
+  /* Ember accent: $nefes-ember / -deep / -deeper. */
+  --color-accent: #ea580c;
+  --color-accent-hover: #c2410c;
+  --color-accent-active: #9a3412;
+  --color-accent-subtle-bg: #fff4ed;
+  --color-accent-subtle-bg-alt: #fffaf7;
+  --shadow-accent-focus: 0 0 0 2px rgba(234, 88, 12, 0.15);
+  --shadow-accent-focus-strong: 0 0 0 2px rgba(234, 88, 12, 0.2);
+  --color-accent-selection-bg: rgba(234, 88, 12, 0.08);
+
+  /* Surfaces: $body-bg over the $nefes-gray-50/-100 steps. */
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f5f7fa;
+  --color-surface-muted: #eef1f5;
+  --color-surface-hover: #e4e7eb;
+  --color-surface-sidebar: #f5f7fa;
+  --color-surface-input: #f5f7fa;
+  --color-surface-statusbar: #eef1f5;
+  --color-surface-control-hover: #eef1f5;
+
+  --color-border: #e4e7eb;
+  --color-border-light: #e4e7eb;
+  --color-border-subtle: #eef1f5;
+  --color-border-status: #cbd2d9;
+
+  /* Ink: $nefes-ink through the cool gray scale. */
+  --color-text-primary: #1f2933;
+  --color-text-secondary: #52606d;
+  --color-text-muted: #52606d;
+  --color-text-body: #3e4c59;
+  --color-text-control: #3e4c59;
+  --color-text-icon-secondary: #7b8794;
+  --color-text-nav: #1f2933;
+  --color-text-on-accent: #ffffff;
+  --color-text-disabled: #cbd2d9;
+
+  --color-edge: #52606da9;
+
+  --color-canvas-grid-line: #e8ecf1;
+  --color-canvas-grid-cross: #d6dde4;
+
+  /* Node fill tracks the surface ramp (see custom-node.css). */
+  --box-node-fill: #e4e7eb;
+}
+
+/*
+ * Dark keeps the cool blue cast and brightens the ember two steps so the
+ * accent holds its contrast, matching nefes-dark.scss. The surface ramp
+ * reproduces the docs' three-step elevation: statusbar (#0f141b) sits below
+ * the canvas (#151a21), which sits below the sidebar (#171d25).
+ */
+:root[data-model-theme='nefes'][data-theme='dark'] {
+  --color-accent: #fb923c;
+  --color-accent-hover: #fdba74;
+  --color-accent-active: #fed7aa;
+  --color-accent-subtle-bg: rgba(251, 146, 60, 0.14);
+  --color-accent-subtle-bg-alt: rgba(251, 146, 60, 0.1);
+  --shadow-accent-focus: 0 0 0 2px rgba(251, 146, 60, 0.25);
+  --shadow-accent-focus-strong: 0 0 0 2px rgba(251, 146, 60, 0.35);
+  --color-accent-selection-bg: rgba(251, 146, 60, 0.18);
+
+  --color-surface: #151a21;
+  --color-surface-subtle: #171d25;
+  --color-surface-muted: #1b222b;
+  --color-surface-hover: #242c37;
+  --color-surface-sidebar: #171d25;
+  --color-surface-input: #1b222b;
+  --color-surface-statusbar: #0f141b;
+  --color-surface-control-hover: #242c37;
+
+  --color-border: #2a333e;
+  --color-border-light: #242d38;
+  --color-border-subtle: #1f2830;
+  --color-border-status: #2a333e;
+
+  --color-text-primary: #dbe1e8;
+  --color-text-secondary: #9aa5b1;
+  --color-text-muted: #9aa5b1;
+  --color-text-body: #cdd6df;
+  --color-text-control: #a7b1bc;
+  --color-text-icon-secondary: #7b8794;
+  --color-text-nav: #f5f7fa;
+  --color-text-on-accent: #1f2933;
+  --color-text-disabled: #4a5560;
+
+  --color-edge: #9aa5b1b3;
+
+  --color-canvas-grid-line: #212a34;
+  --color-canvas-grid-cross: #2a333e;
+
+  --box-node-fill: #2a333e;
+}
