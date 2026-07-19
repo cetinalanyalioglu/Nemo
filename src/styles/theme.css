@@ -55,6 +55,16 @@
   --shadow-zoom: 0 2px 6px rgba(0, 0, 0, 0.2);
   --shadow-invalid: 0 0 0 2px rgba(255, 68, 68, 0.2);
 
+  /*
+   * Typography. Model themes may override the families and the heading
+   * treatment; the defaults reproduce the app's original Arial look, so a
+   * model that names no theme is unaffected.
+   */
+  --font-sans: Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-heading-weight: 700;
+  --font-heading-tracking: normal;
+
   --layout-sidebar-width: 250px;
   --layout-panel-width: 250px;
   --layout-sidebar-collapsed-offset: 60px;

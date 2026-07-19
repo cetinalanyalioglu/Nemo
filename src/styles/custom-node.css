@@ -264,7 +264,7 @@
   transform: translate(-50%, calc(-100% + 4px));
   white-space: nowrap;
   line-height: 1;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 400;
   color: var(--color-text-muted);
@@ -276,7 +276,7 @@
   /* Bare digits, no pill background. Same face as the edge-index badge, ~30%
      smaller. Framed-port numbers are placed inside (source) / outside (target)
      the element along the port normal — see the .port-dir rules below. */
-  font-family: Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 6.5px;
   font-weight: 400;
   color: var(--color-text-muted);

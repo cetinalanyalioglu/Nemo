@@ -8,6 +8,8 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
     "@types/dagre": "^0.7.52",
     "axios": "^1.13.1",
     "dagre": "^0.8.5",

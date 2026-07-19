@@ -31,7 +31,7 @@
 }
 
 .edge-midpoint-marker__index {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 8px;
   fill: var(--color-text-muted);
   pointer-events: none;
@@ -39,7 +39,7 @@
 }
 
 .edge-value-label {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 9px;
   fill: var(--color-text-secondary);
   paint-order: stroke;
