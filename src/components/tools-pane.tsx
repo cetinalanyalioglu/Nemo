@@ -3,8 +3,6 @@ import {
   IoChevronBackCircleOutline,
   IoConstructOutline,
   IoChevronDown,
-  IoCheckbox,
-  IoSquareOutline,
   IoShieldCheckmarkOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
@@ -12,16 +10,13 @@ import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
 import { useConsoleStore } from '../store/consoleStore';
-import { selectIndicesReady } from '../store/graph-selectors';
 import { checkNetworkValidity, collectHighlightTargets } from '../utils/network-validity';
 
 const TOOLS_CONNECTIVITY_GROUP = '__tools_connectivity__';
 
 const ToolsPane = React.memo(() => {
   const regenerateIndices = useGraphStore((s) => s.regenerateIndices);
-  const indicesReady = useGraphStore(selectIndicesReady);
   const {
-    appearance: { showIndices },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -105,26 +100,6 @@ const ToolsPane = React.memo(() => {
         <div
           className={`group-content ${collapsedGroups[TOOLS_CONNECTIVITY_GROUP] ? 'collapsed' : ''}`}
         >
-          <div className="parameter-row">
-            <div className="boolean-parameter-row">
-              <label className="parameter-label">Show indices</label>
-              <button
-                type="button"
-                className={`checkbox-wrapper ${showIndices ? 'checked' : ''} ${!indicesReady ? 'disabled' : ''}`}
-                onClick={indicesReady ? actions.appearance.toggleShowIndices : undefined}
-                disabled={!indicesReady}
-                aria-pressed={showIndices}
-                aria-label="Show indices on canvas"
-                title={
-                  indicesReady
-                    ? 'Display indices on nodes and edges'
-                    : 'Run Renumber first to assign indices'
-                }
-              >
-                {showIndices ? <IoCheckbox /> : <IoSquareOutline />}
-              </button>
-            </div>
-          </div>
           <div className="document-pane-file-actions">
             <button
               type="button"

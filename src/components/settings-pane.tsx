@@ -11,6 +11,8 @@ import {
 import '../styles/sidebar.css';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
+import { useGraphStore } from '../store/graphStore';
+import { selectIndicesReady } from '../store/graph-selectors';
 import { THEME_OPTIONS } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { EdgePathStyle } from '../context/AppStateContext';
@@ -132,18 +134,29 @@ type SettingsBooleanFieldProps = {
   label: string;
   checked: boolean;
   onToggle: () => void;
+  /** Greys the checkbox and blocks the toggle; pair with `title` to say why. */
+  disabled?: boolean;
+  title?: string;
 };
 
-const SettingsBooleanField = ({ label, checked, onToggle }: SettingsBooleanFieldProps) => (
+const SettingsBooleanField = ({
+  label,
+  checked,
+  onToggle,
+  disabled = false,
+  title,
+}: SettingsBooleanFieldProps) => (
   <div className="parameter-row">
     <div className="boolean-parameter-row">
       <label className="parameter-label">{label}</label>
       <button
         type="button"
-        className={`checkbox-wrapper ${checked ? 'checked' : ''}`}
-        onClick={onToggle}
+        className={`checkbox-wrapper ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}`}
+        onClick={disabled ? undefined : onToggle}
+        disabled={disabled}
         aria-pressed={checked}
         aria-label={label}
+        title={title}
       >
         {checked ? <IoCheckbox /> : <IoSquareOutline />}
       </button>
@@ -176,12 +189,16 @@ const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSe
 
 const SettingsPane = React.memo(() => {
   const {
-    appearance: { theme, showEdgeBadges, showPortNumbers, showElementNames },
+    appearance: { theme, showEdgeBadges, showPortNumbers, showElementNames, showIndices },
     layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
+
+  // Indices only exist once the user has run Renumber (Tools > Connectivity),
+  // so the toggle stays inert until then rather than switching on nothing.
+  const indicesReady = useGraphStore(selectIndicesReady);
 
   const handleThemeChange = useCallback(
     (value: string) => actions.appearance.setTheme(value as ThemeId),
@@ -265,6 +282,17 @@ const SettingsPane = React.memo(() => {
             label="Port numbers"
             checked={showPortNumbers}
             onToggle={actions.appearance.togglePortNumbers}
+          />
+          <SettingsBooleanField
+            label="Indices"
+            checked={showIndices}
+            onToggle={actions.appearance.toggleShowIndices}
+            disabled={!indicesReady}
+            title={
+              indicesReady
+                ? 'Display indices on nodes and edges'
+                : 'Run Renumber (Tools) first to assign indices'
+            }
           />
         </div>
       </div>

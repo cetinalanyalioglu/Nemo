@@ -173,6 +173,15 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
     }
   }, [editing]);
 
+  // Grow the editor to fit its source on every keystroke, so it never scrolls.
+  // Reset to `auto` first or scrollHeight can only ever ratchet upwards.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!editing || !el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editing, draft]);
+
   // Tracks the Alt-hover combination that arms rotate-mode (same gesture as the
   // model elements). Key listeners attach only while the pointer is over this
   // note, so a canvas full of annotations doesn't stack window-level handlers.
@@ -393,9 +402,20 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
           ...(annotation.style.height
             ? { height: `${annotation.style.height}px`, overflow: 'hidden' }
             : {}),
-          // While editing, freeze the note at its rendered size so the editor
-          // swap doesn't resize the node.
-          ...(editing && editSize ? { width: `${editSize.w}px`, height: `${editSize.h}px` } : {}),
+          // While editing, hold the width so the wrap point (and so the whole
+          // footprint) doesn't jump, but let the height follow the source: the
+          // rendered height is only a floor, so a note never shrinks on open and
+          // grows only when the raw Markdown genuinely needs more room. Any
+          // fixed height set by stretching is released here for the same reason
+          // — clipping the text being edited would hide it outright.
+          ...(editing && editSize
+            ? {
+                width: `${editSize.w}px`,
+                height: 'auto',
+                minHeight: `${editSize.h}px`,
+                overflow: 'visible',
+              }
+            : {}),
         };
   if (rotation) noteCss.transform = `rotate(${rotation}deg)`;
 
