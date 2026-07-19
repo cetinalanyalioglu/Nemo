@@ -266,6 +266,12 @@ export interface ModelDefinition {
    * Defaults to false when omitted.
    */
   forceUniqueNodeLabels?: boolean;
+  /**
+   * Optional name of a bundled model theme (see types/model-theme.ts). Names a
+   * stylesheet the app ships; never carries colour values. Omitted or unknown
+   * names fall back to the default theme pair.
+   */
+  theme?: string;
   /** Model-wide parameters defined in the model YAML file. */
   parameters?: Record<string, Partial<ParameterInfo> & Record<string, unknown>>;
   /**

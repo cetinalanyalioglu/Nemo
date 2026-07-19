@@ -4,6 +4,7 @@ import { buildRuntimeModel, validateModelDefinition } from '../models/model-buil
 import type { RuntimeModel } from '../models/model-builder';
 import { withStableTypeMaps } from '../models/stable-type-maps';
 import type { ModelSummary } from '../types/flow';
+import { applyModelTheme } from '../types/model-theme';
 import { logger } from '../utils/logger';
 
 const MODELS_BASE = `${import.meta.env.BASE_URL}models`;
@@ -108,6 +109,13 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [activeModelId, models]);
+
+  // Dress the app in the active model's theme, falling back to the default
+  // pair for models that name none. Mirrors the light/dark effect in
+  // AppStateContext; the two attributes compose in the cascade.
+  useEffect(() => {
+    applyModelTheme(model?.theme ?? null);
+  }, [model?.theme]);
 
   const setActiveModelId = useCallback((id: string) => {
     setActiveModelIdState((prev) => (prev === id ? prev : id));

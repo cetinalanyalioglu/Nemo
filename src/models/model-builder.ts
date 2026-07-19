@@ -2,6 +2,7 @@ import type { NodeTypes, EdgeTypes } from 'reactflow';
 import GenericNode, { baseElementInfo } from '../components/nodes/GenericNode';
 import GenericEdge, { baseEdgeInfo } from '../components/edges/GenericEdge';
 import { resolveIcon } from './icon-registry';
+import { MODEL_THEME_IDS, isModelThemeId, type ModelThemeId } from '../types/model-theme';
 import type {
   EdgeConfigEntry,
   EdgeInfoEntry,
@@ -19,6 +20,8 @@ export interface RuntimeModel {
   id: string;
   name: string;
   description?: string;
+  /** Bundled model theme to apply while this model is active, if any. */
+  theme: ModelThemeId | null;
   /** When true, node labels are enforced unique across the canvas. */
   forceUniqueNodeLabels: boolean;
   /** Model-wide parameter metadata from the model YAML file. */
@@ -150,10 +153,17 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
   if (!candidate.nodes || typeof candidate.nodes !== 'object') {
     throw new Error(`Model "${candidate.id}" must include a "nodes" map.`);
   }
+  if (candidate.theme !== undefined && !isModelThemeId(candidate.theme)) {
+    throw new Error(
+      `Model "${candidate.id}": unknown theme "${String(candidate.theme)}". ` +
+        `Known themes: ${MODEL_THEME_IDS.join(', ')}.`
+    );
+  }
   return {
     id: candidate.id,
     name: candidate.name,
     description: candidate.description,
+    theme: candidate.theme,
     forceUniqueNodeLabels: candidate.forceUniqueNodeLabels ?? false,
     parameters: candidate.parameters ?? {},
     categoryPrecedence: candidate.categoryPrecedence ?? {},
@@ -243,6 +253,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
     id: def.id,
     name: def.name,
     description: def.description,
+    theme: isModelThemeId(def.theme) ? def.theme : null,
     forceUniqueNodeLabels: def.forceUniqueNodeLabels ?? false,
     modelParameters: def.parameters ?? {},
     categoryPrecedence: def.categoryPrecedence ?? {},
