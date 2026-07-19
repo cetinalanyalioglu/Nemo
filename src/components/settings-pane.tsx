@@ -176,7 +176,7 @@ const SettingsSelectField = ({ id, label, value, options, onChange }: SettingsSe
 
 const SettingsPane = React.memo(() => {
   const {
-    appearance: { theme, showEdgeBadges, showPortNumbers },
+    appearance: { theme, showEdgeBadges, showPortNumbers, showElementNames },
     layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
     sidebar: { isOpen, collapsedGroups },
@@ -250,6 +250,11 @@ const SettingsPane = React.memo(() => {
             value={theme}
             options={THEME_OPTIONS}
             onChange={handleThemeChange}
+          />
+          <SettingsBooleanField
+            label="Element names"
+            checked={showElementNames}
+            onToggle={actions.appearance.toggleElementNames}
           />
           <SettingsBooleanField
             label="Edge badges"
