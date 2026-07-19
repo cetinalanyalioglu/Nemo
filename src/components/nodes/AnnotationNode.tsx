@@ -498,12 +498,23 @@ const AnnotationNode = ({ id, selected, data }: NodeProps) => {
 
   return (
     <>
+      {/*
+        `nopan`, not `nodrag`. NodeToolbar portals its children into
+        `.react-flow__renderer`, so the toolbar is not a descendant of this
+        node's wrapper and `nodrag` never applies to it. That renderer div is
+        the pan surface, so without `nopan` a drag anywhere on the toolbar --
+        its padding, gaps, or dividers -- pans the viewport. Because the note
+        is anchored in canvas space it tracks the pointer 1:1, which reads as
+        dragging the note itself. The class goes on NodeToolbar so it lands on
+        the positioned wrapper and covers the whole hit area.
+      */}
       <NodeToolbar
+        className="nopan"
         isVisible={selected && !editing}
         position={Position.Top}
         style={{ zIndex: TOOLBAR_Z_INDEX }}
       >
-        <div className="annotation-toolbar nodrag">
+        <div className="annotation-toolbar">
           {kind === 'text' && (
             <>
               <select
