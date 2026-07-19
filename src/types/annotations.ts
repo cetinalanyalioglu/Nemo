@@ -92,7 +92,14 @@ export interface AnnotationData {
 /** Defaults applied wherever a style field is unset. */
 export const ANNOTATION_STYLE_DEFAULTS = {
   fontFamily: 'default' as AnnotationFont,
-  fontSize: 14,
+  /**
+   * Sized against the canvas, not against document body copy: at 14px the note
+   * text out-weighed the element glyphs it annotates. 12px also brings the
+   * prose into optical agreement with the KaTeX math beside it — Arial's
+   * x-height at 12px matches KaTeX_Main's at its rendered size, where at 14px
+   * the prose sat noticeably larger than the formulas.
+   */
+  fontSize: 12,
   bold: false,
   italic: false,
   align: 'left' as AnnotationAlign,

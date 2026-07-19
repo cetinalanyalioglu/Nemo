@@ -50,20 +50,42 @@
   pointer-events: all;
 }
 
+/* A corner can't take an edge rule, so it gets the same hairline in bracket
+   form — two 2px arms tucked flush inside the picture's corner. Offsetting by
+   the hit zone's overhang (10px) lands the arms exactly on the image edges. */
 .annotation-node--image .resize-handle::after {
   content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 11px;
+  height: 11px;
+  border-right: 2px solid var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+  border-bottom-right-radius: 2px;
+  opacity: 0.4;
+  transition:
+    opacity 0.15s ease,
+    border-color 0.2s ease;
+}
+
+.annotation-node--image .resize-handle:hover::after {
+  opacity: 1;
+}
+
+.annotation-node--image .resize-handle:active::after {
+  opacity: 1;
+  border-color: var(--color-accent-active);
 }
 
 .annotation-node--border {
   border: 1px solid var(--color-border);
 }
 
+/* Selection reads the same as a model element: a hairline accent boundary, not
+   a heavier dashed box. Offset keeps it clear of the text without padding. */
 .annotation-node--selected {
-  outline: 1px dashed var(--color-accent);
+  outline: 1px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -151,12 +173,14 @@
   color: var(--color-accent);
 }
 
-/* KaTeX defaults are sized for standalone documents: 1.21em glyphs and 1em
-   display margins both overwhelm a compact note. Pull them back to the
-   surrounding text size so a formula reads as part of the sentence, and let the
-   math inherit `currentColor` so a custom note color carries into it. */
+/* Font size is deliberately left to KaTeX's own 1.21em: its fonts have a
+   smaller x-height than the UI sans around them, and that multiplier is what
+   puts a formula on equal optical footing with the prose. Against the 12px note
+   default it lands at ~14.5px — the size the math already rendered at, so the
+   smaller body text closed the gap rather than shrinking the formulas.
+   Only the display margins (1em, sized for standalone documents) need reining
+   in, and the color is inherited so a custom note color carries into the math. */
 .annotation-content .katex {
-  font-size: 1.05em;
   color: inherit;
 }
 
@@ -191,28 +215,31 @@
   font-weight: 600;
 }
 
-/* Inline Markdown-source editor (double-click). The note div freezes at its
-   rendered size while editing, and the editor simply fills it — no minimum
-   sizes and no native resize corner, so opening it never changes the node's
-   footprint (size changes go through the edge stretchers instead). */
+/* Inline Markdown-source editor (double-click). It carries no box of its own —
+   no padding, border or background — so it sits exactly where the rendered
+   Markdown sat inside the note's padding. Anything else double-pads the text
+   and makes the note look like it resized when the editor opens. The note's
+   own selection outline stays on as the boundary.
+
+   Height is driven from JS (scrollHeight) rather than `100%`: raw Markdown is
+   usually taller than what it renders to — hashes, blank lines and list
+   markers all cost lines — so filling the rendered height would clip the
+   source and raise a scrollbar. */
 .annotation-editor {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
-  padding: 4px 6px;
-  border: 1px dashed var(--color-border);
-  border-radius: 4px;
-  background: var(--color-surface);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: inherit;
   font: inherit;
   line-height: inherit;
+  text-align: inherit;
   resize: none;
   outline: none;
-}
-
-.annotation-editor:focus {
-  border-color: var(--color-accent);
+  overflow: hidden;
 }
 
 .annotation-editor::placeholder {
@@ -220,35 +247,14 @@
   opacity: 0.8;
 }
 
-/* Slim app-style scrollbar instead of the native one (whose arrow buttons
-   clash with the rest of the UI). */
-.annotation-editor {
-  scrollbar-width: thin;
-}
-
 .annotation-editor::-webkit-scrollbar {
-  width: 6px;
-}
-
-.annotation-editor::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.annotation-editor::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
-
-.annotation-editor::-webkit-scrollbar-button {
-  display: none;
+  width: 0;
   height: 0;
 }
 
-/* While the editor is open, its own dashed border is the only boundary: the
-   selection outline would double it up. */
-.annotation-node--editing.annotation-node--selected {
-  outline: none;
-}
+/* The editor draws no border of its own, so the selection outline is the only
+   boundary and must stay on — that also keeps the note looking identical
+   whether it is merely selected or open for editing. */
 
 /* Edge stretchers of a selected text note: drag sets an explicit width
    (right bar) or height (bottom bar); double-click autosizes that direction.
@@ -262,10 +268,28 @@
   z-index: 10;
 }
 
+/* The visible grip is a hairline rule sitting flush along the border rather
+   than a blob protruding from it: the hit zone is centred on the edge, so the
+   flex centering lands the rule exactly on the boundary. It rests at low
+   opacity — present but quiet — and comes up to full ink on hover, which is
+   when it matters. The bulk lives in the invisible hit zone, not in the ink. */
 .annotation-stretch::after {
   content: '';
-  border-radius: 3px;
+  border-radius: 1px;
   background: var(--color-accent);
+  opacity: 0.4;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.2s ease;
+}
+
+.annotation-stretch:hover::after {
+  opacity: 1;
+}
+
+.annotation-stretch:active::after {
+  opacity: 1;
+  background-color: var(--color-accent-active);
 }
 
 .annotation-stretch-h {
@@ -278,8 +302,8 @@
 }
 
 .annotation-stretch-h::after {
-  width: 6px;
-  height: 26px;
+  width: 2px;
+  height: 24px;
 }
 
 .annotation-stretch-v {
@@ -292,8 +316,8 @@
 }
 
 .annotation-stretch-v::after {
-  width: 26px;
-  height: 6px;
+  width: 24px;
+  height: 2px;
 }
 
 /* Floating style toolbar (React Flow NodeToolbar portal). */
