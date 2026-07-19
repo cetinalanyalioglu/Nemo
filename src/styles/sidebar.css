@@ -13,6 +13,11 @@
   transition: all 0.3s ease;
   overflow-y: auto;
   overflow-x: hidden;
+  /* Reserve the scrollbar gutter permanently. Collapsing a group can drop the
+     content below 100vh, and without this the scrollbar (and the 6px of edge it
+     occupies inside the border) would pop in and out, making the border/shadow
+     seam against the canvas appear to change. */
+  scrollbar-gutter: stable;
   z-index: 100;
   box-shadow: var(--shadow-sidebar);
 }
@@ -204,16 +209,24 @@
 }
 
 .sidebar::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
 }
 
+/* Transparent track so the reserved gutter reads as the pane surface whether or
+   not the scrollbar is present — the right edge stays a single clean seam. */
 .sidebar::-webkit-scrollbar-track {
-  background: var(--color-surface-sidebar);
+  background: transparent;
 }
 
+/* Inset from both sides (transparent border + content-box clip) so a strip of
+   pane surface always separates the thumb from the border rule at the canvas
+   seam — the rule then looks the same whether or not the pane scrolls. */
 .sidebar::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
+  background: var(--color-scrollbar-thumb);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-right-width: 4px;
+  border-radius: 5px;
 }
 
 .library-name {

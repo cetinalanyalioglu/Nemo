@@ -19,6 +19,9 @@
   --color-surface-statusbar: #f0f0f0;
   --color-surface-control-hover: #f4f4f4;
   --color-border: #dee2e6;
+  /* Deliberately distinct from --color-border: a thumb in the border colour
+     reads as the pane's edge rule thickening when it appears. */
+  --color-scrollbar-thumb: #c4c4c4;
   --color-border-light: #e0e0e0;
   --color-border-subtle: #eaeaea;
   --color-border-status: #cccccc;
@@ -90,6 +93,7 @@
   --color-surface-statusbar: #222228;
   --color-surface-control-hover: #2e2e36;
   --color-border: #3f3f48;
+  --color-scrollbar-thumb: #5c5c66;
   --color-border-light: #38383f;
   --color-border-subtle: #34343c;
   --color-border-status: #3a3a44;
