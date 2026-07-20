@@ -7,6 +7,7 @@ import type { ReactFlowInstance } from 'reactflow';
 import { buildCanvasSvg } from './build-svg';
 import type { CanvasExportOptions } from './build-svg';
 import { downloadSvg, downloadPng, downloadPdf } from './export-formats';
+import { prerenderMath } from './math-svg';
 import { logger } from '../logger';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
@@ -23,7 +24,11 @@ export async function exportCanvas(
   instance: ReactFlowInstance,
   options: CanvasExportOptions = {}
 ): Promise<boolean> {
-  const built = buildCanvasSvg(instance, options);
+  // Typeset any formulas first: MathJax is async, the SVG build is not.
+  const flowEl = document.querySelector('.react-flow');
+  const math = flowEl ? await prerenderMath(flowEl) : undefined;
+
+  const built = buildCanvasSvg(instance, { ...options, math });
   if (!built) return false;
 
   try {
