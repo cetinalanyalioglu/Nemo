@@ -27,6 +27,7 @@ import { useDataStore, selectActiveItem, selectActiveDataset } from '../../store
 import type { DataDisplayConfig, DataTarget } from '../../types/data';
 import { logger } from '../logger';
 import { applyMonochromeTokens, grayscaleResidualColors } from './monochrome';
+import { hasMath, takeMath, texSourceOf } from './math-svg';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -42,6 +43,12 @@ export interface CanvasExportOptions {
    * `monochrome.ts` for why this remaps tokens rather than desaturating.
    */
   monochrome?: boolean;
+  /**
+   * Formulas pre-typeset to SVG paths, keyed by TeX source (see `math-svg.ts`).
+   * Prepared by `exportCanvas` before the build, since MathJax is async and the
+   * build is not.
+   */
+  math?: Map<string, SVGSVGElement>;
 }
 
 export interface BuiltCanvasSvg {
@@ -324,6 +331,175 @@ function harvestModelNode(
   return maybeRotate(parts, rotation, posX + w / 2, posY + h / 2);
 }
 
+/** Flow-units-per-screen-pixel factor of the current viewport transform. */
+function viewportZoom(flowEl: Element): number {
+  const vp = flowEl.querySelector('.react-flow__viewport');
+  if (!vp) return 1;
+  const match = /matrix\(([^)]+)\)/.exec(getComputedStyle(vp).transform);
+  const a = match ? parseFloat(match[1].split(',')[0]) : 1;
+  return Number.isFinite(a) && a > 0 ? a : 1;
+}
+
+/**
+ * Temporarily clears any `rotate(...)` between `from` and `to` (inclusive),
+ * returning a restore function.
+ *
+ * The rich-content harvest below measures with `getBoundingClientRect`, which
+ * is screen space and therefore already rotated; the export re-applies node
+ * rotation itself via `maybeRotate`, so measuring must happen unrotated or the
+ * rotation would be baked in twice.
+ */
+function unrotate(from: HTMLElement, to: HTMLElement): () => void {
+  const touched: { el: HTMLElement; value: string }[] = [];
+  let node: HTMLElement | null = from;
+  while (node) {
+    if (/rotate/.test(node.style.transform)) {
+      touched.push({ el: node, value: node.style.transform });
+      node.style.transform = 'none';
+    }
+    if (node === to) break;
+    node = node.parentElement;
+  }
+  return () => touched.forEach(({ el, value }) => (el.style.transform = value));
+}
+
+/**
+ * Reconstructs annotation content that contains typeset math.
+ *
+ * Plain notes keep the simpler whole-block path (`textFrom`); this one is used
+ * only when KaTeX is present, because math has to be placed as geometry rather
+ * than flattened into a string. Every run is positioned from its *measured*
+ * client rect, so wrapping, alignment and inline math all land where the canvas
+ * puts them. Text is emitted per line run (characters grouped by their rect's
+ * top edge), which also keeps wrapped notes honest.
+ */
+function richContentFrom(
+  content: HTMLElement,
+  origin: HTMLElement,
+  originX: number,
+  originY: number,
+  zoom: number,
+  math: Map<string, SVGSVGElement> | undefined
+): SVGElement[] {
+  const parts: SVGElement[] = [];
+  const originRect = origin.getBoundingClientRect();
+  const toFlowX = (px: number) => originX + (px - originRect.left) / zoom;
+  const toFlowY = (px: number) => originY + (px - originRect.top) / zoom;
+
+  const emitTextNode = (text: Text): void => {
+    const data = text.data;
+    if (!data.trim()) return;
+    const parent = text.parentElement;
+    if (!parent) return;
+    const cs = getComputedStyle(parent);
+    const fontSize = parseFloat(cs.fontSize);
+    if (!Number.isFinite(fontSize) || fontSize <= 0) return;
+
+    // Group characters into line runs: a wrapped text node spans several rects.
+    // `left` tracks the first *inked* character rather than the first character:
+    // SVG collapses leading whitespace in <text>, so anchoring on a leading
+    // space would slide the glyphs left by a space and close up the gap.
+    type Run = { top: number; bottom: number; left: number | null; chars: string };
+    const runs: Run[] = [];
+    const range = document.createRange();
+    for (let i = 0; i < data.length; i += 1) {
+      range.setStart(text, i);
+      range.setEnd(text, i + 1);
+      const r = range.getBoundingClientRect();
+      const blank = /\s/.test(data[i]);
+      const last = runs[runs.length - 1];
+      if (!r.width && !r.height) {
+        // Collapsed whitespace: keep it with the current run for spacing.
+        if (last) last.chars += data[i];
+        continue;
+      }
+      if (last && Math.abs(last.top - r.top) < 1) {
+        last.chars += data[i];
+        last.bottom = Math.max(last.bottom, r.bottom);
+        if (last.left === null && !blank) last.left = r.left;
+      } else {
+        runs.push({ top: r.top, bottom: r.bottom, left: blank ? null : r.left, chars: data[i] });
+      }
+    }
+
+    for (const run of runs) {
+      const value = run.chars.replace(/\u00a0/g, ' ').trim();
+      if (!value || run.left === null) continue;
+      const node = el('text');
+      node.setAttribute('x', String(toFlowX(run.left)));
+      node.setAttribute('y', String(toFlowY((run.top + run.bottom) / 2)));
+      node.setAttribute('text-anchor', 'start');
+      // Centred on the run box; `flattenTextBaselines` bakes this into an
+      // explicit baseline before serialization so the PDF agrees.
+      node.setAttribute('dominant-baseline', 'central');
+      node.setAttribute('font-family', cs.fontFamily.replace(/"/g, "'"));
+      node.setAttribute('font-size', String(fontSize / zoom));
+      node.setAttribute('font-weight', cs.fontWeight);
+      if (cs.fontStyle && cs.fontStyle !== 'normal') node.setAttribute('font-style', cs.fontStyle);
+      node.setAttribute('fill', cs.color);
+      node.textContent = value;
+      parts.push(node);
+    }
+  };
+
+  const emitMath = (katexEl: Element): void => {
+    const rect = katexEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const tex = texSourceOf(katexEl);
+    const display = !!katexEl.closest('.katex-display');
+    const svg = tex ? takeMath(math, tex, display) : null;
+    const color = getComputedStyle(katexEl).color;
+
+    if (svg) {
+      svg.setAttribute('x', String(toFlowX(rect.left)));
+      svg.setAttribute('y', String(toFlowY(rect.top)));
+      svg.setAttribute('width', String(rect.width / zoom));
+      svg.setAttribute('height', String(rect.height / zoom));
+      // Match the on-canvas box without distorting the glyphs.
+      svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
+      // MathJax paints with `currentColor`; anchor it to the note's ink.
+      svg.style.removeProperty('vertical-align');
+      svg.style.color = color;
+      parts.push(svg);
+      return;
+    }
+
+    // MathJax unavailable or the formula failed: draw its source, which at
+    // least stays readable and encodable, rather than KaTeX's glyph soup.
+    if (!tex) return;
+    const fallback = el('text');
+    fallback.setAttribute('x', String(toFlowX(rect.left)));
+    fallback.setAttribute('y', String(toFlowY(rect.top + rect.height / 2)));
+    fallback.setAttribute('text-anchor', 'start');
+    fallback.setAttribute('dominant-baseline', 'central');
+    fallback.setAttribute('font-family', "'Courier New', monospace");
+    fallback.setAttribute('font-size', String(rect.height / zoom / 1.6));
+    fallback.setAttribute('fill', color);
+    fallback.textContent = tex;
+    parts.push(fallback);
+  };
+
+  const visit = (node: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      emitTextNode(node as Text);
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as Element;
+    // KaTeX's hidden MathML twin — visually absent, but `innerText` picks it up
+    // and it is what produced the duplicated, unencodable output.
+    if (element.classList.contains('katex-mathml')) return;
+    if (element.classList.contains('katex')) {
+      emitMath(element);
+      return;
+    }
+    element.childNodes.forEach(visit);
+  };
+
+  visit(content);
+  return parts;
+}
+
 function harvestAnnotation(
   nodeEl: HTMLElement,
   annotation: AnnotationData,
@@ -331,7 +507,9 @@ function harvestAnnotation(
   posY: number,
   w: number,
   h: number,
-  rotation: number
+  rotation: number,
+  zoom: number,
+  math: Map<string, SVGSVGElement> | undefined
 ): SVGElement | null {
   const parts: SVGElement[] = [];
   const cardEl = nodeEl.querySelector<HTMLElement>('.annotation-node') ?? nodeEl;
@@ -354,10 +532,20 @@ function harvestAnnotation(
     // re-parsed — the raw note text is drawn with the annotation's font/color.
     const content =
       cardEl.querySelector<HTMLElement>('.annotation-content, .markdown-content') ?? cardEl;
-    const align = String(annotation.style?.align ?? ANNOTATION_STYLE_DEFAULTS.align);
-    const anchor: Anchor = align === 'left' ? 'start' : align === 'right' ? 'end' : 'middle';
-    const t = textFrom(content, nodeEl, posX, posY, anchor);
-    if (t) parts.push(t);
+    if (hasMath(content)) {
+      // Typeset math cannot be flattened to a string; measure and place it.
+      const restore = unrotate(content, nodeEl);
+      try {
+        parts.push(...richContentFrom(content, nodeEl, posX, posY, zoom, math));
+      } finally {
+        restore();
+      }
+    } else {
+      const align = String(annotation.style?.align ?? ANNOTATION_STYLE_DEFAULTS.align);
+      const anchor: Anchor = align === 'left' ? 'start' : align === 'right' ? 'end' : 'middle';
+      const t = textFrom(content, nodeEl, posX, posY, anchor);
+      if (t) parts.push(t);
+    }
   }
 
   if (parts.length === 0) return null;
@@ -605,6 +793,8 @@ function buildCanvasSvgInner(
   flowEl: Element,
   options: CanvasExportOptions
 ): BuiltCanvasSvg | null {
+  const zoom = viewportZoom(flowEl);
+
   // Neutralize selection styling so highlights never leak into the export.
   const selected = Array.from(flowEl.querySelectorAll('.selected'));
   selected.forEach((e) => e.classList.remove('selected'));
@@ -635,7 +825,17 @@ function buildCanvasSvgInner(
       if (node.type === ANNOTATION_NODE_TYPE) {
         const annotation = node.data?.annotation as AnnotationData | undefined;
         if (!annotation || annotation.hidden) continue;
-        const g = harvestAnnotation(nodeEl, annotation, pos.x, pos.y, w, h, rotation);
+        const g = harvestAnnotation(
+          nodeEl,
+          annotation,
+          pos.x,
+          pos.y,
+          w,
+          h,
+          rotation,
+          zoom,
+          options.math
+        );
         if (g) nodesG.appendChild(g);
       } else {
         const g = harvestModelNode(nodeEl, pos.x, pos.y, w, h, rotation);
