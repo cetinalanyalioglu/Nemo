@@ -30,6 +30,12 @@ export type AppearanceState = {
   showElementNames: boolean;
 };
 
+/** Options applied when exporting the canvas (SVG / PNG / PDF). */
+export type ExportState = {
+  /** Emit true black-and-white artwork instead of the theme's palette. */
+  monochrome: boolean;
+};
+
 export type LayoutState = {
   edgePathStyle: EdgePathStyle;
   layoutEngine: LayoutEngine;
@@ -48,6 +54,7 @@ type AppStateSnapshot = {
   rotation: RotationState;
   appearance: AppearanceState;
   layout: LayoutState;
+  export: ExportState;
 };
 
 type AppActions = {
@@ -82,6 +89,9 @@ type AppActions = {
     toggleShowIndices: () => void;
     togglePortNumbers: () => void;
     toggleElementNames: () => void;
+  };
+  export: {
+    toggleMonochrome: () => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -135,6 +145,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     showPortNumbers: false,
     showElementNames: true,
   }));
+  const [exportState, setExport] = useState<ExportState>({ monochrome: false });
   const [layoutState, setLayout] = useState<LayoutState>({
     edgePathStyle: 'bezier',
     layoutEngine: 'elk',
@@ -256,6 +267,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setAppearance((prev) => ({ ...prev, showElementNames: !prev.showElementNames }));
   }, []);
 
+  const exportToggleMonochrome = useCallback(() => {
+    setExport((prev) => ({ ...prev, monochrome: !prev.monochrome }));
+  }, []);
+
   const layoutSetEdgePathStyle = useCallback((style: EdgePathStyle) => {
     setLayout((prev) => ({ ...prev, edgePathStyle: style }));
   }, []);
@@ -316,6 +331,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         togglePortNumbers: appearanceTogglePortNumbers,
         toggleElementNames: appearanceToggleElementNames,
       },
+      export: {
+        toggleMonochrome: exportToggleMonochrome,
+      },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
         setLayoutEngine: layoutSetLayoutEngine,
@@ -346,6 +364,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearanceToggleShowIndices,
       appearanceTogglePortNumbers,
       appearanceToggleElementNames,
+      exportToggleMonochrome,
       layoutSetEdgePathStyle,
       layoutSetLayoutEngine,
       layoutSetLayoutDirection,
@@ -365,6 +384,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       rotation: rotationState,
       appearance: appearanceState,
       layout: layoutState,
+      export: exportState,
       actions: appActions,
     }),
     [
@@ -376,6 +396,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       rotationState,
       appearanceState,
       layoutState,
+      exportState,
       appActions,
     ]
   );

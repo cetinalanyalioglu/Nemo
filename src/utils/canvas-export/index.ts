@@ -5,10 +5,12 @@
  */
 import type { ReactFlowInstance } from 'reactflow';
 import { buildCanvasSvg } from './build-svg';
+import type { CanvasExportOptions } from './build-svg';
 import { downloadSvg, downloadPng, downloadPdf } from './export-formats';
 import { logger } from '../logger';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
+export type { CanvasExportOptions } from './build-svg';
 
 const BASENAME = 'nemo-canvas';
 
@@ -18,9 +20,10 @@ const BASENAME = 'nemo-canvas';
  */
 export async function exportCanvas(
   format: ExportFormat,
-  instance: ReactFlowInstance
+  instance: ReactFlowInstance,
+  options: CanvasExportOptions = {}
 ): Promise<boolean> {
-  const built = buildCanvasSvg(instance);
+  const built = buildCanvasSvg(instance, options);
   if (!built) return false;
 
   try {
