@@ -26,6 +26,7 @@ import { sampleColormap } from '../colormap';
 import { useDataStore, selectActiveItem, selectActiveDataset } from '../../store/dataStore';
 import type { DataDisplayConfig, DataTarget } from '../../types/data';
 import { logger } from '../logger';
+import { applyMonochromeTokens, grayscaleResidualColors } from './monochrome';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -34,6 +35,14 @@ const XLINK_NS = 'http://www.w3.org/1999/xlink';
 const PADDING = 24;
 /** Gap (flow units) between the graph and the legend card placed to its right. */
 const LEGEND_GAP = 32;
+
+export interface CanvasExportOptions {
+  /**
+   * Emit true black ink on white paper instead of the theme's palette. See
+   * `monochrome.ts` for why this remaps tokens rather than desaturating.
+   */
+  monochrome?: boolean;
+}
 
 export interface BuiltCanvasSvg {
   /** Detached `<svg>` element, ready to serialize or hand to svg2pdf. */
@@ -255,33 +264,20 @@ function boxFrom(box: HTMLElement, x: number, y: number, w: number, h: number): 
 const NODE_TEXT_SELECTORS = ['.custom-node-label', '.custom-node-type', '.custom-node-data-value'];
 
 /**
- * The element-index badge (Settings > Appearance > Indices) is absolutely positioned
- * and centered above the node via a CSS transform, which `textFrom`'s offset
- * math cannot read. Emit it directly, centered on the node and just above its
- * top edge, so it survives the export.
+ * The element-index badge (Settings > Appearance > Indices), placed exactly
+ * where the live one sits.
+ *
+ * It is absolutely positioned above the node by `transform: translate(-50%,
+ * calc(-100% + 4px))`, but that is a pure translation, so it resolves to plain
+ * px in the computed matrix and `offsetWithin` reads it like any other offset —
+ * the same path the node captions take. Placing it by hand instead (a fixed
+ * "just above the top edge" nudge) drifted the label ~6 units too high, opening
+ * a gap the canvas does not have.
  */
-function indexLabelFrom(
-  nodeEl: HTMLElement,
-  posX: number,
-  posY: number,
-  w: number
-): SVGElement | null {
+function indexLabelFrom(nodeEl: HTMLElement, posX: number, posY: number): SVGElement | null {
   const live = nodeEl.querySelector<HTMLElement>('.element-index-label');
   if (!live) return null;
-  const raw = (live.textContent ?? '').trim();
-  if (!raw) return null;
-  const cs = getComputedStyle(live);
-  const fontSize = parseFloat(cs.fontSize) || 9;
-  const text = el('text');
-  text.setAttribute('text-anchor', 'middle');
-  text.setAttribute('font-family', cs.fontFamily.replace(/"/g, "'"));
-  text.setAttribute('font-size', String(fontSize));
-  text.setAttribute('font-weight', cs.fontWeight);
-  text.setAttribute('fill', cs.color);
-  text.setAttribute('x', String(posX + w / 2));
-  text.setAttribute('y', String(posY - 3));
-  text.textContent = raw;
-  return text;
+  return textFrom(live, nodeEl, posX, posY, 'middle');
 }
 
 function harvestModelNode(
@@ -321,7 +317,7 @@ function harvestModelNode(
     });
   }
 
-  const indexLabel = indexLabelFrom(nodeEl, posX, posY, w);
+  const indexLabel = indexLabelFrom(nodeEl, posX, posY);
   if (indexLabel) parts.push(indexLabel);
 
   if (parts.length === 0) return null;
@@ -411,6 +407,58 @@ function bakeDynamicColors(svg: SVGSVGElement): void {
   used.forEach((name) => {
     const value = getComputedStyle(document.body).getPropertyValue(name).trim();
     if (value) svg.style.setProperty(name, value);
+  });
+}
+
+/**
+ * Resolves `dominant-baseline` into an explicit `y`, then drops the property.
+ *
+ * Vertically centred text (node captions, the edge index badge) relies on
+ * `dominant-baseline: central`. Browsers honour it; svg2pdf resolves it
+ * differently, so the PDF placed those glyphs a few units above where the SVG
+ * put them — the badge digit rode up out of its circle. An alphabetic baseline
+ * is unambiguous in every renderer, so bake the centring in ourselves.
+ *
+ * The shift is measured, not approximated from font metrics: with the element
+ * attached we can read its box with the baseline applied and again without, and
+ * the difference is exactly the offset to fold into `y`. That keeps the SVG
+ * pixel-identical while making the PDF agree with it.
+ *
+ * Must run while `svg` is attached to the document — `getBBox` needs layout.
+ */
+function flattenTextBaselines(svg: SVGSVGElement): void {
+  const texts = svg.querySelectorAll<SVGGraphicsElement>('text, tspan');
+  texts.forEach((node) => {
+    const declared = (
+      node.style.getPropertyValue('dominant-baseline') ||
+      node.getAttribute('dominant-baseline') ||
+      ''
+    ).trim();
+    if (!declared || declared === 'auto' || declared === 'alphabetic') return;
+
+    let before: DOMRect;
+    try {
+      before = node.getBBox();
+    } catch {
+      return;
+    }
+    node.style.removeProperty('dominant-baseline');
+    node.removeAttribute('dominant-baseline');
+    let after: DOMRect;
+    try {
+      after = node.getBBox();
+    } catch {
+      return;
+    }
+
+    const shift = before.y - after.y;
+    if (!Number.isFinite(shift) || Math.abs(shift) < 1e-6) return;
+    // Empty text boxes measure as zero-height and would report a bogus shift.
+    if (before.height === 0 || after.height === 0) return;
+
+    const y = parseFloat(node.getAttribute('y') ?? '');
+    if (Number.isFinite(y)) node.setAttribute('y', String(y + shift));
+    else node.setAttribute('dy', String(shift));
   });
 }
 
@@ -532,13 +580,31 @@ function buildLegend(x: number, y: number): { group: SVGElement } | null {
  * Serializes the current canvas into a detached native `<svg>` in flow
  * coordinates. Returns null when there is nothing to export.
  */
-export function buildCanvasSvg(instance: ReactFlowInstance): BuiltCanvasSvg | null {
+export function buildCanvasSvg(
+  instance: ReactFlowInstance,
+  options: CanvasExportOptions = {}
+): BuiltCanvasSvg | null {
   const flowEl = document.querySelector('.react-flow');
   if (!flowEl) {
     logger.warn('Canvas export: React Flow root not found.');
     return null;
   }
 
+  // Remap the theme tokens to true black/white before anything is harvested, so
+  // every paint below resolves monochrome. Restored in the outer `finally`.
+  const restoreTokens = options.monochrome ? applyMonochromeTokens() : null;
+  try {
+    return buildCanvasSvgInner(instance, flowEl, options);
+  } finally {
+    restoreTokens?.();
+  }
+}
+
+function buildCanvasSvgInner(
+  instance: ReactFlowInstance,
+  flowEl: Element,
+  options: CanvasExportOptions
+): BuiltCanvasSvg | null {
   // Neutralize selection styling so highlights never leak into the export.
   const selected = Array.from(flowEl.querySelectorAll('.selected'));
   selected.forEach((e) => e.classList.remove('selected'));
@@ -619,6 +685,10 @@ export function buildCanvasSvg(instance: ReactFlowInstance): BuiltCanvasSvg | nu
   }
   const legend = buildLegend(legendX, legendY);
   if (legend) content.appendChild(legend.group);
+
+  // Still attached, so `getBBox` works: turn centred baselines into explicit
+  // `y` values before the final bounds are taken.
+  flattenTextBaselines(svg);
   const full = graphics.getBBox();
 
   document.body.removeChild(svg);
@@ -630,6 +700,10 @@ export function buildCanvasSvg(instance: ReactFlowInstance): BuiltCanvasSvg | nu
   // per-element — those subtrees aren't in the render tree — so define them once
   // on the root, where they resolve by inheritance. Values follow the live theme.
   bakeDynamicColors(svg);
+
+  // Data-driven paints (contour fills, the legend colormap) don't come from a
+  // theme token, so the override above can't reach them; flatten them to gray.
+  if (options.monochrome) grayscaleResidualColors(svg);
 
   const minX = full.x - PADDING;
   const minY = full.y - PADDING;

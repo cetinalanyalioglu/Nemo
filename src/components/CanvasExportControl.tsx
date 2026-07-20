@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { IoCameraOutline } from 'react-icons/io5';
 import { useReactFlow } from '../context/ReactFlowContext';
+import { useAppState } from '../context/AppStateContext';
 import { exportCanvas } from '../utils/canvas-export';
 import type { ExportFormat } from '../utils/canvas-export';
 import { logger } from '../utils/logger';
@@ -23,6 +24,9 @@ const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
  */
 const CanvasExportControl = memo(() => {
   const { reactFlowInstance } = useReactFlow();
+  const {
+    export: { monochrome },
+  } = useAppState();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<ExportFormat | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -50,7 +54,7 @@ const CanvasExportControl = memo(() => {
       setOpen(false);
       setBusy(format);
       try {
-        const ok = await exportCanvas(format, reactFlowInstance);
+        const ok = await exportCanvas(format, reactFlowInstance, { monochrome });
         if (!ok) logger.info('Nothing to export — the canvas is empty.');
       } catch {
         window.alert(
@@ -60,7 +64,7 @@ const CanvasExportControl = memo(() => {
         setBusy(null);
       }
     },
-    [reactFlowInstance, busy]
+    [reactFlowInstance, busy, monochrome]
   );
 
   return (

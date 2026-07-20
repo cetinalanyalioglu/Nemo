@@ -21,6 +21,7 @@ import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
 const SETTINGS_ROTATION_GROUP = '__settings_rotation__';
+const SETTINGS_EXPORT_GROUP = '__settings_export__';
 
 const ROTATION_INCREMENT_MIN = 1;
 const ROTATION_INCREMENT_MAX = 90;
@@ -192,6 +193,7 @@ const SettingsPane = React.memo(() => {
     appearance: { theme, showEdgeBadges, showPortNumbers, showElementNames, showIndices },
     layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
+    export: { monochrome },
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -293,6 +295,28 @@ const SettingsPane = React.memo(() => {
                 ? 'Display indices on nodes and edges'
                 : 'Run Renumber (Tools) first to assign indices'
             }
+          />
+        </div>
+      </div>
+
+      <div
+        className={`parameter-group ${collapsedGroups[SETTINGS_EXPORT_GROUP] ? 'collapsed' : ''}`}
+      >
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_EXPORT_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>EXPORT</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsBooleanField
+            label="Black & white"
+            checked={monochrome}
+            onToggle={actions.export.toggleMonochrome}
+            title="Export SVG/PNG/PDF as true black-and-white line art instead of the theme colours"
           />
         </div>
       </div>
