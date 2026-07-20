@@ -32,8 +32,14 @@ import { hasMath, takeMath, texSourceOf } from './math-svg';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
-/** Padding (flow units) added around the content bounding box. */
-const PADDING = 24;
+/**
+ * Padding (flow units) added around the content bounds.
+ *
+ * Zero: the bounds are measured from what is actually inked (see
+ * {@link inkBounds}), stroke and markers included, so the crop is already tight
+ * without anything poking out of it.
+ */
+const PADDING = 0;
 /** Gap (flow units) between the graph and the legend card placed to its right. */
 const LEGEND_GAP = 32;
 
@@ -650,6 +656,56 @@ function flattenTextBaselines(svg: SVGSVGElement): void {
   });
 }
 
+/**
+ * Bounds of everything actually inked, in user units — or null if unmeasurable.
+ *
+ * `getBBox()` reports path *geometry*: it excludes stroke width and markers, so
+ * cropping to it shaves half a stroke off whatever sits on the edge (a 2.64-wide
+ * frame wall loses 1.32) and clips arrowheads. Client rects are measured as
+ * painted, so the union of the leaves, mapped back through the root's CTM, is a
+ * box nothing pokes out of — which is what lets the export crop flush.
+ *
+ * Requires `svg` to be attached to the document.
+ */
+function inkBounds(
+  svg: SVGSVGElement,
+  content: Element
+): { x: number; y: number; width: number; height: number } | null {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const toUser = ctm.inverse();
+  const point = svg.createSVGPoint();
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  content.querySelectorAll('*').forEach((node) => {
+    // Definitions are never painted where they sit; their instances are.
+    if (node.closest('defs, marker, pattern, clipPath, mask')) return;
+    const rect = node.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+    const corners: [number, number][] = [
+      [rect.left, rect.top],
+      [rect.right, rect.top],
+      [rect.left, rect.bottom],
+      [rect.right, rect.bottom],
+    ];
+    for (const [cx, cy] of corners) {
+      point.x = cx;
+      point.y = cy;
+      const p = point.matrixTransform(toUser);
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  });
+
+  if (!Number.isFinite(minX) || maxX <= minX || maxY <= minY) return null;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 function fmtTick(value: number): string {
   if (!Number.isFinite(value)) return '—';
   if (Number.isInteger(value)) return String(value);
@@ -889,7 +945,7 @@ function buildCanvasSvgInner(
   // Still attached, so `getBBox` works: turn centred baselines into explicit
   // `y` values before the final bounds are taken.
   flattenTextBaselines(svg);
-  const full = graphics.getBBox();
+  const full = inkBounds(svg, content) ?? graphics.getBBox();
 
   document.body.removeChild(svg);
   svg.removeAttribute('data-export-measuring');
