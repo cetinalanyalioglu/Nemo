@@ -45,6 +45,14 @@ export type ParameterInfo = Record<string, unknown> & {
    * and `checkNetworkValidity` reports an error until the user supplies a value.
    */
   required?: boolean;
+  /**
+   * Opt-in: the parameter accepts one value per branch as well as a single one.
+   * A numeric field so marked takes a comma-separated list ("0.2, 0.6, 1") and
+   * stores it as an array, so a value written per port survives editing; every
+   * entry is range-checked like a lone value. Off by default, so an ordinary
+   * numeric parameter still refuses anything but one number.
+   */
+  perBranch?: boolean;
   visibleIf?: VisibilityCondition;
   step?: number;
   min?: number;

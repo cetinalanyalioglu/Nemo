@@ -6,6 +6,7 @@ import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { isParameterVisible } from '../utils/parameter-conditions';
 import { sortCategories } from '../utils/category-order';
+import { parseNumericParameter, validateNumber } from '../utils/parameter-values';
 import ParameterLabel from './ParameterLabel';
 import MathSelect from './MathSelect';
 import { valuesAtFrame } from '../types/data';
@@ -270,27 +271,6 @@ const PropertiesPanel = React.memo(() => {
 
   const updateParameter = isEdge ? updateEdgeParameter : updateNodeParameter;
 
-  type ValidateNumberResult = { isValid: true } | { isValid: false; message: string };
-
-  const validateNumber = (value: number, info: ParameterInfo): ValidateNumberResult => {
-    // Handle both number and float types
-    if (info.type === 'number' || info.type === 'float') {
-      if (info.min !== undefined && value < (info.min as number)) {
-        return {
-          isValid: false,
-          message: `Value must be at least ${info.min}${info.unit ? ' ' + info.unit : ''}`,
-        };
-      }
-      if (info.max !== undefined && value > (info.max as number)) {
-        return {
-          isValid: false,
-          message: `Value must not exceed ${info.max}${info.unit ? ' ' + info.unit : ''}`,
-        };
-      }
-    }
-    return { isValid: true as const };
-  };
-
   /**
    * Handles changes during input
    * @param {string} elementId - The ID of the element being edited
@@ -305,7 +285,9 @@ const PropertiesPanel = React.memo(() => {
     value: string
   ) => {
     if (info.type === 'number' || info.type === 'float') {
-      if (!/^-?\d*\.?\d*$/.test(value)) return;
+      // a per-branch parameter also admits the separators of a list
+      const numeric = info.perBranch ? /^-?\d*\.?\d*(\s*,\s*-?\d*\.?\d*)*$/ : /^-?\d*\.?\d*$/;
+      if (!numeric.test(value)) return;
     }
 
     // Clear invalid state when user starts editing
@@ -335,23 +317,12 @@ const PropertiesPanel = React.memo(() => {
     value: string
   ) => {
     if (info.type === 'number' || info.type === 'float') {
-      const numValue = parseFloat(value);
+      const parsed = parseNumericParameter(info, value);
 
-      // Check if it's a valid number
-      if (isNaN(numValue)) {
+      if ('message' in parsed) {
         setInvalidInputs((prev) => ({
           ...prev,
-          [`${elementId}_${paramKey}`]: 'Please enter a valid number',
-        }));
-        return;
-      }
-
-      // Validate against constraints
-      const validation = validateNumber(numValue, info);
-      if (!validation.isValid) {
-        setInvalidInputs((prev) => ({
-          ...prev,
-          [`${elementId}_${paramKey}`]: validation.message,
+          [`${elementId}_${paramKey}`]: parsed.message,
         }));
         return;
       }
@@ -359,7 +330,7 @@ const PropertiesPanel = React.memo(() => {
       // If we get here, try to update the value
       const updateSuccess = (
         updateParameter as (id: string, key: string, val: unknown) => boolean | void
-      )(elementId, paramKey, numValue);
+      )(elementId, paramKey, parsed.value);
 
       if (!updateSuccess) {
         // If update failed, keep the old value and show error
@@ -430,6 +401,10 @@ const PropertiesPanel = React.memo(() => {
    * @returns {*} A safe value for the input
    */
   const getSafeValue = (value: unknown, info: ParameterInfo) => {
+    if (Array.isArray(value)) {
+      // one value per branch, shown as the list the field accepts back
+      return value.join(', ');
+    }
     if (value === undefined || value === null) {
       // Return appropriate default based on parameter type
       switch (info.type as string | undefined) {
@@ -685,54 +660,57 @@ const PropertiesPanel = React.memo(() => {
                               }
                               disabled={!isEditable}
                             />
-                            {isEditable && info.type === 'number' && info.step !== undefined && (
-                              <div className="number-controls">
-                                <button
-                                  type="button"
-                                  className="number-control-btn"
-                                  onClick={() => {
-                                    const newValue = incrementValue(
-                                      tempValues[tempValueKey] !== undefined
-                                        ? tempValues[tempValueKey]
-                                        : String(value ?? ''),
-                                      typeof info.step === 'number' ? info.step : undefined,
-                                      { ...info, key }
-                                    );
-                                    // Update temp value during editing
-                                    setTempValues((prev) => ({
-                                      ...prev,
-                                      [tempValueKey]: newValue.toString(),
-                                    }));
-                                    // Also update node parameter
-                                    updateParameter(selectedId, key, newValue);
-                                  }}
-                                >
-                                  <IoAdd />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="number-control-btn"
-                                  onClick={() => {
-                                    const newValue = decrementValue(
-                                      tempValues[tempValueKey] !== undefined
-                                        ? tempValues[tempValueKey]
-                                        : String(value ?? ''),
-                                      typeof info.step === 'number' ? info.step : undefined,
-                                      { ...info, key }
-                                    );
-                                    // Update temp value during editing
-                                    setTempValues((prev) => ({
-                                      ...prev,
-                                      [tempValueKey]: newValue.toString(),
-                                    }));
-                                    // Also update node parameter
-                                    updateParameter(selectedId, key, newValue);
-                                  }}
-                                >
-                                  <IoRemove />
-                                </button>
-                              </div>
-                            )}
+                            {isEditable &&
+                              info.type === 'number' &&
+                              info.step !== undefined &&
+                              !info.perBranch && (
+                                <div className="number-controls">
+                                  <button
+                                    type="button"
+                                    className="number-control-btn"
+                                    onClick={() => {
+                                      const newValue = incrementValue(
+                                        tempValues[tempValueKey] !== undefined
+                                          ? tempValues[tempValueKey]
+                                          : String(value ?? ''),
+                                        typeof info.step === 'number' ? info.step : undefined,
+                                        { ...info, key }
+                                      );
+                                      // Update temp value during editing
+                                      setTempValues((prev) => ({
+                                        ...prev,
+                                        [tempValueKey]: newValue.toString(),
+                                      }));
+                                      // Also update node parameter
+                                      updateParameter(selectedId, key, newValue);
+                                    }}
+                                  >
+                                    <IoAdd />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="number-control-btn"
+                                    onClick={() => {
+                                      const newValue = decrementValue(
+                                        tempValues[tempValueKey] !== undefined
+                                          ? tempValues[tempValueKey]
+                                          : String(value ?? ''),
+                                        typeof info.step === 'number' ? info.step : undefined,
+                                        { ...info, key }
+                                      );
+                                      // Update temp value during editing
+                                      setTempValues((prev) => ({
+                                        ...prev,
+                                        [tempValueKey]: newValue.toString(),
+                                      }));
+                                      // Also update node parameter
+                                      updateParameter(selectedId, key, newValue);
+                                    }}
+                                  >
+                                    <IoRemove />
+                                  </button>
+                                </div>
+                              )}
                             {info.unit && <span className="parameter-unit">{info.unit}</span>}
                           </div>
                         </>
