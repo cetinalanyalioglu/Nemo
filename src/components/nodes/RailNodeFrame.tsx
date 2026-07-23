@@ -32,10 +32,15 @@ const PAD_Y = 4;
 const RX = 9; // corner radius
 const LABEL_H = 44; // fixed label height (design units); never scales with the rail
 // A near-square glyph (aspect >= BEAD_ASPECT, e.g. the junction's centre dot) is drawn as a
-// fixed-size bead on a thin rail rather than a fat bar hugging the square glyph: the bar then
-// takes the same slim width as the tall-glyph rails (the splitter), sized from BEAD_BAR_ASPECT.
+// centred bead on a thin rail rather than a fat bar hugging the square glyph: the bar takes the
+// same slim width as the tall-glyph rails (the splitter), sized from BEAD_BAR_ASPECT.
 const BEAD_ASPECT = 0.7;
 const BEAD_BAR_ASPECT = 0.22;
+// The bead's glyph box, in rail units. The rail renders 1 unit = 1px (see GenericNode), whereas a
+// circle node renders 1 unit = REF_CIRCLE_PX/100 px, so the circle draws its glyph box (1.08*R
+// ink width, R = 41) at 1.08*41 * 40/100 ~= 17.7 px. Matching that keeps the centre dot the same
+// on-canvas size whether the junction is shown as a circle or a rail.
+const BEAD_GLYPH_W = 17.7;
 /** Inset (design units) from each rounded corner within which a moved port may
     sit, so a dragged port never lands on a corner arc. */
 const EDGE_INSET = RX + 2;
@@ -91,7 +96,7 @@ export const railLayout = (maxPorts: number, glyphAspect: number): RailLayout =>
   // fixed square size, centred, over a thin bar sized like the tall-glyph rails, so the two
   // rail families read at the same proportions.
   const bead = glyphAspect >= BEAD_ASPECT;
-  const gw = LABEL_H * (bead ? 1 : glyphAspect); // glyph box width (square for a bead)
+  const gw = bead ? BEAD_GLYPH_W : LABEL_H * glyphAspect; // glyph box width (fixed for a bead)
   const barLw = LABEL_H * (bead ? BEAD_BAR_ASPECT : glyphAspect); // width the side bar hugs
   // Interior width hugs the bar reference so there is only a small gap between it and the side
   // ports; a bead's glyph may overflow this thin bar (it is centred and mostly transparent).
