@@ -240,7 +240,14 @@ const GenericNode = ({ id, selected, type, data }: NodeProps) => {
   // Frame shape: `rect` keeps the four-edge rails; `circle` draws a bordered disc
   // with radial ports; `box` draws a bordered rectangle with a schematic glyph
   // and triangle ports on the four edges.
-  const shape: NodeShape = config?.shape ?? 'rect';
+  // A shape-switchable element (one with `shapeOptions`, e.g. the junction) carries a
+  // per-instance choice in `node.data.shape`; it is honored only when it is one of the
+  // element's declared options, otherwise the model default applies.
+  const instanceShape = (data as { shape?: NodeShape } | undefined)?.shape;
+  const shape: NodeShape =
+    instanceShape && config?.shapeOptions?.includes(instanceShape)
+      ? instanceShape
+      : (config?.shape ?? 'rect');
   const isCircle = shape === 'circle';
   const isBox = shape === 'box';
   const isRail = shape === 'rail';

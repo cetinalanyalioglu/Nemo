@@ -24,6 +24,7 @@ import type {
   EdgeInfoEntry,
   ModelSummary,
   NodeRuntimeState,
+  NodeShape,
   ParameterChangeHandler,
   ParameterInfo,
   ParameterValues,
@@ -179,6 +180,12 @@ export interface GraphStore extends GraphData {
    * the intermediate ticks of a drag gesture that records once up front.
    */
   setNodeRotation: (nodeId: string, degrees: number, options?: { recordHistory?: boolean }) => void;
+  /**
+   * Sets a shape-switchable element's per-instance frame (e.g. the junction between `rail`
+   * and `circle`). Purely presentational: stored in `node.data`, never the solver model, so
+   * the same underlying element renders either way. Records history by default.
+   */
+  setNodeShape: (nodeId: string, shape: NodeShape, options?: { recordHistory?: boolean }) => void;
   /**
    * Sets a per-instance manual angle (degrees) for a circular element's perimeter
    * port, or clears the override when `angle` is undefined. Presentation-only:
@@ -853,6 +860,23 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       set((s) => ({
         nodes: s.nodes.map((n) =>
           n.id === nodeId ? { ...n, data: { ...(n.data ?? {}), rotation: normalized } } : n
+        ),
+      }));
+    },
+
+    setNodeShape: (nodeId, shape, options = {}) => {
+      const { recordHistory: shouldRecord = true } = options;
+      const node = get().nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        logger.error(`Cannot set shape: node "${nodeId}" not found.`);
+        return;
+      }
+      const current = (node.data as { shape?: NodeShape } | undefined)?.shape;
+      if (current === shape) return;
+      if (shouldRecord) get().recordHistory();
+      set((s) => ({
+        nodes: s.nodes.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...(n.data ?? {}), shape } } : n
         ),
       }));
     },

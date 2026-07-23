@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import type { ParameterInfo } from '../types/flow';
+import type { NodeShape, ParameterInfo } from '../types/flow';
 import { useGraphStore } from '../store/graphStore';
 import { useDataStore } from '../store/dataStore';
 import { useAppState } from '../context/AppStateContext';
@@ -128,6 +128,13 @@ const PropertiesPanel = React.memo(() => {
   const selectedEdgeId = useGraphStore((s) => s.selectedEdgeId);
   const updateNodeParameter = useGraphStore((s) => s.updateNodeParameter);
   const updateEdgeParameter = useGraphStore((s) => s.updateEdgeParameter);
+  const setNodeShape = useGraphStore((s) => s.setNodeShape);
+  // The selected node's per-instance frame (data.shape), for the shape selector below.
+  const selectedNodeShape = useGraphStore(
+    (s) =>
+      (s.nodes.find((n) => n.id === s.selectedNodeId)?.data as { shape?: NodeShape } | undefined)
+        ?.shape
+  );
   const elementState = useGraphStore((s) =>
     s.selectedEdgeId
       ? s.edgeStates[s.selectedEdgeId]
@@ -529,6 +536,50 @@ const PropertiesPanel = React.memo(() => {
             </div>
           )}
         </div>
+
+        {/* Shape selector: a per-instance frame choice for a shape-switchable element (the
+            junction renders as a rail or a circle). Presentation-only; the solver model is
+            identical either way, so it stays out of the parameter/attribute list. */}
+        {!isEdge &&
+          elementType &&
+          (() => {
+            const options = model?.nodeConfig[elementType]?.shapeOptions;
+            if (!options || options.length < 2) return null;
+            const current =
+              selectedNodeShape ?? model?.nodeConfig[elementType]?.shape ?? options[0];
+            const shapeLabels: Record<string, string> = {
+              rail: 'Rail',
+              circle: 'Circle',
+              box: 'Box',
+              rect: 'Box',
+            };
+            return (
+              <div className="parameter-group">
+                <div className="group-header">
+                  <div className="group-header-content">
+                    <span>Appearance</span>
+                  </div>
+                </div>
+                <div className="group-content">
+                  <div className="parameter-row">
+                    <ParameterLabel
+                      label="Shape"
+                      description="Rail or circular frame (visual only)."
+                    />
+                    <div className="parameter-input-container">
+                      <MathSelect
+                        value={current}
+                        options={options.map((o) => ({ value: o, label: shapeLabels[o] ?? o }))}
+                        onChange={(next) =>
+                          selectedNodeId && setNodeShape(selectedNodeId, next as NodeShape)
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
         {/* Parameter groups, ordered by precedence then alphabetically */}
         {sortCategories(Object.keys(groupedParameters), categoryPrecedence).map((category) => {
