@@ -1536,8 +1536,8 @@ nodes:
     displayName: Junction
     category: Multi port elements
     icon: BsLightningFill
-    shape: rail
-    shapeOptions: [rail, circle]
+    shape: circle
+    shapeOptions: [circle, rail]
     glyph: junction
     dynamicPorts: true
     # One variable-port manifold that merges and distributes. It renders as either a rail
@@ -1631,7 +1631,7 @@ nodes:
     displayName: Forced Splitter
     category: Multi port elements
     icon: BsSignpostSplit
-    shape: rail
+    shape: circle
     glyph: lossless-splitter
     dynamicPorts: true
     dynamicPortConfig:

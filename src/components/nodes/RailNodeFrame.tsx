@@ -31,6 +31,11 @@ const PAD_X = PORT_H + 3; // margin so outward port tips fit the viewBox
 const PAD_Y = 4;
 const RX = 9; // corner radius
 const LABEL_H = 44; // fixed label height (design units); never scales with the rail
+// A near-square glyph (aspect >= BEAD_ASPECT, e.g. the junction's centre dot) is drawn as a
+// fixed-size bead on a thin rail rather than a fat bar hugging the square glyph: the bar then
+// takes the same slim width as the tall-glyph rails (the splitter), sized from BEAD_BAR_ASPECT.
+const BEAD_ASPECT = 0.7;
+const BEAD_BAR_ASPECT = 0.22;
 /** Inset (design units) from each rounded corner within which a moved port may
     sit, so a dragged port never lands on a corner arc. */
 const EDGE_INSET = RX + 2;
@@ -82,10 +87,15 @@ export interface RailLayout {
 export const railLayout = (maxPorts: number, glyphAspect: number): RailLayout => {
   const n = Math.max(1, maxPorts);
   const ih = (n - 1) * PITCH + 2 * END_PAD;
-  const lw = LABEL_H * glyphAspect; // aspect = w / h
-  // Interior width hugs the (fixed-size) label so there is only a small gap
-  // between the glyph and the side ports, whatever the label's aspect.
-  const iw = Math.max(MIN_IW, lw + 2 * SIDE_GAP);
+  // A tall glyph fills the bar (bar width hugs it); a near-square "bead" glyph is drawn at a
+  // fixed square size, centred, over a thin bar sized like the tall-glyph rails, so the two
+  // rail families read at the same proportions.
+  const bead = glyphAspect >= BEAD_ASPECT;
+  const gw = LABEL_H * (bead ? 1 : glyphAspect); // glyph box width (square for a bead)
+  const barLw = LABEL_H * (bead ? BEAD_BAR_ASPECT : glyphAspect); // width the side bar hugs
+  // Interior width hugs the bar reference so there is only a small gap between it and the side
+  // ports; a bead's glyph may overflow this thin bar (it is centred and mostly transparent).
+  const iw = Math.max(MIN_IW, barLw + 2 * SIDE_GAP);
   const ow = iw + 2 * T;
   const oh = ih + 2 * T;
   const vw = ow + 2 * PAD_X;
@@ -127,7 +137,7 @@ export const railLayout = (maxPorts: number, glyphAspect: number): RailLayout =>
     rx: RX,
     fillRect: { x: PAD_X, y: PAD_Y, w: ow, h: oh },
     borderRect: { x: leftX, y: topY, w: ow - T, h: oh - T },
-    label: { x: vw / 2 - lw / 2, y: vh / 2 - LABEL_H / 2, w: lw, h: LABEL_H },
+    label: { x: vw / 2 - gw / 2, y: vh / 2 - LABEL_H / 2, w: gw, h: LABEL_H },
     portAnchor: (side, index, count) => {
       const span = (count - 1) * PITCH;
       const y0 = iy + (ih - span) / 2;
