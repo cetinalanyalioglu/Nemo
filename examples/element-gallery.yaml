@@ -105,6 +105,14 @@ model:
       type: Junction
       attributes:
         label: Junction (circle)
+    - id: LosslessSplitter1-gal
+      type: LosslessSplitter
+      attributes:
+        label: Lossless Splitter
+    - id: IdealMixer1-gal
+      type: IdealMixer
+      attributes:
+        label: Ideal Mixer
     - id: ForcedSplitter1-gal
       type: ForcedSplitter
       attributes:
@@ -285,6 +293,16 @@ uiAttributes:
         y: 1030
       data:
         shape: circle
+    - id: LosslessSplitter1-gal
+      position:
+        x: 570
+        y: 1030
+      data: {}
+    - id: IdealMixer1-gal
+      position:
+        x: 740
+        y: 1030
+      data: {}
     - id: ForcedSplitter1-gal
       position:
         x: 400

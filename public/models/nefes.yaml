@@ -19,12 +19,15 @@
 #     port-0 area; junction/splitter use port 0 as the common-pressure
 #     reference).  The solver reads the port ordinals from each edge's
 #     source/target handles, so keep handles attached to the intended ports.
-#   - JunctionStaticP is valid only where all ports run at low Mach number; use
-#     LosslessSplitter for plenums/manifolds feeding fast branches.
-#   - Mixer is the merge counterpart of the splitter: many inflows into a
-#     single outflow, obeying the second law at any port Mach number.  At its default
-#     recovery = 1 each inflow must be pinned by the network (a prescribed rate or a branch
-#     resistance); lower recovery toward 0 for bare feeds.
+#   - Where streams meet or split, the Junction is the one manifold, second-law-safe at any
+#     port Mach number; its closure is chosen by its inputs (recovery, K, or the low-Mach
+#     static-pressure header).  Two of its settings have their own nodes, which say in the
+#     drawing what the numbers would otherwise leave implicit: the Lossless Splitter (the
+#     Junction at K = 0, every branch at the feed's own total pressure) and the Ideal Mixer
+#     (the Junction at recovery = 1, the least-dissipative merge).  Both of those, and the
+#     Junction at recovery = 1, add no flow resistance of their own, so every inflow must be
+#     pinned by the network (a prescribed rate or a branch resistance); lower a Junction's
+#     recovery toward 0 for bare feeds.
 #
 # Scope: v1 is subsonic (flowing or quiescent).  Supersonic inlets/outlets are
 # deferred and intentionally omitted from this library.  The Duct element is
@@ -1632,6 +1635,122 @@ nodes:
     # One manifold for merging and distributing, second-law-safe at any port Mach number.
     # Ties a common effective total pressure (recovery closure) or per-branch losses (K); the
     # static-pressure option is the classical low-Mach header.
+
+  LosslessSplitter:
+    displayName: Lossless Splitter
+    category: Multi port elements
+    icon: BsDiagram2
+    shape: rail
+    shapeOptions: [rail, circle]
+    glyph: lossless-splitter
+    dynamicPorts: true
+    # The Junction at K = 0, under the name of what that setting does. The defaults draw the
+    # usual one-feed-into-branches shape, but both sides take a user-set count, so any wiring
+    # the Junction accepts is accepted here.
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 1
+        min: 1
+      source:
+        countParameter: rightPorts
+        default: 2
+        min: 1
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Splitter
+      leftPorts:
+        label: Input ports
+        type: number
+        defaultValue: 1
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of inflow (incoming) ports.
+      rightPorts:
+        label: Output ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of outflow (outgoing) ports.
+      volume:
+        label: Chamber volume
+        type: float
+        defaultValue: 0.0
+        unit: m^3
+        category: Acoustics
+        min: 0
+        step: 0.0001
+        description: >-
+          Plenum/chamber volume. Gives the splitter the acoustic compliance C = V/(rho c^2) on
+          its common pressure (storage block M). Default 0 = no compliance. Inert in the mean
+          flow.
+    # Distribution plenum: every branch leaves at the feed's own total pressure, exactly and
+    # with no smoothing floor, so the split is isentropic and set entirely by what the branches
+    # meet downstream -- each needs a real resistance for the split to be determinate.
+
+  IdealMixer:
+    displayName: Ideal Mixer
+    category: Multi port elements
+    icon: BsFunnelFill
+    shape: rail
+    shapeOptions: [rail, circle]
+    glyph: mixer
+    dynamicPorts: true
+    # The Junction at recovery = 1, under the name of what that setting does. The defaults draw
+    # the usual feeds-into-one-outflow shape; both sides take a user-set count.
+    dynamicPortConfig:
+      target:
+        countParameter: leftPorts
+        default: 2
+        min: 1
+      source:
+        countParameter: rightPorts
+        default: 1
+        min: 1
+    ports:
+      target: []
+      source: []
+    parameters:
+      label:
+        defaultValue: Mixer
+      leftPorts:
+        label: Input ports
+        type: number
+        defaultValue: 2
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of inflow (incoming) ports the mixer merges.
+      rightPorts:
+        label: Output ports
+        type: number
+        defaultValue: 1
+        min: 1
+        step: 1
+        category: Ports
+        description: Number of outflow (outgoing) ports.
+      volume:
+        label: Chamber volume
+        type: float
+        defaultValue: 0.0
+        unit: m^3
+        category: Acoustics
+        min: 0
+        step: 0.0001
+        description: >-
+          Mixing-chamber volume. Gives the mixer the acoustic compliance C = V/(rho c^2) on its
+          common pressure (storage block M). Default 0 = no compliance. Inert in the mean flow.
+    # Merges its feeds with the least entropy the second law allows: each inflow gives up only
+    # its excess total pressure over the weakest feed (the Delta s >= 0 on the rail glyph). It
+    # adds no flow resistance of its own, so every inflow must be pinned by the network (a
+    # prescribed rate or a branch resistance); where the feeds are bare, use a Junction with a
+    # lower recovery.
 
   ForcedSplitter:
     displayName: Forced Splitter
