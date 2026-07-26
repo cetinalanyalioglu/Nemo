@@ -50,6 +50,18 @@ The two bands mirror their hatch direction about the centerline:
 
 Use this pattern for any future wall-material marking instead of ad-hoc ticks.
 
+## Rail glyphs
+
+The manifold family (junction, lossless splitter, ideal mixer, forced splitter) carries a math mark rather than a schematic, and the rail frame reads the glyph's _viewBox_ aspect — not its ink — to set the bar width (`RailNodeFrame.railLayout`).
+Two shapes exist:
+
+- **Tall** (aspect below 0.7) — the mark fills the bar and runs along it. The equation glyphs are set with LaTeX and converted to paths (`latex` then `dvisvgm --no-fonts --exact-bbox`), then rotated −90° so the text reads along the rail.
+- **Bead** (aspect at or above 0.7, e.g. the junction's centre dot) — the mark is drawn at a fixed 17.7-unit box centred on a thin bar, so it keeps the same on-canvas size whether the element is shown as a rail or a circle.
+
+A single-symbol mark stays upright (the forced splitter's `\bm{\beta}`, its outflow fractions).
+To keep such an element the same width as the lossless splitter, give it that glyph's viewBox (`0 0 100 458.459`) and scale the symbol to span the full 100-unit width, centred on the long axis.
+Ink outside the viewBox is clipped: the frame draws the glyph in a nested `<svg>` viewport, so the symbol's width is capped by the bar it sits on.
+
 ## Editing in Inkscape
 
 Every glyph is a plain standalone SVG (`xmlns` + `viewBox`), so the files open directly in Inkscape.

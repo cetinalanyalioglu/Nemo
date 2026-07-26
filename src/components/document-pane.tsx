@@ -10,6 +10,7 @@ import {
   IoSquareOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
 import { useDataStore } from '../store/dataStore';
@@ -56,7 +57,7 @@ const DocumentPane = React.memo(() => {
   };
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <SidebarShell>
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoDocumentTextOutline className="panel-icon" />
@@ -142,7 +143,7 @@ const DocumentPane = React.memo(() => {
           )}
         </div>
       </div>
-    </div>
+    </SidebarShell>
   );
 });
 

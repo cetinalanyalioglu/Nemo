@@ -1756,8 +1756,9 @@ nodes:
     displayName: Forced Splitter
     category: Multi port elements
     icon: BsSignpostSplit
-    shape: circle
-    glyph: lossless-splitter
+    shape: rail
+    shapeOptions: [rail, circle]
+    glyph: forced-splitter
     dynamicPorts: true
     dynamicPortConfig:
       source:

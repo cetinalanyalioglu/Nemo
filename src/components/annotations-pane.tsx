@@ -12,6 +12,7 @@ import {
   IoTrashOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import '../styles/annotations.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
@@ -129,7 +130,7 @@ const AnnotationsPane = React.memo(() => {
   };
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <SidebarShell>
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoPencilOutline className="panel-icon" />
@@ -287,7 +288,7 @@ const AnnotationsPane = React.memo(() => {
           )}
         </div>
       </div>
-    </div>
+    </SidebarShell>
   );
 });
 

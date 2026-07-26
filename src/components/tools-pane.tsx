@@ -6,6 +6,7 @@ import {
   IoShieldCheckmarkOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
@@ -73,7 +74,7 @@ const ToolsPane = React.memo(() => {
   }, [actions.consolePane]);
 
   return (
-    <div className={`sidebar tools-pane ${isOpen ? 'open' : ''}`}>
+    <SidebarShell className="tools-pane">
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoConstructOutline className="panel-icon" />
@@ -122,7 +123,7 @@ const ToolsPane = React.memo(() => {
           </div>
         </div>
       </div>
-    </div>
+    </SidebarShell>
   );
 });
 
