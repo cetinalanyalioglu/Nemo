@@ -207,6 +207,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
       displayName: node.displayName ?? type,
       category: node.category ?? 'Elements',
       shape: node.shape ?? 'rect',
+      shapeOptions: node.shapeOptions,
       glyph: node.glyph,
       glyphScale: node.glyphScale,
       glyphInsetX: node.glyphInsetX,

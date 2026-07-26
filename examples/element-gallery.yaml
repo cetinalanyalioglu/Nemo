@@ -97,14 +97,22 @@ model:
       type: TaperedDuct
       attributes:
         label: Tapered Duct
-    - id: JunctionStaticP1-gal
-      type: JunctionStaticP
+    - id: Junction1-gal
+      type: Junction
       attributes:
-        label: Junction (static p)
+        label: Junction (rail)
+    - id: Junction2-gal
+      type: Junction
+      attributes:
+        label: Junction (circle)
     - id: LosslessSplitter1-gal
       type: LosslessSplitter
       attributes:
         label: Lossless Splitter
+    - id: IdealMixer1-gal
+      type: IdealMixer
+      attributes:
+        label: Ideal Mixer
     - id: ForcedSplitter1-gal
       type: ForcedSplitter
       attributes:
@@ -274,14 +282,25 @@ uiAttributes:
         x: 910
         y: 795
       data: {}
-    - id: JunctionStaticP1-gal
+    - id: Junction1-gal
       position:
         x: 60
         y: 1030
       data: {}
-    - id: LosslessSplitter1-gal
+    - id: Junction2-gal
       position:
         x: 230
+        y: 1030
+      data:
+        shape: circle
+    - id: LosslessSplitter1-gal
+      position:
+        x: 570
+        y: 1030
+      data: {}
+    - id: IdealMixer1-gal
+      position:
+        x: 740
         y: 1030
       data: {}
     - id: ForcedSplitter1-gal
@@ -315,8 +334,7 @@ uiState:
       HelmholtzResonator: 1
       FannoPipe: 1
       TaperedDuct: 1
-      JunctionStaticP: 1
-      LosslessSplitter: 1
+      Junction: 2
       ForcedSplitter: 1
     totalNodeCounters:
       MassFlowInlet: 1
@@ -342,6 +360,5 @@ uiState:
       HelmholtzResonator: 1
       FannoPipe: 1
       TaperedDuct: 1
-      JunctionStaticP: 1
-      LosslessSplitter: 1
+      Junction: 2
       ForcedSplitter: 1

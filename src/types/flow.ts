@@ -45,6 +45,14 @@ export type ParameterInfo = Record<string, unknown> & {
    * and `checkNetworkValidity` reports an error until the user supplies a value.
    */
   required?: boolean;
+  /**
+   * Opt-in: the parameter accepts one value per branch as well as a single one.
+   * A numeric field so marked takes a comma-separated list ("0.2, 0.6, 1") and
+   * stores it as an array, so a value written per port survives editing; every
+   * entry is range-checked like a lone value. Off by default, so an ordinary
+   * numeric parameter still refuses anything but one number.
+   */
+  perBranch?: boolean;
   visibleIf?: VisibilityCondition;
   step?: number;
   min?: number;
@@ -172,6 +180,12 @@ export interface NodeConfigEntry {
   category: string;
   /** Frame the element is drawn in. Defaults to `rect`. */
   shape: NodeShape;
+  /**
+   * Frames the user may switch this element between, per instance (a UI-only choice stored on
+   * the node's `data`; the solver model is identical). When set, the properties panel shows a
+   * shape selector. The junction, for example, may render as a `rail` or a `circle`.
+   */
+  shapeOptions?: NodeShape[];
   /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
   glyph?: string;
   /**
@@ -220,6 +234,8 @@ export interface ModelNodeDefinition {
   icon?: string;
   /** Frame the element is drawn in (`rect` | `circle`). Defaults to `rect`. */
   shape?: NodeShape;
+  /** Frames the user may switch this element between per instance (UI-only). */
+  shapeOptions?: NodeShape[];
   /** For `circle`/`box` shapes: registry key of the glyph drawn inside the frame. */
   glyph?: string;
   /** For `circle` shapes: multiplier on the centred glyph's size. Defaults to 1. */

@@ -429,9 +429,9 @@ describe('graphStore saveToFile verify-on-save', () => {
 describe('graphStore port placement', () => {
   const seedNode = () =>
     useGraphStore.setState({
-      nodes: [{ id: 'n1', type: 'JunctionStaticP', position: { x: 0, y: 0 }, data: {} }],
+      nodes: [{ id: 'n1', type: 'Junction', position: { x: 0, y: 0 }, data: {} }],
       nodeStates: { n1: { parameters: { label: 'Junction' } } },
-      nodeCounters: { JunctionStaticP: 1 },
+      nodeCounters: { Junction: 1 },
       activePort: null,
       past: [],
       future: [],
@@ -534,9 +534,9 @@ describe('graphStore setPortAngle', () => {
 describe('graphStore setRailPortAnchor', () => {
   const seedNode = () =>
     useGraphStore.setState({
-      nodes: [{ id: 'n1', type: 'Mixer', position: { x: 0, y: 0 }, data: {} }],
-      nodeStates: { n1: { parameters: { label: 'Mixer' } } },
-      nodeCounters: { Mixer: 1 },
+      nodes: [{ id: 'n1', type: 'Junction', position: { x: 0, y: 0 }, data: {} }],
+      nodeStates: { n1: { parameters: { label: 'Junction' } } },
+      nodeCounters: { Junction: 1 },
       past: [],
       future: [],
       locked: false,
