@@ -9,6 +9,7 @@ import {
   IoSquareOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useGraphStore } from '../store/graphStore';
@@ -238,7 +239,7 @@ const SettingsPane = React.memo(() => {
   );
 
   return (
-    <div className={`sidebar settings-pane ${isOpen ? 'open' : ''}`}>
+    <SidebarShell className="settings-pane">
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoSettingsOutline className="panel-icon" />
@@ -407,7 +408,7 @@ const SettingsPane = React.memo(() => {
           )}
         </div>
       </div>
-    </div>
+    </SidebarShell>
   );
 });
 

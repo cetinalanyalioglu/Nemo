@@ -16,6 +16,7 @@ import {
   IoFilmOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import '../styles/data-pane.css';
 import { useAppState } from '../context/AppStateContext';
@@ -627,7 +628,7 @@ const DataPane = React.memo(() => {
   };
 
   return (
-    <div className={`sidebar data-pane ${isOpen ? 'open' : ''}`}>
+    <SidebarShell className="data-pane">
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoStatsChartOutline className="panel-icon" />
@@ -731,7 +732,7 @@ const DataPane = React.memo(() => {
       >
         <TargetDisplayControls target="edge" />
       </CollapsibleGroup>
-    </div>
+    </SidebarShell>
   );
 });
 

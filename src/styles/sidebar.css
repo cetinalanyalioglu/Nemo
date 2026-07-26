@@ -13,11 +13,12 @@
   transition: all 0.3s ease;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Reserve the scrollbar gutter permanently. Collapsing a group can drop the
-     content below 100vh, and without this the scrollbar (and the 6px of edge it
-     occupies inside the border) would pop in and out, making the border/shadow
-     seam against the canvas appear to change. */
-  scrollbar-gutter: stable;
+  /* Hide the native scrollbar; SidebarShell draws an overlay thumb instead. A
+     classic scrollbar carves its gutter out of the scrollport, which cut every
+     full-bleed rule (section headers, divider lines) short of the right border
+     and left a pale strip at the canvas seam. With no gutter the content runs
+     edge to edge, and the seam stays put whether or not the pane scrolls. */
+  scrollbar-width: none;
   z-index: 100;
   box-shadow: var(--shadow-sidebar);
 }
@@ -208,25 +209,39 @@
   font-weight: 500;
 }
 
+/* Scoped to the pane itself (never `.sidebar ::-webkit-scrollbar`) so the inner
+   scrollers — dataset lists, annotation list, console log — keep theirs. */
 .sidebar::-webkit-scrollbar {
-  width: 10px;
+  display: none;
 }
 
-/* Transparent track so the reserved gutter reads as the pane surface whether or
-   not the scrollbar is present — the right edge stays a single clean seam. */
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
+/* Zero-height rail pinned to the top of the scrollport, the anchor the overlay
+   thumb is offset from. Click-through, so only the thumb itself takes pointer
+   events and the pane content beneath the rail stays live. */
+.sidebar-scrollbar {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 30;
+  pointer-events: none;
 }
 
-/* Inset from both sides (transparent border + content-box clip) so a strip of
-   pane surface always separates the thumb from the border rule at the canvas
-   seam — the rule then looks the same whether or not the pane scrolls. */
-.sidebar::-webkit-scrollbar-thumb {
+/* Flush to the pane's right border and square on that side, so the thumb reads
+   as part of the edge rather than as a floating pill. */
+.sidebar-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
   background: var(--color-scrollbar-thumb);
-  background-clip: content-box;
-  border: 2px solid transparent;
-  border-right-width: 4px;
-  border-radius: 5px;
+  border-radius: 3px 0 0 3px;
+  pointer-events: auto;
+  /* A touch drag on the thumb scrolls the pane, not the page. */
+  touch-action: none;
+}
+
+.sidebar-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 .library-name {

@@ -6,6 +6,7 @@ import {
   IoSaveOutline,
 } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { useGraphStore } from '../store/graphStore';
@@ -69,7 +70,7 @@ const NodeLibrary = React.memo(() => {
   }, [elementInfo]);
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <SidebarShell>
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoLibrary className="panel-icon" />
@@ -124,7 +125,7 @@ const NodeLibrary = React.memo(() => {
           </div>
         </div>
       ))}
-    </div>
+    </SidebarShell>
   );
 });
 

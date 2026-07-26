@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { IoChevronBackCircleOutline, IoChevronDown, IoCubeOutline } from 'react-icons/io5';
 import '../styles/sidebar.css';
+import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
@@ -36,7 +37,7 @@ const ModelPane = React.memo(() => {
   };
 
   return (
-    <div className={`sidebar model-pane ${isOpen ? 'open' : ''}`}>
+    <SidebarShell className="model-pane">
       <div className="sidebar-header">
         <div className="panel-icon-wrapper">
           <IoCubeOutline className="panel-icon" />
@@ -86,7 +87,7 @@ const ModelPane = React.memo(() => {
           categoryPrecedence={model?.categoryPrecedence}
         />
       </div>
-    </div>
+    </SidebarShell>
   );
 });
 
