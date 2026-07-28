@@ -51,6 +51,8 @@ let pyodide: PyodideInterface | null = null;
 let pyconsole: any = null;
 /** The display protocol, on the Python side: what turns a value into what is shown. */
 let display: any = null;
+/** `__main__`'s namespace, which the prompt and the notebook both work in. */
+let mainNamespace: any = null;
 /** The submission being run, so stream output can be attributed to it. */
 let activeRun = -1;
 
@@ -162,6 +164,7 @@ PyodideConsole(__main__.__dict__)
   pyconsole.stdout_callback = stream('stdout');
   pyconsole.stderr_callback = stream('stderr');
   display = py.pyimport('_nemo_display');
+  mainNamespace = py.runPython('import __main__; __main__.__dict__');
 
   const described = loadAdapter(py, adapter);
 
@@ -184,12 +187,21 @@ PyodideConsole(__main__.__dict__)
  * line's, so a submission that ends mid-block is reported incomplete and the console
  * keeps the prompt open.
  */
-const run = async (runId: number, source: string, caseJson: string): Promise<RunOutcome> => {
+const run = async (
+  runId: number,
+  source: string,
+  caseJson: string,
+  mode: 'line' | 'block'
+): Promise<RunOutcome> => {
   host.caseJson = caseJson;
   activeRun = runId;
-  // A cell that has just imported plotly wants its figures shown here rather than in a
-  // browser tab; the patch waits for the import and this is when it is looked for.
-  display.apply_pending();
+
+  if (mode === 'block') {
+    // A whole cell, run and reported by the same Python the local interpreter uses, so
+    // the two cannot drift on what a cell means.
+    const status = await display.run_block(source, mainNamespace);
+    return { status: status === 'failed' ? 'failed' : 'complete' };
+  }
 
   let outcome: RunOutcome = { status: 'complete' };
   for (const line of source.split('\n')) {
@@ -275,7 +287,7 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
       post({
         kind: 'ran',
         runId: message.runId,
-        outcome: await run(message.runId, message.source, message.caseJson),
+        outcome: await run(message.runId, message.source, message.caseJson, message.mode),
       });
     } catch (error) {
       reportError(errorText(error));

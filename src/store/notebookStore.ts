@@ -171,7 +171,8 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
         ),
       }));
 
-    const outcome = await runPython(source, collect);
+    // A cell is compiled whole rather than fed a line at a time; that is what a cell is.
+    const outcome = await runPython(source, collect, 'block');
     set((s) => ({
       runState: { ...s.runState, [id]: outcome.status === 'failed' ? 'failed' : 'done' },
       cells: s.cells.map((c) => (c.id === id ? { ...c, execution_count: count } : c)),

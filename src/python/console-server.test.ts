@@ -160,6 +160,85 @@ describe.skipIf(!usable)('a prompt served from the machine', () => {
   });
 });
 
+/** Runs `source` as one cell, the way the Results tab does, and returns its outputs. */
+const runCell = (source: string): { status: string; outputs: CellOutput[] } => {
+  const driver = `
+import json, sys
+sys.argv = ["console_server.py"]
+
+import importlib.util
+spec = importlib.util.spec_from_file_location("console_server", ${JSON.stringify(SERVER)})
+server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(server)
+
+outputs = []
+session = server.Session()
+session.start("")
+session.bind(lambda payload: None, lambda payload: outputs.append(json.loads(payload)))
+
+outcome = session.run_block(${JSON.stringify(source)})
+print(json.dumps({"status": outcome["status"], "outputs": outputs}))
+`;
+  const out = execFileSync(PYTHON, ['-c', driver], { encoding: 'utf8' });
+  const parsed = JSON.parse(out.trim().split('\n').pop() as string);
+  return { ...parsed, outputs: parsed.outputs.reduce(appendOutput, [] as CellOutput[]) };
+};
+
+describe.skipIf(!usable)('a cell, which is not a prompt', () => {
+  it('reads a block with a blank line inside it', () => {
+    // The case a prompt cannot take: fed a line at a time, the blank line ends the
+    // definition and everything after it is a syntax error. A cell arrives whole.
+    const { status, outputs } = runCell(
+      ['def area(r):', '    import math', '', '    return math.pi * r * r', '', 'area(2)'].join(
+        '\n'
+      )
+    );
+    expect(status).toBe('complete');
+    expect(textOf(outputs, 'execute_result')[0]).toMatch(/^12\.56/);
+  });
+
+  it('shows only the value it ends on, not every expression in it', () => {
+    const { outputs } = runCell(['1 + 1', '2 + 2', '3 + 3'].join('\n'));
+    expect(textOf(outputs, 'execute_result')).toEqual(['6']);
+  });
+
+  it('shows nothing for a cell that ends on a statement', () => {
+    const { status, outputs } = runCell('x = 41\nx += 1');
+    expect(status).toBe('complete');
+    expect(textOf(outputs, 'execute_result')).toEqual([]);
+  });
+
+  it('reports where in the cell it failed', () => {
+    const { status, outputs } = runCell('a = 1\nb = 2\nraise ValueError("no")');
+    expect(status).toBe('failed');
+    const error = outputs.find((o) => o.output_type === 'error') as {
+      ename: string;
+      traceback: string[];
+    };
+    expect(error.ename).toBe('ValueError');
+    expect(error.traceback.join('\n')).toContain('line 3');
+  });
+
+  it('allows await at the top level, as a notebook does', () => {
+    const { status, outputs } = runCell(
+      [
+        'import asyncio',
+        'async def wait():',
+        '    await asyncio.sleep(0)',
+        '    return 7',
+        'await wait()',
+      ].join('\n')
+    );
+    expect(status).toBe('complete');
+    expect(textOf(outputs, 'execute_result')).toEqual(['7']);
+  });
+
+  it('runs an empty cell without complaint', () => {
+    expect(runCell('').status).toBe('complete');
+    expect(runCell('# just a comment').status).toBe('complete');
+  });
+});
+
 describe.skipIf(!usable)('what the local interpreter will answer', () => {
   it('refuses a request that does not carry the token', () => {
     // The token is the whole of the access control: a browser will let any page a user

@@ -114,6 +114,23 @@ class Session:
         """Abandon a half-entered block, leaving the names alone."""
         self.buffer.clear()
 
+    def run_block(self, source: str) -> dict:
+        """Run a whole cell.
+
+        The same Python the browser's interpreter runs for a cell, so what a cell means
+        cannot differ between the two.  It is written as a coroutine, since a cell may
+        await at its top level as one in a notebook may; there is no loop running here,
+        so one is made for it.
+        """
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            status = loop.run_until_complete(self.display.run_block(source, self.namespace))
+        finally:
+            loop.close()
+        return {"status": status}
+
     def push(self, line: str) -> dict:
         """Feed one line in, and report how it ended.
 
@@ -284,11 +301,14 @@ class Handler(BaseHTTPRequestHandler):
             session.bind(self._bridge, self._display(run_id))
             if session.host is not None:
                 session.host.caseJson = message.get("caseJson", "{}")
-            outcome = {"status": "complete"}
-            for line in message.get("source", "").split("\n"):
-                outcome = session.push(line)
-                if outcome["status"] == "failed":
-                    break
+            if message.get("mode") == "block":
+                outcome = session.run_block(message.get("source", ""))
+            else:
+                outcome = {"status": "complete"}
+                for line in message.get("source", "").split("\n"):
+                    outcome = session.push(line)
+                    if outcome["status"] == "failed":
+                        break
         self._reply({"kind": "ran", "runId": run_id, "outcome": outcome})
 
     def _bridge(self, payload: str) -> None:

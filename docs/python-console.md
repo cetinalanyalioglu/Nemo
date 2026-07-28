@@ -1,4 +1,9 @@
-# The Python console
+# The Python console and the Results tab
+
+There are two surfaces. The **Results** tab, beside the canvas, is a notebook about the
+drawn network. The **console pane** below either is a prompt for one-liners. They share
+one interpreter and one set of names, so a network built in a cell is there at the
+prompt and the other way round.
 
 The console pane has two tabs.
 **Messages** is what the app has reported.
@@ -112,6 +117,65 @@ Two consequences worth expecting:
 - **Switching models restarts the interpreter**, since a different model brings different packages, and every name defined at the prompt goes with it.
 - **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.network()` says plainly that there is nothing to build with.
 
+## The Results tab
+
+A notebook, in the ordinary sense: cells of Python or of prose, run in order, with what
+they produced kept beneath them.
+
+- **Ctrl/Cmd+Enter** runs a cell; **Run all** runs them from the top and stops at the
+  first failure, because what follows one was written expecting it not to have happened.
+- A cell is compiled **whole**, not fed a line at a time. That is the difference between
+  a cell and a prompt: a prompt has to know when a block is still open, while a cell with
+  a blank line inside a loop is one block and reads as one.
+- Outputs are drawn by media type — a figure through plotly.js, a table through the HTML
+  sanitiser, prose and maths through the same markdown pipeline the canvas notes use, and
+  anything else as the text every value can offer.
+
+### Your existing notebooks open here
+
+**Open** takes a `.ipynb` and **Save** writes one, because the cells were already in the
+shape a notebook file holds them. What is written here opens in Jupyter, and what was
+written there opens here.
+
+Code written for a notebook runs without editing. `fig.show()` shows the figure in the
+cell; `display(x)` shows it where it is called; a value with `_repr_html_` renders as
+HTML. `IPython.display` is provided as a stand-in with the display half filled in — it
+is not the real IPython, and it is installed whichever runtime is in use so the two
+behave alike.
+
+**Not supported**, and worth knowing before relying on it: ipywidgets, magics
+(`%timeit`, `%matplotlib`), and matplotlib, which has no browser backend. Plotly is what
+the Nefes examples use and what is supported.
+
+### Where the notebook is kept
+
+The case file carries the notebook's **source cells** and not its outputs — outputs are
+the bulk of a notebook and are not a description of a network. Export a `.ipynb` to keep
+them; **Save** offers that with or without.
+
+Opening a case that carries a notebook opens it. Opening one that does not leaves the
+Results tab alone, so loading a plain case never silently wipes work.
+
+## Pinning a figure to the canvas
+
+A figure output has a **Pin** button. Pinning puts it on the canvas as an _annotation_ —
+the layer the canvas already keeps notes and images on — so it can be moved, resized,
+rotated, hidden and locked like any other, and it is written into the SVG and the PDF the
+canvas exports.
+
+It is pinned as a **picture** of the figure, not as a live one. That is deliberate twice
+over: a picture is what the export path already places, and a finding pinned to a drawing
+should keep saying what it said when it was pinned. Re-run the cell and pin again to
+bring it up to date.
+
+That completes a three-way split, decided by what the numbers are:
+
+| what it is                                            | where it goes                      |
+| ----------------------------------------------------- | ---------------------------------- |
+| one value per element                                 | a result set, colouring the canvas |
+| anything not element-bound — a locus, an FTF, a sweep | a figure in the Results tab        |
+| a finding worth keeping on the drawing                | a pinned figure, exported with it  |
+
 ## What binds a series to the network
 
 Position, and nothing else: the _i_-th value of a series belongs to the element whose index is _i_.
@@ -200,5 +264,10 @@ The console installs whatever the manifest lists, in order.
 | `src/python/console_server.py` | The local interpreter, served over HTTP                          |
 | `public/models/*.yaml`         | Each model's own solver: its packages and its adapter            |
 | `src/store/pythonStore.ts`     | The transcript, the prompt state, the recall list                |
+| `src/store/notebookStore.ts`   | The cells, in the shape a `.ipynb` holds them                    |
+| `src/python/ipynb.ts`          | Reading and writing that file                                    |
+| `src/python/display-shims.py`  | The display protocol, and what makes notebook code run unchanged |
+| `src/python/pin-figure.ts`     | Turning a figure output into an annotation                       |
+| `src/components/notebook/`     | The Results tab: cells, the editor, the output renderers         |
 
 `src/python/nemo-module.test.ts` runs the Python module under a real interpreter and skips where there is none; point `PYTHON` at one that has Nefes in it to include it.

@@ -20,6 +20,8 @@ else.  It is installed whether or not the real one is importable, so that a prom
 behaves the same wherever it is being served from.
 """
 
+import ast
+import inspect
 import json
 import sys
 import types
@@ -130,6 +132,102 @@ def error(ename: str, evalue: str, traceback_lines) -> None:
             "traceback": list(traceback_lines),
         }
     )
+
+
+# --------------------------------------------------------------------------- #
+# Running a whole cell
+# --------------------------------------------------------------------------- #
+class _Writer:
+    """Stands in for stdout or stderr, passing each write on as it happens."""
+
+    def __init__(self, name):
+        self._name = name
+
+    def write(self, text):
+        if text:
+            stream(self._name, text)
+        return len(text)
+
+    def flush(self):
+        pass
+
+    def isatty(self):
+        return False
+
+
+def _split(source: str):
+    """A cell as the code to run and, separately, the expression it ends on.
+
+    Splitting them is what makes the last line of a cell show its value while the lines
+    before it do not, which is how a notebook has always read.  ``await`` is allowed at
+    the top level of both halves, as it is in a notebook.
+    """
+    flags = ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+    tree = ast.parse(source, "<cell>", "exec")
+    if not tree.body:
+        return None, None
+    if isinstance(tree.body[-1], ast.Expr):
+        head = ast.Module(body=tree.body[:-1], type_ignores=[])
+        tail = ast.Expression(body=tree.body[-1].value)
+        return compile(head, "<cell>", "exec", flags), compile(tail, "<cell>", "eval", flags)
+    return compile(tree, "<cell>", "exec", flags), None
+
+
+async def run_block(source: str, namespace: dict) -> str:
+    """Run one cell, show what it produced, and report how it ended.
+
+    A cell is not a prompt.  A prompt is fed a line at a time because it has to know
+    when a block is still open; a cell arrives whole and is compiled whole, which is the
+    only way to read one whose blank lines fall inside a block -- a loop with a gap in
+    it, a function defined above the code that calls it.
+    """
+    apply_pending()
+    try:
+        head, tail = _split(source)
+    except SyntaxError:
+        _report_error(syntax_only=True)
+        return "failed"
+    if head is None:
+        return "complete"
+
+    saved = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = _Writer("stdout"), _Writer("stderr")
+    try:
+        pending = eval(head, namespace)  # noqa: S307 - this is the point of a console
+        if inspect.iscoroutine(pending):
+            await pending
+        if tail is not None:
+            value = eval(tail, namespace)  # noqa: S307
+            if inspect.iscoroutine(value):
+                value = await value
+            if value is not None:
+                sys.modules["builtins"]._ = value
+                result(value)
+    except SystemExit:
+        raise
+    except BaseException:
+        _report_error()
+        return "failed"
+    finally:
+        sys.stdout, sys.stderr = saved
+    return "complete"
+
+
+def _report_error(syntax_only: bool = False) -> None:
+    """Send out the failure being handled, without this file's own frames in it."""
+    import traceback
+
+    kind, value, tb = sys.exc_info()
+    if syntax_only:
+        lines = traceback.format_exception_only(kind, value)
+    else:
+        entries = traceback.extract_tb(tb)
+        # The first frame is run_block's own eval(); below it is the user's code.
+        lines = ["Traceback (most recent call last):\n"]
+        lines += traceback.format_list(entries[1:])
+        lines += traceback.format_exception_only(kind, value)
+    text = "".join(lines).rstrip()
+    error(kind.__name__, str(value), text.split("\n"))
 
 
 # --------------------------------------------------------------------------- #

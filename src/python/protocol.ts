@@ -51,8 +51,15 @@ export type HostMessage =
    * exchange that knows what a particular solver is. Empty where the model has none.
    */
   | { kind: 'boot'; indexURL: string; wheels: string[]; adapter: string }
-  /** Run one submission, against the case as it stands right now. */
-  | { kind: 'run'; runId: number; source: string; caseJson: string }
+  /**
+   * Run one submission, against the case as it stands right now.
+   *
+   * `mode` is the difference between a prompt and a notebook. A prompt is fed a line at
+   * a time because it has to know when a block is still open; a cell arrives whole and
+   * is compiled whole, which is the only way to read one whose blank lines fall inside
+   * a block.
+   */
+  | { kind: 'run'; runId: number; source: string; caseJson: string; mode: 'line' | 'block' }
   /** Abandon the block being built up and start a fresh prompt. */
   | { kind: 'reset' };
 

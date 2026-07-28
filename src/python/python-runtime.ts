@@ -197,7 +197,11 @@ export const startPython = (): Promise<void> => {
  * `nemo.case()` returns is therefore the canvas as it stood when the line was entered,
  * whatever it is edited into while the line runs.
  */
-export const runPython = async (source: string, sink: OutputSink): Promise<RunOutcome> => {
+export const runPython = async (
+  source: string,
+  sink: OutputSink,
+  mode: 'line' | 'block' = 'line'
+): Promise<RunOutcome> => {
   // Switching models switches solvers, and an interpreter carries the one it was
   // started with — its packages are installed, not chosen per call. Switching where
   // Python runs is a change of interpreter outright.
@@ -222,7 +226,7 @@ export const runPython = async (source: string, sink: OutputSink): Promise<RunOu
   store().setStatus('busy');
   const outcome = await new Promise<RunOutcome>((resolve) => {
     awaitingRun = { runId, sink, resolve };
-    post({ kind: 'run', runId, source, caseJson });
+    post({ kind: 'run', runId, source, caseJson, mode });
   });
   store().setStatus(store().status === 'failed' ? 'failed' : 'ready');
   return outcome;
