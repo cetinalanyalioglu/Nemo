@@ -5,9 +5,14 @@ drawn network. The **console pane** below either is a prompt for one-liners. The
 one interpreter and one set of names, so a network built in a cell is there at the
 prompt and the other way round.
 
-The console pane has two tabs.
+The console pane has three tabs.
 **Messages** is what the app has reported.
 **Python** is a prompt, running in the browser, with the drawn network in reach.
+**Variables** is what the session is holding.
+
+Clicking a name opens the pane on it, and clicking the name already showing puts the pane
+away again, so whichever name opened the console also closes it. The chevron on the right
+does the same, and remembers which name to come back to.
 
 Nothing is installed to use it.
 The interpreter is fetched the first time a line is entered — some tens of megabytes, four or five seconds on a warm connection — and whatever packages the model on the canvas declares are installed on top of it, so its solver is there as soon as the prompt is.

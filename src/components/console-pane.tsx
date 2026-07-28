@@ -15,6 +15,19 @@ const TABS: { id: ConsoleTab; label: string }[] = [
   { id: 'variables', label: 'Variables' },
 ];
 
+/**
+ * What clicking a name in the header does.
+ *
+ * Clicking the name that is already showing puts the pane away, so the name that opened
+ * the console also closes it and the chevron is not the only way back out. Clicking any
+ * other name moves to it, and never closes.
+ */
+export const clickOnTab = (
+  isOpen: boolean,
+  activeTab: ConsoleTab,
+  clicked: ConsoleTab
+): 'collapse' | 'show' => (isOpen && activeTab === clicked ? 'collapse' : 'show');
+
 const ConsolePane = React.memo(() => {
   const {
     consolePane: { isOpen, height, activeTab },
@@ -58,27 +71,36 @@ const ConsolePane = React.memo(() => {
         <div className="console-pane-title-group">
           <IoTerminalOutline className="console-pane-icon" aria-hidden />
           <div className="console-pane-tabs" role="tablist" aria-label="Console">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isOpen && activeTab === tab.id}
-                className={`console-pane-tab ${isOpen && activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => actions.consolePane.selectTab(tab.id)}
-              >
-                {tab.label}
-                {tab.id === 'logs' && (!isOpen || activeTab !== 'logs') && unreadCount > 0 && (
-                  <span
-                    className="console-pane-unread-badge"
-                    title={`${unreadCount} new message${unreadCount === 1 ? '' : 's'}`}
-                    aria-label={`${unreadCount} unread console message${unreadCount === 1 ? '' : 's'}`}
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </button>
-            ))}
+            {TABS.map((tab) => {
+              const showing = isOpen && activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={showing}
+                  aria-expanded={showing}
+                  className={`console-pane-tab ${showing ? 'active' : ''}`}
+                  title={showing ? `Collapse ${tab.label}` : tab.label}
+                  onClick={() =>
+                    clickOnTab(isOpen, activeTab, tab.id) === 'collapse'
+                      ? actions.consolePane.toggle()
+                      : actions.consolePane.selectTab(tab.id)
+                  }
+                >
+                  {tab.label}
+                  {tab.id === 'logs' && !showing && unreadCount > 0 && (
+                    <span
+                      className="console-pane-unread-badge"
+                      title={`${unreadCount} new message${unreadCount === 1 ? '' : 's'}`}
+                      aria-label={`${unreadCount} unread console message${unreadCount === 1 ? '' : 's'}`}
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
         <IoChevronUpOutline
