@@ -23,13 +23,6 @@ export const PYODIDE_VERSION = '314.0.3';
 /** Where that build is served from. The distribution is far too large to bundle. */
 export const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
-/** Lists the wheels installed on top of the base interpreter, relative to itself. */
-const WHEEL_MANIFEST = 'wheels/manifest.json';
-
-interface WheelManifest {
-  wheels?: string[];
-}
-
 let worker: Worker | null = null;
 let runCounter = 0;
 /** Resolves when the submission with this id reports back. */
@@ -37,16 +30,28 @@ let awaitingRun: { runId: number; resolve: (outcome: RunOutcome) => void } | nul
 /** Settles when boot finishes, either way; shared by every caller that waits on it. */
 let booting: Promise<void> | null = null;
 let bootSettled: (() => void) | null = null;
+/** Which model the running interpreter was started for; a change means a restart. */
+let bootedFor: string | null = null;
 
 const store = () => usePythonStore.getState();
 
-/** The wheels to install, as absolute URLs. An absent manifest means none. */
-const readWheelManifest = async (): Promise<string[]> => {
-  const base = new URL(WHEEL_MANIFEST, new URL(import.meta.env.BASE_URL, window.location.href));
-  const response = await fetch(base.href);
-  if (!response.ok) return [];
-  const manifest = (await response.json()) as WheelManifest;
-  return (manifest.wheels ?? []).map((wheel) => new URL(wheel, base).href);
+/**
+ * The solver the model on the canvas declared, with its packages resolved to addresses
+ * that can be fetched.
+ *
+ * This is the whole of what the console knows about solvers: a model may name packages
+ * and some Python, and neither means anything here. A model that declares none gets a
+ * prompt that reads and draws the canvas and has nothing to compute with.
+ */
+const activeSolver = (): { id: string | null; wheels: string[]; adapter: string } => {
+  const model = useGraphStore.getState().model;
+  const solver = model?.solver ?? null;
+  const base = new URL(import.meta.env.BASE_URL, window.location.href);
+  return {
+    id: model?.id ?? null,
+    wheels: (solver?.packages ?? []).map((pkg) => new URL(pkg, base).href),
+    adapter: solver?.adapter ?? '',
+  };
 };
 
 /** Releases everything waiting on boot. Called however boot ends, so nothing waits forever. */
@@ -110,6 +115,9 @@ const post = (message: HostMessage): void => {
 export const startPython = (): Promise<void> => {
   if (booting) return booting;
 
+  const solver = activeSolver();
+  bootedFor = solver.id;
+
   booting = new Promise<void>((resolve) => {
     bootSettled = resolve;
 
@@ -122,16 +130,12 @@ export const startPython = (): Promise<void> => {
       settleBoot();
     };
 
-    void (async () => {
-      let wheels: string[] = [];
-      try {
-        wheels = await readWheelManifest();
-      } catch {
-        // No manifest is a console without Nefes, not a console that cannot start.
-        wheels = [];
-      }
-      post({ kind: 'boot', indexURL: PYODIDE_INDEX_URL, wheels });
-    })();
+    post({
+      kind: 'boot',
+      indexURL: PYODIDE_INDEX_URL,
+      wheels: solver.wheels,
+      adapter: solver.adapter,
+    });
   });
 
   return booting;
@@ -145,6 +149,12 @@ export const startPython = (): Promise<void> => {
  * whatever it is edited into while the line runs.
  */
 export const runPython = async (source: string): Promise<RunOutcome> => {
+  // Switching models switches solvers, and an interpreter carries the one it was
+  // started with — its packages are installed, not chosen per call.
+  if (booting && bootedFor !== activeSolver().id) {
+    store().append('note', 'The model changed; starting an interpreter for the new one.');
+    await restartPython();
+  }
   await startPython();
   if (store().status === 'failed') {
     return { status: 'failed', error: 'the interpreter is not running; use Restart to try again' };
@@ -185,6 +195,7 @@ export const restartPython = async (): Promise<void> => {
     awaitingRun = null;
   }
   bootSettled = null;
+  bootedFor = null;
   store().setPending([]);
   store().append('note', 'The interpreter was restarted; names defined here are gone.');
   await startPython();

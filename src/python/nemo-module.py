@@ -11,12 +11,17 @@ the drawing happens a moment later, and any complaint about the data appears in 
 message log rather than as an exception here.
 
 The case document is the same one the canvas saves and loads, so anything that reads a
-saved case reads this, and anything that writes one can be shown.  With Nefes installed
-the round trip is two calls::
+saved case reads this, and anything that writes one can be shown.
+
+Where the model on the canvas brought a solver, the round trip through it is two more
+calls::
 
     net = nemo.network()
     sol = net.solve()
     nemo.publish(net, solution=sol)
+
+Neither of those knows which solver that is.  They call the adapter the model file
+declared, which is the one place any solver is named at all.
 """
 
 import json
@@ -214,18 +219,26 @@ def _as_datasets(result) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Nefes, when it is installed
+# The solver the model brought, if it brought one
 # --------------------------------------------------------------------------- #
 def network():
-    """The drawn network, built into a Nefes network ready to solve.
+    """The drawn network, built into whatever the model's solver works on.
 
     Returns
     -------
-    nefes.shell.Network
+    object
+        Whatever the model's adapter makes of a case document -- for a flow-network
+        model, a network ready to solve.
+
+    Raises
+    ------
+    RuntimeError
+        When the model on the canvas declares no solver, or its adapter has no
+        ``build``.
 
     See Also
     --------
-    publish : send a solved network's results back to the canvas.
+    publish : send that model's results back to the canvas.
 
     Examples
     --------
@@ -234,36 +247,44 @@ def network():
     >>> sol.converged
     True
     """
-    from nefes.io import case_from_dict
-
-    return case_from_dict(case(), source="<canvas>")
+    return _adapter("build")(case())
 
 
-def publish(net, **kwargs) -> None:
-    """Draw a Nefes network's results on the canvas.
+def publish(model, **kwargs) -> None:
+    """Draw a solved model's results on the canvas.
 
     Parameters
     ----------
-    net : nefes.shell.Network
-        The network the results belong to.  When it came from :func:`network` the
-        canvas keeps its own layout; otherwise a fresh one is drawn.
+    model : object
+        What :func:`network` returned, solved.  Coming from there is what lets the
+        canvas keep its own drawing; anything else is laid out afresh.
     **kwargs
-        Which results to send, as :func:`nefes.io.case_to_dict` takes them --
-        ``solution=``, ``forced=``, ``eigenmodes=``, ``nyquist=`` and so on.
+        Which results to send.  What these are is the solver's business -- for a
+        flow network, ``solution=``, ``forced=``, ``eigenmodes=`` and so on.
 
     Notes
     -----
-    An element that stands for several -- an orifice, a nozzle, a segmented pipe -- is
-    one element on the canvas and several once the solver expands it, so its interior
-    is left out of what is sent.  Read it at the prompt instead, with
-    ``net.composite(name)``.
+    Result sets arrive named, and a name is how several are told apart on the canvas,
+    so a second solve is worth naming rather than left to collide.
 
     Examples
     --------
     >>> net = nemo.network()
     >>> nemo.publish(net, solution=net.solve())
     """
-    from nefes.io import case_to_dict
+    show(_adapter("results")(model, **kwargs))
 
-    kwargs.setdefault("internal_edges", False)
-    show(case_to_dict(net, **kwargs))
+
+def _adapter(name):
+    """The named function from the model's adapter, or a complaint that names the gap."""
+    try:
+        import _nemo_solver
+    except ImportError:
+        raise RuntimeError(
+            "the model on the canvas declares no solver, so there is nothing to build "
+            "the network with; nemo.case() and nemo.show() work regardless"
+        ) from None
+    fn = getattr(_nemo_solver, name, None)
+    if fn is None:
+        raise RuntimeError(f"this model's solver adapter defines no {name}()")
+    return fn

@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<PythonStatus, string> = {
 const OPENING = [
   'Python, with the drawn network in reach. Enter runs, Shift+Enter adds a line.',
   'nemo.case() is the canvas as a case document; nemo.show(...) draws results on it.',
-  'With Nefes: net = nemo.network(), then nemo.publish(net, solution=net.solve()).',
+  "nemo.network() builds what the model's solver works on, and nemo.publish(...) sends its results back.",
 ];
 
 /**

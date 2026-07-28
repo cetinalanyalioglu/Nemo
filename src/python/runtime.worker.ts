@@ -21,6 +21,9 @@ import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
 /** Where the bridge module is written so `import nemo` finds it. */
 const NEMO_MODULE_PATH = '/home/pyodide/nemo.py';
 
+/** Where the model's own adapter is written, for `nemo.network()` to call into. */
+const SOLVER_MODULE_PATH = '/home/pyodide/_nemo_solver.py';
+
 /** Longest repr echoed back for a value; beyond this the middle is elided. */
 const REPR_LIMIT = 4000;
 
@@ -85,26 +88,43 @@ const installWheels = async (py: PyodideInterface, wheels: string[]): Promise<st
 };
 
 /**
- * How the interpreter should describe itself: the packages worth naming, with the
- * kernel backend for Nefes, since the same install runs at very different speeds
- * depending on which one it found.
+ * Runs the model's adapter, and returns how it describes itself.
+ *
+ * The adapter is Python the model file carries: `nemo.network()` and `nemo.publish()`
+ * are calls into it, and it is the only place any particular solver is named. It is run
+ * as a module rather than into the prompt's namespace, so what it defines does not
+ * shadow anything typed and the prompt stays a clean slate.
+ *
+ * An adapter that fails to run leaves the console working without it. Whatever it is
+ * reaching for is not there, which is worth saying, but a prompt that reads the canvas
+ * is still better than no prompt.
  */
-const describePackages = (py: PyodideInterface): string[] => {
+const loadAdapter = (py: PyodideInterface, adapter: string): string[] => {
+  if (!adapter.trim()) return [];
+  py.FS.writeFile(SOLVER_MODULE_PATH, adapter);
   const described = py.runPython(`
-def _describe():
+def _load():
+    import importlib, sys, traceback
     try:
-        import nefes
-    except ImportError:
+        module = importlib.import_module("_nemo_solver")
+    except Exception:
+        sys.modules.pop("_nemo_solver", None)
+        return ["the model's solver could not be loaded", traceback.format_exc().rstrip()]
+    describe = getattr(module, "describe", None)
+    if describe is None:
         return []
-    return [f"nefes {nefes.__version__} ({nefes.backend()} kernels)"]
-_describe()
+    try:
+        return [str(describe())]
+    except Exception:
+        return ["the model's solver did not describe itself"]
+_load()
 `);
-  const names = described.toJs() as string[];
+  const lines = described.toJs() as string[];
   described.destroy();
-  return names;
+  return lines;
 };
 
-const boot = async (indexURL: string, wheels: string[]): Promise<void> => {
+const boot = async (indexURL: string, wheels: string[], adapter: string): Promise<void> => {
   post({ kind: 'booting', step: 'starting Python' });
   // Loaded from wherever the distribution is served rather than bundled, so the
   // interpreter and the packages it resolves always come from the same build.
@@ -132,11 +152,15 @@ PyodideConsole(__main__.__dict__)
   pyconsole.stderr_callback = stream('err');
   reprShorten = py.runPython('from pyodide.console import repr_shorten; repr_shorten');
 
+  const described = loadAdapter(py, adapter);
+
   pyodide = py;
   post({
     kind: 'ready',
     python: py.runPython('import sys; ".".join(str(v) for v in sys.version_info[:3])'),
-    packages: [...describePackages(py), ...packages.filter((n) => !n.startsWith('nefes'))],
+    // What the adapter says about itself when it says anything, and the package
+    // filenames otherwise -- something has to name what was installed.
+    packages: described.length > 0 ? described : packages,
   });
 };
 
@@ -192,7 +216,7 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
   const message = event.data;
   if (message.kind === 'boot') {
     try {
-      await boot(message.indexURL, message.wheels);
+      await boot(message.indexURL, message.wheels, message.adapter);
     } catch (error) {
       post({ kind: 'boot-failed', error: errorText(error) });
     }

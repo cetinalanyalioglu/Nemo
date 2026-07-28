@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
+import { validateSolverDefinition } from '../models/model-builder';
+import type { ModelDefinition } from '../types/flow';
 import { PYODIDE_INDEX_URL, PYODIDE_VERSION } from './python-runtime';
 
 const ROOT = resolve(__dirname, '../..');
@@ -21,24 +24,56 @@ describe('which interpreter the console fetches', () => {
   });
 });
 
-describe('the wheels the console installs', () => {
-  const manifest = JSON.parse(
-    readFileSync(resolve(ROOT, 'public/wheels/manifest.json'), 'utf8')
-  ) as { wheels: string[] };
+describe('the packages a model brings', () => {
+  const models = (
+    JSON.parse(readFileSync(resolve(ROOT, 'public/models/manifest.json'), 'utf8')) as {
+      models: { id: string; file: string }[];
+    }
+  ).models;
+
+  const solverOf = (file: string) => {
+    const definition = yaml.load(
+      readFileSync(resolve(ROOT, 'public/models', file), 'utf8')
+    ) as ModelDefinition;
+    return validateSolverDefinition(definition.id, definition.solver);
+  };
+
+  it('is declared by the model, not named anywhere in the app', () => {
+    // The whole point of the solver living in the model file: the app is free of any
+    // particular one, and a grep for it in the source should come back empty.
+    const declared = models.map((m) => solverOf(m.file)).filter(Boolean);
+    expect(declared.length).toBeGreaterThan(0);
+  });
 
   it('names files that are there to install', () => {
-    // The app is served as static files, so a wheel the manifest names but the tree
-    // does not carry is a console that starts and then has nothing in it.
-    expect(manifest.wheels.length).toBeGreaterThan(0);
-    for (const wheel of manifest.wheels) {
-      expect(() => readFileSync(resolve(ROOT, 'public/wheels', wheel))).not.toThrow();
+    // The app is served as static files, so a package a model names but the tree does
+    // not carry is a console that starts and then has nothing in it.
+    for (const model of models) {
+      for (const pkg of solverOf(model.file)?.packages ?? []) {
+        expect(
+          () => readFileSync(resolve(ROOT, 'public', pkg)),
+          `${model.id}: ${pkg}`
+        ).not.toThrow();
+      }
     }
   });
 
-  it('names them relative to itself, so the app can be served from any base', () => {
-    for (const wheel of manifest.wheels) {
-      expect(wheel.startsWith('/')).toBe(false);
-      expect(wheel).not.toContain('://');
+  it('names them relative to the app, so it can be served from any base', () => {
+    for (const model of models) {
+      for (const pkg of solverOf(model.file)?.packages ?? []) {
+        expect(pkg.startsWith('/'), `${model.id}: ${pkg}`).toBe(false);
+        expect(pkg).not.toContain('://');
+      }
+    }
+  });
+
+  it('carries an adapter with the calls the console makes into it', () => {
+    for (const model of models) {
+      const adapter = solverOf(model.file)?.adapter;
+      if (!adapter) continue;
+      // nemo.network() and nemo.publish() are these two and nothing else.
+      expect(adapter, `${model.id}`).toMatch(/^def build\(/m);
+      expect(adapter, `${model.id}`).toMatch(/^def results\(/m);
     }
   });
 });

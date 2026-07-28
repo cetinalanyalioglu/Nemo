@@ -37,8 +37,12 @@ export type BridgeCall =
 
 /** Sent by the host, into the worker. */
 export type HostMessage =
-  /** Start the interpreter: fetch it from `indexURL`, then install `wheels` in order. */
-  | { kind: 'boot'; indexURL: string; wheels: string[] }
+  /**
+   * Start the interpreter: fetch it from `indexURL`, install `wheels` in order, then
+   * run `adapter` — the Python the active model brought, and the only thing in this
+   * exchange that knows what a particular solver is. Empty where the model has none.
+   */
+  | { kind: 'boot'; indexURL: string; wheels: string[]; adapter: string }
   /** Run one submission, against the case as it stands right now. */
   | { kind: 'run'; runId: number; source: string; caseJson: string }
   /** Abandon the block being built up and start a fresh prompt. */

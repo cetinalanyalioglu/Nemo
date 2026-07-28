@@ -67,6 +67,50 @@ forceUniqueNodeLabels: true
 # Nefes documentation site. Omit this key to use Nemo's default theme pair.
 theme: nefes
 
+# How the Python console reaches this model's solver.  Nemo itself knows only that a
+# model may name packages and some Python to reach them by; everything below is what
+# "Nefes" means to it, and lives here so that nothing in the app has to.
+#
+# The adapter runs once when the interpreter starts and defines three names:
+#
+#   build(doc)               a case document in, a solvable network out
+#   results(net, **kwargs)   that network's results back out as a case document
+#   describe()               one line naming the solver, for the status line
+#
+# `nemo.network()` and `nemo.publish()` at the prompt are these; a model that declares
+# no solver simply does not have them.
+solver:
+  packages:
+    - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+  adapter: |
+    from nefes.io import case_from_dict, case_to_dict
+
+
+    def build(doc):
+        """The drawn network, ready to solve."""
+        return case_from_dict(doc, source="<canvas>")
+
+
+    def results(net, **kwargs):
+        """A solved network as a case document the canvas can colour itself from.
+
+        An element that stands for several expands behind the drawing, so its interior
+        is left out: what is sent has to be as long as what it binds to.
+        """
+        kwargs.setdefault("internal_edges", False)
+        return case_to_dict(net, **kwargs)
+
+
+    def describe():
+        """What is installed, and which kernels it found.
+
+        The same package runs at very different speeds depending on that, so it is
+        worth a place on the status line.
+        """
+        import nefes
+
+        return f"nefes {nefes.__version__} ({nefes.backend()} kernels)"
+
 parameters:
   thermoModel:
     label: Thermo model

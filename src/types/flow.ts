@@ -297,8 +297,40 @@ export interface ModelDefinition {
    * omitted, all parameter sections sort alphabetically.
    */
   categoryPrecedence?: Record<string, number>;
+  /**
+   * How the Python console reaches this model's solver, if it has one. Omitted
+   * where the model is a drawing only; the console then offers the canvas with
+   * nothing to compute it with.
+   */
+  solver?: ModelSolverDefinition;
   nodes: Record<string, ModelNodeDefinition>;
   edges: Record<string, ModelEdgeDefinition>;
+}
+
+/**
+ * A model's solver, as the model file declares it.
+ *
+ * This is what keeps the app free of any particular solver. It knows that a model may
+ * name packages, and some Python to reach them by; it knows nothing about what either
+ * does. The console calls the adapter's functions, and the adapter is the only place a
+ * solver's own names appear.
+ */
+export interface ModelSolverDefinition {
+  /**
+   * Packages installed into the console's interpreter, in order. Each is resolved
+   * against the app's base, so `wheels/thing.whl` is the usual form; an absolute
+   * URL is taken as written.
+   */
+  packages?: string[];
+  /**
+   * Python run once when the interpreter starts, adapting the case document to this
+   * solver. It is expected to define:
+   *
+   * - `build(doc)` — a case document in, whatever the solver models it as out;
+   * - `results(model, **kwargs)` — that back out as a case document to draw;
+   * - `describe()` — optional; one line naming the solver, for the status line.
+   */
+  adapter?: string;
 }
 
 /** Entry in the model manifest used to populate the model selector. */

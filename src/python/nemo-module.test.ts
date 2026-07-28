@@ -3,26 +3,38 @@
  *
  * `nemo-module.py` is the only part of this app written in another language, and the
  * browser is the only place it otherwise runs. So it is exercised here the way the
- * worker sets it up — a stand-in for the host, the case handed over as JSON, and what
- * it emits collected — against the package it exists to reach.
+ * worker sets it up — a stand-in for the host, the case handed over as JSON, what it
+ * emits collected, and the solver adapter taken from the model file exactly as the
+ * console takes it. That last one means the shipped adapter is under test too, and not
+ * a copy of it written to pass.
  *
- * The whole file skips where there is no interpreter with Nefes in it, which is every
- * machine that only builds the front end. Set `PYTHON` to point at one.
+ * The whole file skips where there is no interpreter with the model's solver installed,
+ * which is every machine that only builds the front end. Set `PYTHON` to point at one.
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, copyFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, copyFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
+import type { ModelDefinition } from '../types/flow';
 
 const PYTHON = process.env.PYTHON ?? 'python3';
 const MODULE = resolve(__dirname, 'nemo-module.py');
 
-/** Whether an interpreter with Nefes in it can be reached. */
+/** The adapter the Nefes model declares — what `nemo.network()` and `publish()` call. */
+const ADAPTER = (
+  yaml.load(
+    readFileSync(resolve(__dirname, '../../public/models/nefes.yaml'), 'utf8')
+  ) as ModelDefinition
+).solver?.adapter;
+
+/** Whether an interpreter the model's adapter can run in is reachable. */
 const usable = (() => {
+  if (!ADAPTER) return false;
   try {
-    execFileSync(PYTHON, ['-c', 'import nefes'], { stdio: 'ignore' });
+    execFileSync(PYTHON, ['-c', ADAPTER], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -36,8 +48,9 @@ const usable = (() => {
 const withBridge = (body: string): Record<string, unknown> => {
   const dir = mkdtempSync(join(tmpdir(), 'nemo-bridge-'));
   try {
-    // The worker writes the module out under the name it is imported by; so does this.
+    // The worker writes each module out under the name it is imported by; so does this.
     copyFileSync(MODULE, join(dir, 'nemo.py'));
+    writeFileSync(join(dir, '_nemo_solver.py'), ADAPTER ?? '');
     const driver = `
 import json, sys, types
 

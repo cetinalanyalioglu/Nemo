@@ -5,7 +5,7 @@ The console pane has two tabs.
 **Python** is a prompt, running in the browser, with the drawn network in reach.
 
 Nothing is installed to use it.
-The interpreter is fetched the first time a line is entered — some tens of megabytes, four or five seconds on a warm connection — and the packages under `public/wheels` are installed on top of it, so Nefes is there as soon as the prompt is.
+The interpreter is fetched the first time a line is entered — some tens of megabytes, four or five seconds on a warm connection — and whatever packages the model on the canvas declares are installed on top of it, so its solver is there as soon as the prompt is.
 
 ## What is already there
 
@@ -22,10 +22,12 @@ It is the whole of the Python side of the boundary: reading what is drawn, and s
 | `nemo.show(result)`    | Draws result sets on the network                                          |
 | `nemo.replace(doc)`    | Replaces the drawing with the network in a case document                  |
 | `nemo.log(message)`    | Writes a line to the Messages tab                                         |
-| `nemo.network()`       | Builds the drawn network into a Nefes network, ready to solve             |
-| `nemo.publish(net, …)` | Sends a Nefes network's results back to the canvas                        |
+| `nemo.network()`       | Builds what the model's solver works on                                   |
+| `nemo.publish(net, …)` | Sends that model's results back to the canvas                             |
 
 `help(nemo)` documents them at the prompt, and `help(nemo.publish)` names what results it takes.
+
+The last two are the only ones that depend on a solver, and even they do not name one — see [the model's solver](#the-models-solver) below. On a model that declares none they say so and the rest still works.
 
 ## The round trip
 
@@ -36,7 +38,7 @@ nemo.publish(net, solution=sol)
 ```
 
 That is the whole loop: the network is read from the canvas, solved, and its fields land as a result set the Data pane can colour the network with.
-`publish` takes whatever `nefes.io.case_to_dict` does, so a forced response, an eigenmode, or a Nyquist summary go the same way:
+What `publish` accepts is the solver's business, not the console's. For the Nefes model it is whatever `nefes.io.case_to_dict` takes, so a forced response, an eigenmode, or a Nyquist summary go the same way:
 
 ```python
 from nefes.perturbation import forced_response
@@ -46,7 +48,7 @@ nemo.publish(net, solution=sol, forced=fr, forced_sweep=True)
 
 That one lands as an animated result set with frequency as the frame variable, and the canvas offers playback over it.
 
-Nothing is special about Nefes here.
+None of that is built in.
 `nemo.show` takes any result set of the shape the case format declares, so a series worked out at the prompt draws just as well:
 
 ```python
@@ -57,6 +59,40 @@ nemo.show({"name": "Guesswork", "items": [
      "values": [100.0 * math.sin(e["index"]) for e in edges]},
 ]})
 ```
+
+## The model's solver
+
+Nemo has no solver in it, and this console did not put one there.
+A model is a YAML file describing an element library, and it may additionally describe how to compute with what is drawn:
+
+```yaml
+solver:
+  packages:
+    - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+  adapter: |
+    from nefes.io import case_from_dict, case_to_dict
+
+    def build(doc):
+        return case_from_dict(doc, source="<canvas>")
+
+    def results(net, **kwargs):
+        kwargs.setdefault("internal_edges", False)
+        return case_to_dict(net, **kwargs)
+
+    def describe():
+        import nefes
+        return f"nefes {nefes.__version__} ({nefes.backend()} kernels)"
+```
+
+`packages` are installed into the interpreter when it starts, resolved against the app's base.
+`adapter` is run once afterwards, and `nemo.network()` and `nemo.publish()` are calls into the `build` and `results` it defines; `describe()`, if present, is the line the status bar shows.
+
+That is the whole of it. The app knows a model may name packages and some Python; it never knows what either is for, exactly as the data pane colours a network from whatever a file declares without knowing what the numbers mean.
+
+Two consequences worth expecting:
+
+- **Switching models restarts the interpreter**, since a different model brings different packages, and every name defined at the prompt goes with it.
+- **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.network()` says plainly that there is nothing to build with.
 
 ## What binds a series to the network
 
@@ -113,6 +149,8 @@ A word on what "in the browser" costs: the same reacting solve is 222 ms on a de
 
 The app is served as static files and a deploy has no way to build anything, so the wheels are committed.
 
+Which wheels are installed is declared by the model that needs them, in `public/models/*.yaml`; `npm run wheels` rebuilds them and leaves the naming alone.
+
 The browser's Python is WebAssembly, so a wheel with compiled parts is a _cross_-compile: the machine that builds it cannot run what it produces.
 That needs `pyodide build` from a Python of the same version as the browser's, and an Emscripten toolchain of the version its build environment names.
 Neither is installed by this repo. Once they are:
@@ -137,6 +175,7 @@ The console installs whatever the manifest lists, in order.
 | `src/python/python-runtime.ts` | Starting it, feeding it lines, routing what comes back           |
 | `src/python/bridge.ts`         | What Python is allowed to do to the canvas, and the checks on it |
 | `src/python/nemo-module.py`    | The `nemo` module, as Python sees it                             |
+| `public/models/*.yaml`         | Each model's own solver: its packages and its adapter            |
 | `src/store/pythonStore.ts`     | The transcript, the prompt state, the recall list                |
 
 `src/python/nemo-module.test.ts` runs the Python module under a real interpreter and skips where there is none; point `PYTHON` at one that has Nefes in it to include it.
