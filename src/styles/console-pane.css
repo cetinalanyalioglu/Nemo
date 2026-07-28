@@ -483,6 +483,20 @@ body.console-pane-resizing {
   font-style: italic;
 }
 
+/*
+ * An offered example: code, but nothing has run it. Set apart by a rule down the side
+ * rather than by a prompt, which would read as though it had been entered.
+ */
+.python-line.example {
+  padding-left: 12px;
+  margin-left: 16px;
+  border-left: 2px solid var(--color-border-subtle);
+}
+
+.python-line.example .python-line-text {
+  color: var(--color-text-secondary);
+}
+
 .console-python-prompt {
   display: flex;
   align-items: flex-start;
@@ -544,4 +558,74 @@ body.console-pane-resizing {
 .console-python-run:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* -------------------------------------------------------------- Variables tab */
+
+.console-variables-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.variables-count {
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.variables-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.variables-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.variables-list::-webkit-scrollbar-track {
+  background: var(--color-surface-subtle);
+}
+
+.variables-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.variables-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 14rem) 6rem minmax(0, 1fr);
+  gap: 12px;
+  padding: 2px 16px;
+}
+
+.variables-row:hover {
+  background: var(--color-surface-muted);
+}
+
+.variables-name {
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variables-kind {
+  color: var(--color-text-icon-secondary);
+  font-size: 11px;
+}
+
+.variables-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
 }

@@ -6,11 +6,13 @@ import { useConsoleStore } from '../store/consoleStore';
 import type { ConsoleTab } from '../types/console';
 import ConsoleLogsTab from './console-logs-tab';
 import ConsolePythonTab from './console-python-tab';
+import ConsoleVariablesTab from './console-variables-tab';
 import '../styles/console-pane.css';
 
 const TABS: { id: ConsoleTab; label: string }[] = [
   { id: 'logs', label: 'Messages' },
   { id: 'python', label: 'Python' },
+  { id: 'variables', label: 'Variables' },
 ];
 
 const ConsolePane = React.memo(() => {
@@ -101,6 +103,9 @@ const ConsolePane = React.memo(() => {
         </div>
         <div className="console-pane-tab-panel" hidden={activeTab !== 'python'} role="tabpanel">
           <ConsolePythonTab />
+        </div>
+        <div className="console-pane-tab-panel" hidden={activeTab !== 'variables'} role="tabpanel">
+          <ConsoleVariablesTab active={isOpen && activeTab === 'variables'} />
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { WorkspaceVariable } from '../python/protocol';
 import {
   PYTHON_MAX_ENTRIES,
   PYTHON_MAX_HISTORY,
@@ -28,6 +29,11 @@ interface PythonStore {
    * the rest of it, and the prompt shows the continuation marker.
    */
   pending: string[];
+  /**
+   * The names the session is holding, as last asked. Not kept up to date on its own —
+   * running a line can define a dozen — so it is refreshed when it is looked at.
+   */
+  variables: WorkspaceVariable[];
 
   setStatus: (status: PythonStatus, detail?: string) => void;
   append: (kind: PythonEntryKind, text: string) => void;
@@ -38,6 +44,7 @@ interface PythonStore {
    */
   appendStream: (kind: PythonEntryKind, text: string) => void;
   remember: (source: string) => void;
+  setVariables: (variables: WorkspaceVariable[]) => void;
   setPending: (pending: string[]) => void;
   clear: () => void;
 }
@@ -61,6 +68,7 @@ export const usePythonStore = create<PythonStore>((set) => ({
   entries: [],
   history: [],
   pending: [],
+  variables: [],
 
   setStatus: (status, detail) => set((s) => ({ status, detail: detail ?? s.detail })),
 
@@ -88,6 +96,8 @@ export const usePythonStore = create<PythonStore>((set) => ({
     }),
 
   setPending: (pending) => set({ pending }),
+
+  setVariables: (variables) => set({ variables }),
 
   clear: () => set({ entries: [], pending: [] }),
 }));

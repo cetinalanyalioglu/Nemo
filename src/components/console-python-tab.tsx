@@ -10,6 +10,7 @@ import {
 } from '../python/python-runtime';
 import type { RuntimeKind } from '../python/transport';
 import { usePythonStore } from '../store/pythonStore';
+import { solverExampleLines, useModelReady, useSolverExample } from '../python/example';
 import { joinLines, type CellOutput, type MultilineString } from '../types/notebook';
 import {
   PYTHON_CONTINUATION_PROMPT,
@@ -32,9 +33,8 @@ const STATUS_LABEL: Record<PythonStatus, string> = {
  * else is reachable from what they return, and `help(nemo)` documents the rest.
  */
 const OPENING = [
-  'Python, with the drawn network in reach. Enter runs, Shift+Enter adds a line.',
-  'nemo.case() is the canvas as a case document; nemo.show(...) draws results on it.',
-  "nemo.network() builds what the model's solver works on, and nemo.publish(...) sends its results back.",
+  'Python, with the drawn network in reach. Enter runs a line; help(nemo) lists the rest.',
+  'Something to start from:',
 ];
 
 /**
@@ -149,6 +149,9 @@ const ConsolePythonTab = React.memo(() => {
   const detail = usePythonStore((s) => s.detail);
   const clear = usePythonStore((s) => s.clear);
 
+  const example = useSolverExample();
+  const modelReady = useModelReady();
+
   const [draft, setDraft] = useState('');
   /** How far back the up-arrow has walked; `history.length` means "at the new line". */
   const [recallAt, setRecallAt] = useState(history.length);
@@ -158,11 +161,21 @@ const ConsolePythonTab = React.memo(() => {
   // The opening message is written into the transcript rather than rendered above it,
   // so clearing the pane clears it too and the first line the user sees is their own.
   useEffect(() => {
+    // Waits for the model, since the example is the model's and a model is fetched. A
+    // transcript that already has something in it is left alone, so this happens once.
+    if (!modelReady) return;
     const store = usePythonStore.getState();
-    if (store.entries.length === 0) {
-      OPENING.forEach((line) => store.append('note', line));
-    }
-  }, []);
+    if (store.entries.length !== 0) return;
+    OPENING.forEach((line) => store.append('note', line));
+    // Shown as code but not as something entered: nothing has run it. The lines go into
+    // the recall list so the up arrow offers them rather than making them be retyped.
+    solverExampleLines(example).forEach((line) => {
+      store.append('example', line);
+      store.remember(line);
+    });
+    // The recall walks back from the end, and the end has just moved.
+    setRecallAt(usePythonStore.getState().history.length);
+  }, [modelReady, example]);
 
   useEffect(() => {
     const transcript = transcriptRef.current;

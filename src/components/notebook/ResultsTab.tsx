@@ -6,6 +6,7 @@ import {
   IoPlayForwardOutline,
   IoTrashOutline,
 } from 'react-icons/io5';
+import { useSolverExample } from '../../python/example';
 import { parseNotebook, serializeNotebook } from '../../python/ipynb';
 import { useNotebookStore } from '../../store/notebookStore';
 import { usePythonStore } from '../../store/pythonStore';
@@ -23,17 +24,18 @@ import '../../styles/notebook.css';
  */
 
 /** The first thing an empty notebook says, so the surface is not a blank page. */
-const OPENING = `# Results
+const opening = (example: string): string => `Cells run on the same interpreter as the console
+prompt below and share its names, so anything made here is there too. **Shift+Enter** runs a
+cell, **Ctrl+Enter** runs it and opens the next.
 
-Cells run on the same interpreter as the console prompt, and share its names.
+Something to start from:
 
 \`\`\`python
-net = nemo.network()
-sol = net.solve()
+${example}
 \`\`\`
 
-A figure shows itself where it is made. Pin one, and it goes on the canvas as an
-annotation — where it exports with the drawing.`;
+A figure shows itself where it is made. Pin one and it goes on the canvas as an annotation,
+where it exports with the drawing.`;
 
 /**
  * The markdown pipeline, fetched with the first note rather than with the app.
@@ -51,6 +53,9 @@ const ResultsTab = React.memo(() => {
   const status = usePythonStore((s) => s.status);
   const detail = usePythonStore((s) => s.detail);
   const fileInput = useRef<HTMLInputElement>(null);
+  // The model's own, since what a useful first line looks like depends on its solver.
+  // Subscribed, because a model is fetched and is not there for the first render.
+  const example = useSolverExample();
 
   const openFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -158,8 +163,15 @@ const ResultsTab = React.memo(() => {
         {empty && (
           <div className="results-opening">
             <React.Suspense fallback={null}>
-              <MarkdownContent text={OPENING} />
+              <MarkdownContent text={opening(example)} />
             </React.Suspense>
+            <button
+              type="button"
+              className="results-opening-use"
+              onClick={() => useNotebookStore.getState().setSource(cells[0].id, example)}
+            >
+              Put it in the cell below
+            </button>
           </div>
         )}
         {cells.map((cell) => (

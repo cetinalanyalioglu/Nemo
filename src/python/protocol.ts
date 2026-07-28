@@ -34,6 +34,15 @@ export type RunOutcome =
   /** The block raised, or would not parse; the traceback came as an `error` output. */
   | { status: 'failed' };
 
+/** One name the session is holding, as the Variables tab lists it. */
+export interface WorkspaceVariable {
+  name: string;
+  /** What sort of thing it is: `module`, `class`, `function`, or its type's name. */
+  kind: string;
+  /** A short description: how big it is where that is knowable, its repr otherwise. */
+  summary: string;
+}
+
 /** Something Python asked the canvas to do. Fire-and-forget, applied in arrival order. */
 export type BridgeCall =
   /** Add result datasets to the canvas, in the shape the case format declares. */
@@ -61,7 +70,11 @@ export type HostMessage =
    */
   | { kind: 'run'; runId: number; source: string; caseJson: string; mode: 'line' | 'block' }
   /** Abandon the block being built up and start a fresh prompt. */
-  | { kind: 'reset' };
+  | { kind: 'reset' }
+  /** What names is the session holding? Answered with a `workspace`. */
+  | { kind: 'workspace' }
+  /** Forget them. The interpreter and its imports stay; only the names go. */
+  | { kind: 'clear-workspace' };
 
 /** Sent by the worker, back to the host. */
 export type WorkerMessage =
@@ -80,4 +93,6 @@ export type WorkerMessage =
   /** `runId` finished. */
   | { kind: 'ran'; runId: number; outcome: RunOutcome }
   /** Python asked the canvas for something. */
-  | { kind: 'bridge'; call: BridgeCall };
+  | { kind: 'bridge'; call: BridgeCall }
+  /** The names the session is holding, in answer to a `workspace` or a clear. */
+  | { kind: 'workspace'; variables: WorkspaceVariable[] };

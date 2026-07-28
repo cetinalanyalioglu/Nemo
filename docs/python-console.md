@@ -95,6 +95,38 @@ Two things about that token. It is the whole of the access control, and it matte
 
 The server is standard library only, so it runs wherever the solver does, and it installs nothing: the model's packages are for the browser's interpreter, and this one is the machine's own.
 
+## What the session is holding
+
+The **Variables** tab lists every name defined at the prompt or in a cell — what it is,
+and how big it is where that is knowable rather than printing it. Names the console put
+there itself (`nemo`, `display`) are left out; they are not yours to read in a list of
+your own names.
+
+**Forget all** empties it. That is not a restart: the interpreter, its imported modules
+and the seconds spent starting it all stay, and only the names go. Restart is the heavier
+one, and is what stops something that is still running.
+
+## Something to start from
+
+An empty prompt and an empty notebook both open with a worked example rather than a blank
+line. It is offered, not run — in the prompt it sits behind a rule instead of a `>>>`, and
+the up arrow recalls it a line at a time so it need not be retyped; in the notebook there
+is a button that puts it in the first cell.
+
+The example belongs to the **model**, beside its adapter, because what a useful first line
+looks like depends entirely on what the model's solver is — `net.solve()` means nothing to
+a model that solves nothing:
+
+```yaml
+solver:
+  example: |
+    net = nemo.network()
+    sol = net.solve()
+```
+
+A model that offers none falls back to lines about reading and colouring the canvas, which
+are true of every model.
+
 ## The model's solver
 
 Nemo has no solver in it, and this console did not put one there.

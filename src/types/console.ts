@@ -1,10 +1,11 @@
 export type ConsoleLogLevel = 'debug' | 'info' | 'warn' | 'error' | 'success';
 
 /**
- * The two things the console pane shows: what the app has reported (`logs`), and a
- * Python prompt the drawn network can be worked on from (`python`).
+ * What the console pane shows: what the app has reported (`logs`), a Python prompt the
+ * drawn network can be worked on from (`python`), and the names that prompt is holding
+ * (`variables`).
  */
-export type ConsoleTab = 'logs' | 'python';
+export type ConsoleTab = 'logs' | 'python' | 'variables';
 
 /**
  * The two things the big surface can show: the network that is drawn, or the notebook

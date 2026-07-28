@@ -39,6 +39,7 @@ from io import StringIO
 HERE = os.path.dirname(os.path.abspath(__file__))
 NEMO_MODULE = os.path.join(HERE, "nemo-module.py")
 DISPLAY_MODULE = os.path.join(HERE, "display-shims.py")
+SESSION_MODULE = os.path.join(HERE, "session.py")
 
 DEFAULT_PORT = 8765
 
@@ -70,6 +71,7 @@ class Session:
         self.buffer = []
         self.host = None
         self.display = None
+        self.session = None
         self.lock = threading.Lock()
 
     def bind(self, emit, show) -> None:
@@ -88,6 +90,8 @@ class Session:
 
         with open(DISPLAY_MODULE) as fh:
             self.display = _load_module("_nemo_display", fh.read())
+        with open(SESSION_MODULE) as fh:
+            self.session = _load_module("_nemo_session", fh.read())
         with open(NEMO_MODULE) as fh:
             nemo = _load_module("nemo", fh.read())
         # As in a notebook, both are there before the first line rather than waiting to
@@ -113,6 +117,16 @@ class Session:
     def reset(self) -> None:
         """Abandon a half-entered block, leaving the names alone."""
         self.buffer.clear()
+
+    def variables(self) -> list:
+        """Every name the session holds."""
+        return self.session.variables(self.namespace) if self.session else []
+
+    def clear_variables(self) -> list:
+        """Forget them all, and report what is left, which should be nothing."""
+        if self.session:
+            self.session.clear(self.namespace)
+        return self.variables()
 
     def run_block(self, source: str) -> dict:
         """Run a whole cell.
@@ -275,6 +289,12 @@ class Handler(BaseHTTPRequestHandler):
             self._run(message)
         elif kind == "reset":
             self.server.session.reset()
+        elif kind == "workspace":
+            self._reply({"kind": "workspace", "variables": self.server.session.variables()})
+        elif kind == "clear-workspace":
+            self._reply(
+                {"kind": "workspace", "variables": self.server.session.clear_variables()}
+            )
 
     def _boot(self, message: dict) -> None:
         session = self.server.session

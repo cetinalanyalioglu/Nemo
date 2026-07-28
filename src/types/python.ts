@@ -33,7 +33,13 @@ export type PythonEntryKind =
   /** The value of a trailing expression, as the interpreter reprs it. */
   | 'value'
   /** The console speaking for itself: boot progress, a restart, what version is up. */
-  | 'note';
+  | 'note'
+  /**
+   * A line of the example offered on an empty prompt. Shown as code but marked apart
+   * from what was typed, since nothing has run it — it is there to be read, and to be
+   * recalled with the up arrow rather than retyped.
+   */
+  | 'example';
 
 /** One line of the transcript. */
 export interface PythonEntry {

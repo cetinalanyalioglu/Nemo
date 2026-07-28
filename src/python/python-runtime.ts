@@ -124,6 +124,10 @@ const onMessage = (message: WorkerMessage): void => {
       applyBridgeCall(message.call);
       return;
 
+    case 'workspace':
+      store().setVariables(message.variables);
+      return;
+
     case 'ran':
       if (awaitingRun && awaitingRun.runId === message.runId) {
         const { resolve } = awaitingRun;
@@ -243,6 +247,28 @@ export const runPython = async (
   return outcome;
 };
 
+/**
+ * Asks what names the session is holding. The answer arrives as a message and lands in
+ * the store, so this returns nothing.
+ */
+export const askForVariables = (): void => {
+  if (booting) post({ kind: 'workspace' });
+  else store().setVariables([]);
+};
+
+/**
+ * Forgets them all.
+ *
+ * Not a restart: the interpreter, its imported modules and the time spent starting it
+ * all stay, and only the names go. Restart is the heavier one, and is what stops
+ * something still running.
+ */
+export const clearVariables = (): void => {
+  if (!booting) return;
+  post({ kind: 'clear-workspace' });
+  store().append('note', 'The names defined here were forgotten; the interpreter is still up.');
+};
+
 /** Abandons a half-typed block, leaving the interpreter and its names alone. */
 export const resetPythonBlock = (): void => {
   post({ kind: 'reset' });
@@ -262,6 +288,7 @@ const stopPython = (): void => {
     awaitingRun = null;
   }
   store().setPending([]);
+  store().setVariables([]);
 };
 
 /**

@@ -164,7 +164,10 @@ export const validateSolverDefinition = (
   if (candidate.adapter !== undefined && typeof candidate.adapter !== 'string') {
     throw new Error(`Model "${modelId}": "solver.adapter" must be a string of Python.`);
   }
-  return { packages: [...packages], adapter: candidate.adapter };
+  if (candidate.example !== undefined && typeof candidate.example !== 'string') {
+    throw new Error(`Model "${modelId}": "solver.example" must be a string of Python.`);
+  }
+  return { packages: [...packages], adapter: candidate.adapter, example: candidate.example };
 };
 
 /**

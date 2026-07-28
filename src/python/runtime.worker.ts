@@ -18,6 +18,7 @@ import type { PyodideInterface } from 'pyodide';
 import type { CellOutput } from '../types/notebook';
 import DISPLAY_SHIMS_SOURCE from './display-shims.py?raw';
 import NEMO_MODULE_SOURCE from './nemo-module.py?raw';
+import SESSION_MODULE_SOURCE from './session.py?raw';
 import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
 
 /** Where the bridge module is written so `import nemo` finds it. */
@@ -28,6 +29,9 @@ const DISPLAY_MODULE_PATH = '/home/pyodide/_nemo_display.py';
 
 /** Where the model's own adapter is written, for `nemo.network()` to call into. */
 const SOLVER_MODULE_PATH = '/home/pyodide/_nemo_solver.py';
+
+/** Where the session's own bookkeeping is written: what names it holds, and forgetting them. */
+const SESSION_MODULE_PATH = '/home/pyodide/_nemo_session.py';
 
 /**
  * Set up before every submission and read by `nemo.case()`. Assigning the case here
@@ -53,6 +57,8 @@ let pyconsole: any = null;
 let display: any = null;
 /** `__main__`'s namespace, which the prompt and the notebook both work in. */
 let mainNamespace: any = null;
+/** What names the session holds, and forgetting them. */
+let session: any = null;
 /** The submission being run, so stream output can be attributed to it. */
 let activeRun = -1;
 
@@ -147,23 +153,32 @@ const boot = async (indexURL: string, wheels: string[], adapter: string): Promis
   py.registerJsModule('_nemo_host', host);
   py.FS.writeFile(NEMO_MODULE_PATH, NEMO_MODULE_SOURCE);
   py.FS.writeFile(DISPLAY_MODULE_PATH, DISPLAY_SHIMS_SOURCE);
+  py.FS.writeFile(SESSION_MODULE_PATH, SESSION_MODULE_SOURCE);
 
+  // Built inside a function so the names it needs are local to it. Run at the top level
+  // this would work in __main__ -- which is the prompt's own namespace -- and leave
+  // `sys`, `PyodideConsole` and the rest sitting among whatever the user goes on to
+  // define, both in the way and listed as theirs.
   pyconsole = py.runPython(`
-import __main__
-import _nemo_display
-import nemo
-from pyodide.console import PyodideConsole
+def _build_console():
+    import __main__
+    import _nemo_display
+    import nemo
+    from pyodide.console import PyodideConsole
 
-# The prompt works in __main__, so a name bound at the prompt is where a script would
-# expect to find it, and 'nemo' and 'display' are already there rather than waiting to
-# be imported -- as they are in a notebook.
-__main__.__dict__["nemo"] = nemo
-__main__.__dict__["display"] = _nemo_display.display
-PyodideConsole(__main__.__dict__)
+    # The prompt works in __main__, so a name bound at the prompt is where a script would
+    # expect to find it, and 'nemo' and 'display' are already there rather than waiting
+    # to be imported -- as they are in a notebook.
+    __main__.__dict__["nemo"] = nemo
+    __main__.__dict__["display"] = _nemo_display.display
+    return PyodideConsole(__main__.__dict__)
+
+_build_console()
 `);
   pyconsole.stdout_callback = stream('stdout');
   pyconsole.stderr_callback = stream('stderr');
   display = py.pyimport('_nemo_display');
+  session = py.pyimport('_nemo_session');
   mainNamespace = py.runPython('import __main__; __main__.__dict__');
 
   const described = loadAdapter(py, adapter);
@@ -171,7 +186,7 @@ PyodideConsole(__main__.__dict__)
   pyodide = py;
   post({
     kind: 'ready',
-    python: py.runPython('import sys; ".".join(str(v) for v in sys.version_info[:3])'),
+    python: py.runPython('__import__("sys").version.split()[0]'),
     // What the adapter says about itself when it says anything, and the package
     // filenames otherwise -- something has to name what was installed.
     packages: described.length > 0 ? described : packages,
@@ -273,6 +288,17 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
   }
   if (message.kind === 'reset') {
     pyconsole?.buffer.clear();
+    return;
+  }
+  if (message.kind === 'workspace' || message.kind === 'clear-workspace') {
+    if (!session) {
+      post({ kind: 'workspace', variables: [] });
+      return;
+    }
+    if (message.kind === 'clear-workspace') session.clear(mainNamespace);
+    const listed = session.variables(mainNamespace);
+    post({ kind: 'workspace', variables: listed.toJs({ dict_converter: Object.fromEntries }) });
+    listed.destroy();
     return;
   }
   if (message.kind === 'run') {

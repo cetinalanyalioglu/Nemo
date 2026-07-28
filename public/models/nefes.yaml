@@ -118,6 +118,13 @@ solver:
 
         return f"nefes {nefes.__version__} ({nefes.backend()} kernels)"
 
+  # Shown on an empty prompt and an empty notebook: the shortest thing worth running.
+  example: |
+    net = nemo.network()          # the drawn network
+    sol = net.solve()             # the mean flow
+    print(sol.converged, sol.field("mdot"))
+    nemo.publish(net, solution=sol)   # colour the canvas with it
+
 parameters:
   thermoModel:
     label: Thermo model

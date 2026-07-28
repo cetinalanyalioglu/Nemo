@@ -331,6 +331,15 @@ export interface ModelSolverDefinition {
    * - `describe()` — optional; one line naming the solver, for the status line.
    */
   adapter?: string;
+  /**
+   * A short worked example, shown on an empty prompt and an empty notebook.
+   *
+   * It belongs to the model because what a first line looks like depends entirely on
+   * what the model's solver is: `net.solve()` means nothing to a model that solves
+   * nothing. A model that offers none gets the generic lines about reading the canvas,
+   * which are true of every model.
+   */
+  example?: string;
 }
 
 /**
