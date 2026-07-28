@@ -177,6 +177,13 @@ a pasted picture, which is what a figure headed for a paper wants. Under **Black
 white** it is mapped to grey along with everything else — by luminance, so two series
 stay apart instead of both going black, and a translucent band stays translucent.
 
+An export is always built in the **light** theme, whatever the session is using, because
+an export is a document and a document is read on white. Pale ink is pale only because
+there is a dark surface behind it; a page has none. The switch lasts as long as the
+harvest and the canvas on screen does not change. A pinned figure is drawn in those same
+colours for the same reason — in the Results tab a figure is part of the interface and
+follows it, but pinned to the drawing it becomes part of what the drawing exports.
+
 ### Where the notebook is kept
 
 The case file carries the notebook's **source cells** and not its outputs — outputs are

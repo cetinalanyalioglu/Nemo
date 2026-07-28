@@ -11,10 +11,17 @@
  * twice over: a picture is what the export path already knows how to place, and a
  * finding pinned to a drawing should keep saying what it said when it was pinned. Re-run
  * the cell and pin again to bring it up to date.
+ *
+ * And it is drawn in the colours a *document* is drawn in rather than the ones the
+ * interface happens to be using. In the Results tab a figure is part of the interface
+ * and follows it; pinned to the drawing it becomes part of what the drawing exports, and
+ * what a drawing exports is read on white. A figure pinned from a dark session would
+ * otherwise be pale ink on a page with nothing pale ink was meant to sit on.
  */
 
 import { useGraphStore } from '../store/graphStore';
 import { ANNOTATION_NODE_TYPE } from '../types/annotations';
+import { applyPrintTheme } from '../utils/canvas-export/print-theme';
 import { readFigurePalette, themedLayout } from '../utils/figure-theme';
 import { logger } from '../utils/logger';
 import { hasData, joinLines, type CellOutput, type MultilineString } from '../types/notebook';
@@ -42,14 +49,17 @@ const figureToImage = async (spec: Record<string, unknown>): Promise<string> => 
   )}px;`;
   document.body.appendChild(holder);
   try {
-    // Styled like every other figure, but with nothing behind it: it is about to sit on
-    // the canvas, so the canvas is what should show through — in the drawing, and in the
-    // export, where the page underneath is whatever the figure is printed on.
-    const layout = {
-      ...themedLayout(spec.layout, readFigurePalette()),
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-    };
+    // Read in the theme a document is drawn in rather than the one on screen, and left
+    // opaque: a pinned figure has to carry its own contrast, since it can be looked at
+    // on a dark canvas and printed on a white page without being drawn again between.
+    const restoreTheme = applyPrintTheme();
+    let palette;
+    try {
+      palette = readFigurePalette();
+    } finally {
+      restoreTheme();
+    }
+    const layout = themedLayout(spec.layout, palette);
     await Plotly.newPlot(
       holder,
       (spec.data ?? []) as never,

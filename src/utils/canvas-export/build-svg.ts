@@ -27,6 +27,7 @@ import { useDataStore, selectActiveItem, selectActiveDataset } from '../../store
 import type { DataDisplayConfig, DataTarget } from '../../types/data';
 import { logger } from '../logger';
 import { applyMonochromeTokens, grayscaleResidualColors } from './monochrome';
+import { applyPrintTheme } from './print-theme';
 import { hasMath, takeMath, texSourceOf } from './math-svg';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -834,13 +835,18 @@ export function buildCanvasSvg(
     return null;
   }
 
-  // Remap the theme tokens to true black/white before anything is harvested, so
-  // every paint below resolves monochrome. Restored in the outer `finally`.
+  // An export is a document, and a document is read on white, so it is built in the
+  // light theme whatever the session is using -- otherwise a dark session exports pale
+  // ink onto a page with nothing pale-ink was meant to sit on. Applied before anything
+  // is harvested; restored in the outer `finally`.
+  const restoreTheme = applyPrintTheme();
+  // Then, on top of that, the true black-and-white remap when it was asked for.
   const restoreTokens = options.monochrome ? applyMonochromeTokens() : null;
   try {
     return buildCanvasSvgInner(instance, flowEl, options);
   } finally {
     restoreTokens?.();
+    restoreTheme();
   }
 }
 
