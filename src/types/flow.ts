@@ -411,4 +411,9 @@ export interface SaveFilePayload {
   data?: {
     datasets: Dataset[];
   };
+  /**
+   * The Results-tab notebook, as source cells only. Outputs are the bulk of a notebook
+   * and are not a description of the network, so they are left for a `.ipynb` export.
+   */
+  notebook?: { cells: unknown[] };
 }

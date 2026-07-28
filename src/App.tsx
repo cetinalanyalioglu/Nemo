@@ -11,6 +11,8 @@ import ToolsPane from './components/tools-pane';
 import SettingsPane from './components/settings-pane';
 import Canvas from './components/Canvas';
 import ConsolePane from './components/console-pane';
+import WorkspaceTabs from './components/workspace-tabs';
+import ResultsTab from './components/notebook/ResultsTab';
 import PropertiesPanel from './components/PropertiesPanel';
 import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
@@ -21,7 +23,8 @@ import { AppStateProvider, useAppState } from './context/AppStateContext';
 import { ModelProvider } from './context/ModelContext';
 
 function AppContent() {
-  const { sidebar } = useAppState();
+  const { sidebar, workspace } = useAppState();
+  const workspaceTab = workspace.activeTab;
 
   const renderPane = () => {
     if (sidebar.activePane === 'library') return <NodeLibrary />;
@@ -39,8 +42,15 @@ function AppContent() {
       {renderPane()}
       <div className="canvas-container">
         <div className="canvas-workspace">
-          <div className="canvas-area">
+          <WorkspaceTabs />
+          {/* Both surfaces stay mounted. React Flow loses its viewport when it is torn
+              down, and a notebook cell loses what is half-typed into it, so switching
+              tabs hides one rather than replacing it. */}
+          <div className="canvas-area" hidden={workspaceTab !== 'canvas'}>
             <Canvas />
+          </div>
+          <div className="results-area" hidden={workspaceTab !== 'results'}>
+            <ResultsTab />
           </div>
           <ConsolePane />
         </div>

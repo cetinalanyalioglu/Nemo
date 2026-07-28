@@ -3,6 +3,9 @@ import { addEdge, applyEdgeChanges, applyNodeChanges } from 'reactflow';
 import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from 'reactflow';
 import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import yaml from 'js-yaml';
+import { fromCaseNotebook, toCaseNotebook } from '../python/ipynb';
+import { useNotebookStore } from './notebookStore';
+import { joinLines } from '../types/notebook';
 import { debugLog } from '../utils/debug';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
@@ -1636,10 +1639,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         };
       });
 
+      // The notebook travels with the case, but only what was written in it: outputs
+      // are the bulk of a notebook and are not a description of the network.
+      const notebook = toCaseNotebook(useNotebookStore.getState().toNotebook({ outputs: false }));
+      const hasNotebook = notebook.cells.some((cell) => joinLines(cell.source).trim().length > 0);
+
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
         meta: { title: state.title },
+        ...(hasNotebook ? { notebook } : {}),
         ...(savedDatasets.length > 0 ? { data: { datasets: savedDatasets } } : {}),
         model: {
           id: state.model?.id,
@@ -1743,6 +1752,11 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
     applySaveData: (saveData) => {
       get().reset();
+
+      // A case that carries a notebook opens with it; one that does not leaves the
+      // Results tab as it was, so loading a plain case does not silently wipe work.
+      const notebook = fromCaseNotebook(saveData.notebook);
+      if (notebook) useNotebookStore.getState().open(notebook);
 
       const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
       const elementInfo = get().model?.elementInfo ?? EMPTY_ELEMENT_INFO;

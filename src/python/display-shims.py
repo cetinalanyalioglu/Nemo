@@ -199,7 +199,7 @@ def _install_ipython() -> None:
     sys.modules["IPython.display"] = module
 
 
-def _configure_plotly(plotly_io) -> None:
+def _configure_plotly(plotly_io) -> bool:
     """Make plotly hand its figures over rather than go looking for somewhere to put them.
 
     Two settings.  ``show`` is replaced, since its usual job is to find a browser tab and
@@ -207,33 +207,67 @@ def _configure_plotly(plotly_io) -> None:
     describes the figure: the default also emits a script to fetch plotly's drawing code
     from a public address, which is both an output nobody asked to keep and a fetch this
     page has no need of -- it draws the figure itself, from the description.
+
+    Returns whether it took.  Modules are looked at the moment they appear, which for a
+    package the size of plotly is part-way through building itself, so the first look may
+    find a module without the attributes to set.  Saying so leaves it to be tried again.
     """
+    if not hasattr(plotly_io, "renderers"):
+        return False
 
     def show(fig, *_args, **_kwargs):
         display(fig)
 
     plotly_io.show = show
     plotly_io.renderers.default = "plotly_mimetype"
+    return True
 
 
 # Settings to apply once the module they are for has been imported.  Waiting is what
-# makes them free: a console that never draws a figure never imports plotly, and a
-# figure cannot be shown before the cell that imported it has run.
+# makes them free: a console that never draws a figure never imports plotly, so it never
+# pays for one.
 _PENDING = {"plotly.io": _configure_plotly}
 
 
 def apply_pending() -> None:
-    """Apply any setting whose module has since appeared.  Called once per cell."""
+    """Apply any setting whose module has appeared and is ready for it."""
     for module_name in list(_PENDING):
         module = sys.modules.get(module_name)
         if module is None:
             continue
         try:
-            _PENDING[module_name](module)
-        finally:
-            # Once only, whether or not it took: a module that cannot be configured is
-            # not going to become configurable by being asked again every cell.
+            applied = _PENDING[module_name](module)
+        except Exception:
+            # A module that raises on being configured is not going to stop raising by
+            # being asked again, and a console that works uncoloured beats one that does
+            # not start.
+            applied = True
+        if applied:
             del _PENDING[module_name]
 
 
+def _watch_imports() -> None:
+    """Apply a module's settings as soon as it is imported, rather than afterwards.
+
+    A cell that imports plotly and shows a figure does both before anything gets to look
+    between them, so checking once per cell is too late for the cell that matters most.
+    Importing is therefore what triggers the check.
+
+    The check itself is a dictionary lookup and stops happening at all once there is
+    nothing left to configure, so the cost of it does not outlive the need.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def watching_import(name, *args, **kwargs):
+        module = real_import(name, *args, **kwargs)
+        if _PENDING:
+            apply_pending()
+        return module
+
+    builtins.__import__ = watching_import
+
+
 _install_ipython()
+_watch_imports()

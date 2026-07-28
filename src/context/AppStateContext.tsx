@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useCallback, useEf
 import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
-import { CONSOLE_DEFAULT_HEIGHT, type ConsoleTab } from '../types/console';
+import { CONSOLE_DEFAULT_HEIGHT, type ConsoleTab, type WorkspaceTab } from '../types/console';
 
 export type SidebarPane =
   | 'library'
@@ -50,6 +50,7 @@ type AppStateSnapshot = {
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   consolePane: { isOpen: boolean; height: number; activeTab: ConsoleTab };
+  workspace: { activeTab: WorkspaceTab };
   grid: GridState;
   rotation: RotationState;
   appearance: AppearanceState;
@@ -76,6 +77,9 @@ type AppActions = {
     setHeight: (height: number) => void;
     /** Shows a tab, opening the pane if it was collapsed. */
     selectTab: (tab: ConsoleTab) => void;
+  };
+  workspace: {
+    selectTab: (tab: WorkspaceTab) => void;
   };
   grid: {
     toggleSnap: () => void;
@@ -139,6 +143,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     isOpen: false,
     height: CONSOLE_DEFAULT_HEIGHT,
     activeTab: 'logs',
+  });
+  const [workspaceState, setWorkspace] = useState<{ activeTab: WorkspaceTab }>({
+    activeTab: 'canvas',
   });
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
   const [rotationState, setRotation] = useState<RotationState>({ snap: true, increment: 15 });
@@ -239,6 +246,10 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setConsolePane((prev) => ({ ...prev, activeTab, isOpen: true }));
   }, []);
 
+  const workspaceSelectTab = useCallback((activeTab: WorkspaceTab) => {
+    setWorkspace({ activeTab });
+  }, []);
+
   const gridToggleSnap = useCallback(() => {
     setGrid((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }));
   }, []);
@@ -325,6 +336,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         setHeight: consolePaneSetHeight,
         selectTab: consolePaneSelectTab,
       },
+      workspace: {
+        selectTab: workspaceSelectTab,
+      },
       grid: {
         toggleSnap: gridToggleSnap,
         updateSize: gridUpdateSize,
@@ -365,6 +379,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       consolePaneSetIsOpen,
       consolePaneSetHeight,
       consolePaneSelectTab,
+      workspaceSelectTab,
       gridToggleSnap,
       gridUpdateSize,
       rotationToggleSnap,
@@ -390,6 +405,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       sidebar: sidebarState,
       propertiesPanel: propertiesPanelState,
       consolePane: consolePaneState,
+      workspace: workspaceState,
       grid: gridState,
       rotation: rotationState,
       appearance: appearanceState,
@@ -402,6 +418,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       sidebarState,
       propertiesPanelState,
       consolePaneState,
+      workspaceState,
       gridState,
       rotationState,
       appearanceState,
