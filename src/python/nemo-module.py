@@ -251,6 +251,13 @@ def publish(net, **kwargs) -> None:
         Which results to send, as :func:`nefes.io.case_to_dict` takes them --
         ``solution=``, ``forced=``, ``eigenmodes=``, ``nyquist=`` and so on.
 
+    Notes
+    -----
+    An element that stands for several -- an orifice, a nozzle, a segmented pipe -- is
+    one element on the canvas and several once the solver expands it, so its interior
+    is left out of what is sent.  Read it at the prompt instead, with
+    ``net.composite(name)``.
+
     Examples
     --------
     >>> net = nemo.network()
@@ -258,4 +265,5 @@ def publish(net, **kwargs) -> None:
     """
     from nefes.io import case_to_dict
 
+    kwargs.setdefault("internal_edges", False)
     show(case_to_dict(net, **kwargs))

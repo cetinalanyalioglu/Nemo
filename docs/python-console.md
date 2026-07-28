@@ -65,6 +65,10 @@ So a series has to carry exactly one value per element of its target, and one th
 
 The indices are brought up to date whenever the case is read, exactly as they are on save, so what `nemo.nodes()` reports is what a series will bind to.
 
+One element on the canvas is not always one element in the solver: an orifice, a nozzle or a segmented pipe expands into several joined by edges the drawing never shows.
+`nemo.publish` leaves that interior out, so what it sends is as long as what is drawn.
+Read it at the prompt instead — `net.composite("orf")` gives the interior of a solved one.
+
 A value that is not a number — an unconverged entry, the phase of something that is exactly zero — arrives as nothing rather than as `NaN`, which JSON has no word for.
 The colour scale already skips such entries.
 
@@ -83,27 +87,46 @@ There is no way to interrupt a running line and keep the session: that needs mem
 
 ## How fast it is
 
-Nefes carries three implementations of its kernels.
-The browser has no compiler to build them with, so it runs the plain-Python one unless a WebAssembly build of the compiled kernels is installed, which the status line names:
+Nefes carries three implementations of its kernels, and there is no compiler in a browser to build one with, so which is installed is decided when the wheel is built rather than when the page loads.
+The status line says which arrived:
 
 ```
-READY  Python 3.14.2 · nefes 0.1.0 (python kernels)
+READY  Python 3.14.2 · nefes 0.1.0 (accel kernels)
 ```
 
-Plain Python is correct and slow — a small perfect-gas network solves in under a second, a reacting network of some tens of elements in tens of seconds.
-Replacing the wheel with one built by `pyodide build` puts `accel` in that line instead and is roughly thirty times quicker.
+`accel` are the kernels compiled ahead of time to WebAssembly, and are what the committed wheel carries.
+`python` means the wheel had nothing compiled in it, which is correct and much slower.
+
+Measured in the browser on a 42-element reacting network — a rich-quench-lean combustor with thirteen species in equilibrium:
+
+| kernels               | one solve |
+| --------------------- | --------- |
+| `accel` (WebAssembly) | 1.7 s     |
+| `python`              | 58 s      |
+
+The gap narrows sharply on small non-reacting networks, where the sparse solve rather than the kernels sets the pace: a four-element perfect-gas nozzle is 17 ms against 50 ms.
+Chemistry is what the compiled kernels are for.
+
+A word on what "in the browser" costs: the same reacting solve is 222 ms on a desktop install with numba, so the browser is some eight times slower than a workstation and not in a different league from one.
 
 ## Refreshing the wheels
 
 The app is served as static files and a deploy has no way to build anything, so the wheels are committed.
-Rebuild them from a checkout of the package:
+
+The browser's Python is WebAssembly, so a wheel with compiled parts is a _cross_-compile: the machine that builds it cannot run what it produces.
+That needs `pyodide build` from a Python of the same version as the browser's, and an Emscripten toolchain of the version its build environment names.
+Neither is installed by this repo. Once they are:
 
 ```bash
+PYODIDE=~/.conda/envs/pyodide-build/bin/pyodide \
+EMSDK_ENV=~/emsdk/emsdk_env.sh \
 npm run wheels -- ../Nefes
 ```
 
-That builds a wheel, drops it in `public/wheels`, removes the version it replaces, and rewrites `public/wheels/manifest.json` to name it.
+That builds the wheel, drops it in `public/wheels`, removes the version it replaces, and rewrites `public/wheels/manifest.json` to name it.
 The console installs whatever the manifest lists, in order.
+
+`npm run wheels -- ../Nefes --pure` skips the cross-compile and builds a wheel with nothing compiled in it, which needs only a plain Python and lands in the second row of the table above.
 
 ## Where the pieces are
 
