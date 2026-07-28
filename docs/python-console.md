@@ -110,8 +110,8 @@ one, and is what stops something that is still running.
 
 An empty prompt and an empty notebook both open with a worked example rather than a blank
 line. It is offered, not run — in the prompt it sits behind a rule instead of a `>>>`, and
-the up arrow recalls it a line at a time so it need not be retyped; in the notebook there
-is a button that puts it in the first cell.
+the up arrow recalls it a line at a time so it need not be retyped; in the notebook it
+stands above the first cell, to read or to copy.
 
 The example belongs to the **model**, beside its adapter, because what a useful first line
 looks like depends entirely on what the model's solver is — `net.solve()` means nothing to
@@ -177,6 +177,9 @@ they produced kept beneath them.
 - Outputs are drawn by media type — a figure through plotly.js, a table through the HTML
   sanitiser, prose and maths through the same markdown pipeline the canvas notes use, and
   anything else as the text every value can offer.
+- A cell carries one control, to delete it, and it sits in a gutter to the right of the
+  cell rather than over it. The selected cell is marked by a rail down its left edge, so
+  a figure or a table beneath it keeps the background it was drawn to sit on.
 
 ### Your existing notebooks open here
 

@@ -1,11 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  IoArrowDownOutline,
-  IoArrowUpOutline,
-  IoCloseOutline,
-  IoPlayOutline,
-  IoPricetagOutline,
-} from 'react-icons/io5';
+import { IoPlayOutline, IoPricetagOutline, IoTrashOutline } from 'react-icons/io5';
 import { pinOutputToCanvas } from '../../python/pin-figure';
 import { useNotebookStore } from '../../store/notebookStore';
 import { joinLines, type CellRunState, type NotebookCell } from '../../types/notebook';
@@ -38,8 +32,7 @@ interface NotebookCellViewProps {
 }
 
 const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellViewProps) => {
-  const { select, setSource, setKind, removeCell, moveCell, runCell, addCell } =
-    useNotebookStore.getState();
+  const { select, setSource, removeCell, runCell, addCell } = useNotebookStore.getState();
   // A markdown cell reads as prose and edits when asked; a fresh one opens for editing,
   // since an empty note has nothing to read.
   const [editing, setEditing] = useState(joinLines(cell.source).length === 0);
@@ -133,48 +126,15 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
         )}
       </div>
 
+      {/* In a gutter of its own, so it never sits over what the cell holds. */}
       <div className="notebook-cell-actions">
-        <select
-          className="notebook-cell-kind"
-          value={cell.cell_type}
-          onChange={(event) => setKind(cell.id, event.target.value as 'code' | 'markdown')}
-          aria-label="Cell type"
-          title="What this cell is"
-        >
-          <option value="code">code</option>
-          <option value="markdown">note</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => moveCell(cell.id, -1)}
-          title="Move up"
-          aria-label="Move up"
-        >
-          <IoArrowUpOutline aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => moveCell(cell.id, 1)}
-          title="Move down"
-          aria-label="Move down"
-        >
-          <IoArrowDownOutline aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => addCell('code', cell.id)}
-          title="Add a cell below"
-          aria-label="Add a cell below"
-        >
-          +
-        </button>
         <button
           type="button"
           onClick={() => removeCell(cell.id)}
           title="Delete this cell"
           aria-label="Delete this cell"
         >
-          <IoCloseOutline aria-hidden />
+          <IoTrashOutline aria-hidden />
         </button>
       </div>
     </div>

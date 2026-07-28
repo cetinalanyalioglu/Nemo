@@ -162,21 +162,29 @@
 
 /* ------------------------------------------------------------------ a cell */
 
+/*
+ * A cell is three columns: the run mark, the cell itself, and a gutter on the right that
+ * holds the delete button. The gutter is there whether or not the button is showing, so
+ * nothing the cell holds ever sits under it and nothing shifts when it appears.
+ */
 .notebook-cell {
   position: relative;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr) 26px;
   gap: 4px;
-  max-width: 900px;
+  max-width: 940px;
   margin: 0 auto 10px;
   padding: 4px 0;
   border-left: 2px solid transparent;
-  border-radius: 4px;
 }
 
+/*
+ * The selected cell is marked at its edge rather than by tinting it. A wash behind the
+ * whole cell also lands behind its outputs, and a figure or a table has a background of
+ * its own to sit on -- it should not be reading through a colour that means "selected".
+ */
 .notebook-cell.selected {
   border-left-color: var(--color-accent);
-  background: var(--color-surface-muted);
 }
 
 .notebook-cell-gutter {
@@ -238,46 +246,41 @@
 }
 
 .notebook-cell-actions {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  display: none;
-  align-items: center;
-  gap: 2px;
-}
-
-.notebook-cell:hover .notebook-cell-actions,
-.notebook-cell.selected .notebook-cell-actions {
   display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 4px;
 }
 
 .notebook-cell-actions button {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: none;
-  border-radius: 3px;
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: 12px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
+  /* Out of the way until the cell is being worked on, but always taking its space. */
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+.notebook-cell:hover .notebook-cell-actions button,
+.notebook-cell.selected .notebook-cell-actions button,
+.notebook-cell-actions button:focus-visible {
+  opacity: 1;
 }
 
 .notebook-cell-actions button:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-accent);
-}
-
-.notebook-cell-kind {
-  height: 20px;
-  padding: 0 4px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 3px;
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: 10px;
+  color: var(--color-error);
 }
 
 /* --------------------------------------------------------------- the editor */
@@ -289,6 +292,7 @@
   overflow: hidden;
 }
 
+/* Drawn a shade harder when selected, to go with the rail rather than repeat it. */
 .notebook-cell.selected .cell-editor {
   border-color: var(--color-border);
 }

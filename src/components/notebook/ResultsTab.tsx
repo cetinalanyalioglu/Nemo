@@ -165,13 +165,6 @@ const ResultsTab = React.memo(() => {
             <React.Suspense fallback={null}>
               <MarkdownContent text={opening(example)} />
             </React.Suspense>
-            <button
-              type="button"
-              className="results-opening-use"
-              onClick={() => useNotebookStore.getState().setSource(cells[0].id, example)}
-            >
-              Put it in the cell below
-            </button>
           </div>
         )}
         {cells.map((cell) => (
