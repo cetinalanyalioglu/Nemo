@@ -16,15 +16,23 @@
  */
 
 import type { ConsoleLogLevel } from '../types/console';
+import type { CellOutput } from '../types/notebook';
 
-/** How a submission ended, from the interpreter's point of view. */
+/**
+ * How a submission ended.
+ *
+ * Only how — what it produced arrived as {@link WorkerMessage} `display`s while it ran.
+ * Keeping the two apart is what lets one interpreter serve a prompt and a notebook: the
+ * prompt needs to know a block is unfinished, the notebook needs the outputs, and
+ * neither has to care about the other's half.
+ */
 export type RunOutcome =
-  /** The block ran; `repr` is the value of its last expression, if it had one. */
-  | { status: 'complete'; repr: string | null }
+  /** The block ran to the end. */
+  | { status: 'complete' }
   /** The block is unfinished (an open bracket, a `def` without its body). */
   | { status: 'incomplete' }
-  /** The block raised, or would not parse; `error` is the formatted traceback. */
-  | { status: 'failed'; error: string };
+  /** The block raised, or would not parse; the traceback came as an `error` output. */
+  | { status: 'failed' };
 
 /** Something Python asked the canvas to do. Fire-and-forget, applied in arrival order. */
 export type BridgeCall =
@@ -56,8 +64,12 @@ export type WorkerMessage =
   | { kind: 'ready'; python: string; packages: string[] }
   /** The interpreter could not start; the console is unusable until it is restarted. */
   | { kind: 'boot-failed'; error: string }
-  /** Text written to stdout or stderr while `runId` was running. */
-  | { kind: 'output'; runId: number; stream: 'out' | 'err'; text: string }
+  /**
+   * Something `runId` produced: printed text, the value it ended on, a figure showing
+   * itself, a traceback. These are nbformat output objects as they will be saved, so
+   * nothing between here and the file reshapes them.
+   */
+  | { kind: 'display'; runId: number; output: CellOutput }
   /** `runId` finished. */
   | { kind: 'ran'; runId: number; outcome: RunOutcome }
   /** Python asked the canvas for something. */

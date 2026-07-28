@@ -10,6 +10,7 @@ import {
 } from '../python/python-runtime';
 import type { RuntimeKind } from '../python/transport';
 import { usePythonStore } from '../store/pythonStore';
+import { joinLines, type CellOutput, type MultilineString } from '../types/notebook';
 import {
   PYTHON_CONTINUATION_PROMPT,
   PYTHON_PROMPT,
@@ -35,6 +36,28 @@ const OPENING = [
   'nemo.case() is the canvas as a case document; nemo.show(...) draws results on it.',
   "nemo.network() builds what the model's solver works on, and nemo.publish(...) sends its results back.",
 ];
+
+/**
+ * Writes one output into the transcript, as a line of text.
+ *
+ * The prompt is a transcript of lines and shows what it can of an output: printed text,
+ * a traceback, and the plain-text form of a value. A figure has one too — it just says
+ * `Figure(...)`, which is the honest thing for a surface that cannot draw. The Results
+ * tab keeps the whole output and draws it.
+ */
+const transcribe = (output: CellOutput): void => {
+  const store = usePythonStore.getState();
+  if (output.output_type === 'stream') {
+    store.appendStream(output.name === 'stderr' ? 'error' : 'output', joinLines(output.text));
+    return;
+  }
+  if (output.output_type === 'error') {
+    store.append('error', output.traceback.join('\n').trimEnd());
+    return;
+  }
+  const text = joinLines(output.data['text/plain'] as MultilineString | undefined);
+  if (text.length > 0) store.append('value', text);
+};
 
 /**
  * Grows the prompt to fit what is in it, so a pasted block is seen as a block rather
@@ -166,17 +189,8 @@ const ConsolePythonTab = React.memo(() => {
 
     // Only what was just typed is sent: the interpreter is holding the rest of an open
     // block itself, and re-sending those lines would run them twice.
-    const outcome = await runPython(source);
-    if (outcome.status === 'incomplete') {
-      store.setPending([...pending, source]);
-      return;
-    }
-    store.setPending([]);
-    if (outcome.status === 'failed') {
-      store.append('error', outcome.error);
-      return;
-    }
-    if (outcome.repr !== null) store.append('value', outcome.repr);
+    const outcome = await runPython(source, transcribe);
+    store.setPending(outcome.status === 'incomplete' ? [...pending, source] : []);
   }, [draft, pending]);
 
   /** Walks the recall list, keeping the caret free to move inside a multi-line draft. */

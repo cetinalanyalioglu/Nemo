@@ -35,12 +35,10 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import StringIO
 
-# Where the bridge module sits: beside this file, as the app keeps them.
+# Where the modules sit: beside this file, as the app keeps them.
 HERE = os.path.dirname(os.path.abspath(__file__))
 NEMO_MODULE = os.path.join(HERE, "nemo-module.py")
-
-# Longest repr echoed for a value, matching what the browser console shows.
-REPR_LIMIT = 4000
+DISPLAY_MODULE = os.path.join(HERE, "display-shims.py")
 
 DEFAULT_PORT = 8765
 
@@ -57,14 +55,6 @@ def _load_module(name: str, source: str):
     return module
 
 
-def _shorten(text: str) -> str:
-    """``text``, with the middle taken out when it is longer than the pane can use."""
-    if len(text) <= REPR_LIMIT:
-        return text
-    half = REPR_LIMIT // 2
-    return f"{text[:half]}\n<... {len(text) - REPR_LIMIT} more characters ...>\n{text[-half:]}"
-
-
 class Session:
     """One interpreter, and the console semantics the prompt expects of it.
 
@@ -79,17 +69,31 @@ class Session:
         self.compile = codeop.CommandCompiler()
         self.buffer = []
         self.host = None
+        self.display = None
         self.lock = threading.Lock()
 
-    def start(self, adapter: str, emit) -> list:
-        """Bring up the bridge and the model's adapter; return how it describes itself."""
-        host = _load_module("_nemo_host", "caseJson = '{}'\n")
-        host.emit = emit
-        self.host = host
+    def bind(self, emit, show) -> None:
+        """Point the bridge at the connection being served now.
 
+        Boot and each submission arrive on requests of their own, and what they produce
+        has to go back down the one that asked, so the two callbacks are re-pointed
+        rather than fixed when the session starts.
+        """
+        self.host.emit = emit
+        self.host.display = show
+
+    def start(self, adapter: str) -> list:
+        """Bring up the bridge and the model's adapter; return how it describes itself."""
+        self.host = _load_module("_nemo_host", "caseJson = '{}'\n")
+
+        with open(DISPLAY_MODULE) as fh:
+            self.display = _load_module("_nemo_display", fh.read())
         with open(NEMO_MODULE) as fh:
             nemo = _load_module("nemo", fh.read())
+        # As in a notebook, both are there before the first line rather than waiting to
+        # be imported.
         self.namespace["nemo"] = nemo
+        self.namespace["display"] = self.display.display
 
         if not adapter.strip():
             return []
@@ -110,10 +114,11 @@ class Session:
         """Abandon a half-entered block, leaving the names alone."""
         self.buffer.clear()
 
-    def push(self, line: str, out) -> dict:
-        """Feed one line in, and report what the interpreter made of it.
+    def push(self, line: str) -> dict:
+        """Feed one line in, and report how it ended.
 
-        ``out`` receives whatever is printed, as it is printed.
+        What it produced goes out through the display protocol as it happens, so the
+        answer here is only ``complete``, ``incomplete`` or ``failed``.
         """
         self.buffer.append(line)
         source = "\n".join(self.buffer)
@@ -121,69 +126,76 @@ class Session:
             compiled = self.compile(source, "<console>", "single")
         except (OverflowError, SyntaxError, ValueError):
             self.buffer.clear()
-            return {"status": "failed", "error": self._syntax_error()}
+            self._report_error(syntax_only=True)
+            return {"status": "failed"}
         if compiled is None:
             return {"status": "incomplete"}
 
         self.buffer.clear()
-        return self._execute(compiled, out)
+        return self._execute(compiled)
 
-    def _execute(self, compiled, out) -> dict:
-        """Run one compiled block, capturing what it prints and the value it leaves."""
-        echoed = []
+    def _execute(self, compiled) -> dict:
+        """Run one compiled block, sending out what it prints and the value it leaves."""
 
         def displayhook(value):
-            # 'single' mode hands every top-level expression here; the prompt shows it
-            # as a value rather than as printed output, so it is kept apart.
+            # 'single' mode hands every top-level expression here.  A value is asked
+            # for every representation it can offer rather than just its repr, which is
+            # what lets a figure be shown as a figure.
             if value is None:
                 return
-            builtins_module = sys.modules["builtins"]
-            builtins_module._ = value
-            echoed.append(_shorten(repr(value)))
+            sys.modules["builtins"]._ = value
+            self.display.result(value)
+
+        # A cell that has just imported plotly wants its figures shown here rather than
+        # in a browser tab; the patch waits for the import, and this is when it is
+        # looked for.
+        self.display.apply_pending()
 
         stdout, stderr, hook = sys.stdout, sys.stderr, sys.displayhook
-        sys.stdout = _Stream(out, "out")
-        sys.stderr = _Stream(out, "err")
+        sys.stdout = _Stream(self.display, "stdout")
+        sys.stderr = _Stream(self.display, "stderr")
         sys.displayhook = displayhook
         try:
             exec(compiled, self.namespace)
         except SystemExit:
             raise
         except BaseException:
-            return {"status": "failed", "error": self._traceback()}
+            return self._report_error()
         finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
             sys.stdout, sys.stderr, sys.displayhook = stdout, stderr, hook
-        return {"status": "complete", "repr": echoed[-1] if echoed else None}
+        return {"status": "complete"}
 
-    def _traceback(self) -> str:
-        """The traceback as the prompt should see it: without this server's frames."""
+    def _report_error(self, syntax_only: bool = False) -> dict:
+        """Send out the failure that is being handled, and report that there was one.
+
+        The frames belonging to this server are dropped: what ran the block is the
+        console's own business, not something the person at the prompt wrote.
+        """
         kind, value, tb = sys.exc_info()
-        entries = traceback.extract_tb(tb)
-        # The first frame is _execute's own exec(); everything below it is the user's.
-        lines = ["Traceback (most recent call last):\n"]
-        lines += traceback.format_list(entries[1:])
-        lines += traceback.format_exception_only(kind, value)
-        return "".join(lines).rstrip()
-
-    def _syntax_error(self) -> str:
-        """A parse failure, formatted with the caret the prompt shows."""
-        kind, value, _tb = sys.exc_info()
-        return "".join(traceback.format_exception_only(kind, value)).rstrip()
+        if syntax_only:
+            lines = traceback.format_exception_only(kind, value)
+        else:
+            entries = traceback.extract_tb(tb)
+            # The first frame is _execute's own exec(); below it is the user's code.
+            lines = ["Traceback (most recent call last):\n"]
+            lines += traceback.format_list(entries[1:])
+            lines += traceback.format_exception_only(kind, value)
+        text = "".join(lines).rstrip()
+        self.display.error(kind.__name__, str(value), text.split("\n"))
+        return {"status": "failed"}
 
 
 class _Stream(StringIO):
-    """A stand-in for stdout or stderr that forwards each write as it happens."""
+    """A stand-in for stdout or stderr that sends each write on as it happens."""
 
-    def __init__(self, emit, which):
+    def __init__(self, display, name):
         super().__init__()
-        self._emit = emit
-        self._which = which
+        self._display = display
+        self._name = name
 
     def write(self, text):
         if text:
-            self._emit(self._which, text)
+            self._display.stream(self._name, text)
         return len(text)
 
     def flush(self):
@@ -250,10 +262,8 @@ class Handler(BaseHTTPRequestHandler):
     def _boot(self, message: dict) -> None:
         session = self.server.session
         self._reply({"kind": "booting", "step": "connecting to the local interpreter"})
-        described = session.start(
-            message.get("adapter", ""),
-            lambda payload: self._reply({"kind": "bridge", "call": json.loads(payload)}),
-        )
+        described = session.start(message.get("adapter", ""))
+        session.bind(self._bridge, self._display(None))
         # Packages are not installed from here: this interpreter is the machine's own,
         # and what is in it is the user's business rather than the model's.
         self._reply(
@@ -268,20 +278,30 @@ class Handler(BaseHTTPRequestHandler):
         session = self.server.session
         run_id = message.get("runId")
 
-        def out(which, text):
-            self._reply({"kind": "output", "runId": run_id, "stream": which, "text": text})
-
         # One submission at a time: the interpreter has one set of names, and two runs
         # writing to them from different connections would interleave.
         with session.lock:
+            session.bind(self._bridge, self._display(run_id))
             if session.host is not None:
                 session.host.caseJson = message.get("caseJson", "{}")
-            outcome = {"status": "complete", "repr": None}
+            outcome = {"status": "complete"}
             for line in message.get("source", "").split("\n"):
-                outcome = session.push(line, out)
+                outcome = session.push(line)
                 if outcome["status"] == "failed":
                     break
         self._reply({"kind": "ran", "runId": run_id, "outcome": outcome})
+
+    def _bridge(self, payload: str) -> None:
+        """Something Python asked the canvas to do."""
+        self._reply({"kind": "bridge", "call": json.loads(payload)})
+
+    def _display(self, run_id):
+        """A sink for this run's outputs, already in the shape a notebook stores them."""
+
+        def show(payload: str) -> None:
+            self._reply({"kind": "display", "runId": run_id, "output": json.loads(payload)})
+
+        return show
 
     def _reply(self, payload: dict) -> None:
         """Send one reply as its own chunk, so the console sees it as it happens."""

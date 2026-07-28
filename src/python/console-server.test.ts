@@ -12,6 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { appendOutput, joinLines, type CellOutput } from '../types/notebook';
 
 const PYTHON = process.env.PYTHON ?? 'python3';
 const SERVER = resolve(__dirname, 'console_server.py');
@@ -25,11 +26,10 @@ const usable = (() => {
   }
 })();
 
-/** Drives a `Session` through `lines`, returning each outcome and what was printed. */
-const pushAll = (lines: string[]): { outcomes: unknown[]; printed: string[] } => {
+/** Drives a `Session` through `lines`, returning each outcome and every output. */
+const pushAll = (lines: string[]): { outcomes: { status: string }[]; outputs: CellOutput[] } => {
   const driver = `
 import json, sys
-sys.path.insert(0, ${JSON.stringify(resolve(__dirname))})
 sys.argv = ["console_server.py"]
 
 import importlib.util
@@ -37,72 +37,126 @@ spec = importlib.util.spec_from_file_location("console_server", ${JSON.stringify
 server = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(server)
 
+outputs = []
 session = server.Session()
-session.start("", lambda payload: None)
+session.start("")
+session.bind(lambda payload: None, lambda payload: outputs.append(json.loads(payload)))
 
-printed = []
-outcomes = [session.push(line, lambda which, text: printed.append(text))
-            for line in ${JSON.stringify(lines)}]
-print(json.dumps({"outcomes": outcomes, "printed": printed}))
+outcomes = [session.push(line) for line in ${JSON.stringify(lines)}]
+print(json.dumps({"outcomes": outcomes, "outputs": outputs}))
 `;
   const out = execFileSync(PYTHON, ['-c', driver], { encoding: 'utf8' });
-  return JSON.parse(out.trim().split('\n').pop() as string);
+  const parsed = JSON.parse(out.trim().split('\n').pop() as string) as {
+    outcomes: { status: string }[];
+    outputs: CellOutput[];
+  };
+  // Printing arrives in the pieces the interpreter flushes; a reader runs them
+  // together, so what is asserted below is what a notebook would actually hold.
+  return { ...parsed, outputs: parsed.outputs.reduce(appendOutput, [] as CellOutput[]) };
 };
+
+/** The plain-text form of every output of a given kind, in order. */
+const textOf = (outputs: CellOutput[], kind: CellOutput['output_type']): string[] =>
+  outputs
+    .filter((o) => o.output_type === kind)
+    .map((o) =>
+      o.output_type === 'stream'
+        ? joinLines(o.text)
+        : o.output_type === 'error'
+          ? o.traceback.join('\n')
+          : joinLines((o as { data: Record<string, unknown> }).data['text/plain'] as string)
+    );
 
 describe.skipIf(!usable)('a prompt served from the machine', () => {
   it('holds a block open until it is finished', () => {
-    const { outcomes } = pushAll(['def double(x):', '    return 2 * x', '', 'double(21)']);
-    expect(outcomes.map((o) => (o as { status: string }).status)).toEqual([
+    const { outcomes, outputs } = pushAll(['def double(x):', '    return 2 * x', '', 'double(21)']);
+    expect(outcomes.map((o) => o.status)).toEqual([
       'incomplete',
       'incomplete',
       'complete',
       'complete',
     ]);
-    expect((outcomes[3] as { repr: string }).repr).toBe('42');
+    expect(textOf(outputs, 'execute_result')).toEqual(['42']);
   });
 
   it('holds an unclosed bracket open too', () => {
-    const { outcomes } = pushAll(['(1 +', '2)']);
-    expect((outcomes[0] as { status: string }).status).toBe('incomplete');
-    expect(outcomes[1]).toEqual({ status: 'complete', repr: '3' });
+    const { outcomes, outputs } = pushAll(['(1 +', '2)']);
+    expect(outcomes[0].status).toBe('incomplete');
+    expect(outcomes[1].status).toBe('complete');
+    expect(textOf(outputs, 'execute_result')).toEqual(['3']);
   });
 
-  it('echoes the value of a trailing expression, and nothing for a statement', () => {
-    const { outcomes } = pushAll(['1 + 1', 'x = 5']);
-    expect(outcomes[0]).toEqual({ status: 'complete', repr: '2' });
-    expect(outcomes[1]).toEqual({ status: 'complete', repr: null });
+  it('shows the value of a trailing expression, and nothing for a statement', () => {
+    const { outcomes, outputs } = pushAll(['1 + 1', 'x = 5']);
+    expect(outcomes.map((o) => o.status)).toEqual(['complete', 'complete']);
+    expect(textOf(outputs, 'execute_result')).toEqual(['2']);
+  });
+
+  it('offers a value as every representation it can, not only as text', () => {
+    // What lets a figure be drawn rather than printed: the value is asked, and the
+    // richest form the page understands is the one it shows.
+    const { outputs } = pushAll([
+      'class Rich:',
+      '    def _repr_html_(self): return "<b>hi</b>"',
+      '    def __repr__(self): return "Rich()"',
+      '',
+      'Rich()',
+    ]);
+    const result = outputs.find((o) => o.output_type === 'execute_result') as {
+      data: Record<string, unknown>;
+    };
+    expect(result.data['text/html']).toBe('<b>hi</b>');
+    expect(result.data['text/plain']).toBe('Rich()');
+  });
+
+  it('shows what display() is given, at the point it is given it', () => {
+    // Not at the end: the order outputs arrive in is the order they happened in.
+    const { outputs } = pushAll(['display("first"); print("then")']);
+    expect(outputs.map((o) => o.output_type)).toEqual(['display_data', 'stream']);
   });
 
   it('reports a failure as a traceback without the server in it', () => {
-    const { outcomes } = pushAll(['1 / 0']);
-    const outcome = outcomes[0] as { status: string; error: string };
-    expect(outcome.status).toBe('failed');
-    expect(outcome.error).toContain('ZeroDivisionError: division by zero');
-    expect(outcome.error).toContain('File "<console>", line 1');
+    const { outcomes, outputs } = pushAll(['1 / 0']);
+    expect(outcomes[0].status).toBe('failed');
+    const error = outputs.find((o) => o.output_type === 'error') as {
+      ename: string;
+      evalue: string;
+      traceback: string[];
+    };
+    expect(error.ename).toBe('ZeroDivisionError');
+    expect(error.evalue).toBe('division by zero');
+    expect(error.traceback.join('\n')).toContain('File "<console>", line 1');
     // The frames that ran it are the console's own business, not the user's.
-    expect(outcome.error).not.toContain('console_server.py');
+    expect(error.traceback.join('\n')).not.toContain('console_server.py');
   });
 
-  it('reports a line that will not parse, with the caret', () => {
-    const { outcomes } = pushAll(['x === 1']);
-    const outcome = outcomes[0] as { status: string; error: string };
-    expect(outcome.status).toBe('failed');
-    expect(outcome.error).toContain('SyntaxError');
+  it('reports a line that will not parse', () => {
+    const { outcomes, outputs } = pushAll(['x === 1']);
+    expect(outcomes[0].status).toBe('failed');
+    expect(textOf(outputs, 'error').join('')).toContain('SyntaxError');
   });
 
   it('starts a fresh block after a failure rather than carrying the broken one', () => {
-    const { outcomes } = pushAll(['x === 1', '1 + 1']);
-    expect(outcomes[1]).toEqual({ status: 'complete', repr: '2' });
+    const { outcomes, outputs } = pushAll(['x === 1', '1 + 1']);
+    expect(outcomes[1].status).toBe('complete');
+    expect(textOf(outputs, 'execute_result')).toEqual(['2']);
   });
 
-  it('passes what is printed out as it is printed', () => {
-    const { printed } = pushAll(['print("one"); print("two")']);
-    expect(printed.join('')).toBe('one\ntwo\n');
+  it('passes what is printed out as it is printed, marked by stream', () => {
+    const { outputs } = pushAll(['import sys', 'print("out"); print("err", file=sys.stderr)']);
+    const streams = outputs.filter((o) => o.output_type === 'stream') as {
+      name: string;
+      text: string;
+    }[];
+    expect(streams.map((s) => [s.name, joinLines(s.text)])).toEqual([
+      ['stdout', 'out\n'],
+      ['stderr', 'err\n'],
+    ]);
   });
 
   it('keeps names between submissions', () => {
-    const { outcomes } = pushAll(['answer = 42', 'answer * 2']);
-    expect((outcomes[1] as { repr: string }).repr).toBe('84');
+    const { outputs } = pushAll(['answer = 42', 'answer * 2']);
+    expect(textOf(outputs, 'execute_result')).toEqual(['84']);
   });
 });
 

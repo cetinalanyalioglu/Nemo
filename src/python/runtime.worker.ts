@@ -15,17 +15,19 @@
  */
 
 import type { PyodideInterface } from 'pyodide';
+import type { CellOutput } from '../types/notebook';
+import DISPLAY_SHIMS_SOURCE from './display-shims.py?raw';
 import NEMO_MODULE_SOURCE from './nemo-module.py?raw';
 import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
 
 /** Where the bridge module is written so `import nemo` finds it. */
 const NEMO_MODULE_PATH = '/home/pyodide/nemo.py';
 
+/** Where the display protocol is written; `nemo` and the prompt both reach it. */
+const DISPLAY_MODULE_PATH = '/home/pyodide/_nemo_display.py';
+
 /** Where the model's own adapter is written, for `nemo.network()` to call into. */
 const SOLVER_MODULE_PATH = '/home/pyodide/_nemo_solver.py';
-
-/** Longest repr echoed back for a value; beyond this the middle is elided. */
-const REPR_LIMIT = 4000;
 
 /**
  * Set up before every submission and read by `nemo.case()`. Assigning the case here
@@ -37,13 +39,18 @@ const host = {
   emit: (json: string): void => {
     post({ kind: 'bridge', call: JSON.parse(json) });
   },
+  // Outputs arrive already in the shape a notebook file holds them, so nothing on the
+  // way to the screen or to disk has to reshape them.
+  display: (json: string): void => {
+    post({ kind: 'display', runId: activeRun, output: JSON.parse(json) as CellOutput });
+  },
 };
 
 let pyodide: PyodideInterface | null = null;
 /** Pyodide's `PyodideConsole`, which holds the partially entered block between pushes. */
 let pyconsole: any = null;
-/** `repr` with a length cap, so one careless line cannot fill the pane. */
-let reprShorten: ((value: unknown, limit: number) => string) | null = null;
+/** The display protocol, on the Python side: what turns a value into what is shown. */
+let display: any = null;
 /** The submission being run, so stream output can be attributed to it. */
 let activeRun = -1;
 
@@ -66,8 +73,8 @@ const pythonError = (error: unknown, future: any): string => {
     : errorText(error);
 };
 
-const stream = (kind: 'out' | 'err') => (text: string) => {
-  post({ kind: 'output', runId: activeRun, stream: kind, text });
+const stream = (name: 'stdout' | 'stderr') => (text: string) => {
+  post({ kind: 'display', runId: activeRun, output: { output_type: 'stream', name, text } });
 };
 
 /** Installs each wheel in order, reporting progress and naming what failed. */
@@ -137,20 +144,24 @@ const boot = async (indexURL: string, wheels: string[], adapter: string): Promis
 
   py.registerJsModule('_nemo_host', host);
   py.FS.writeFile(NEMO_MODULE_PATH, NEMO_MODULE_SOURCE);
+  py.FS.writeFile(DISPLAY_MODULE_PATH, DISPLAY_SHIMS_SOURCE);
 
   pyconsole = py.runPython(`
 import __main__
+import _nemo_display
 import nemo
 from pyodide.console import PyodideConsole
 
 # The prompt works in __main__, so a name bound at the prompt is where a script would
-# expect to find it, and 'nemo' is already there rather than waiting to be imported.
+# expect to find it, and 'nemo' and 'display' are already there rather than waiting to
+# be imported -- as they are in a notebook.
 __main__.__dict__["nemo"] = nemo
+__main__.__dict__["display"] = _nemo_display.display
 PyodideConsole(__main__.__dict__)
 `);
-  pyconsole.stdout_callback = stream('out');
-  pyconsole.stderr_callback = stream('err');
-  reprShorten = py.runPython('from pyodide.console import repr_shorten; repr_shorten');
+  pyconsole.stdout_callback = stream('stdout');
+  pyconsole.stderr_callback = stream('stderr');
+  display = py.pyimport('_nemo_display');
 
   const described = loadAdapter(py, adapter);
 
@@ -176,8 +187,11 @@ PyodideConsole(__main__.__dict__)
 const run = async (runId: number, source: string, caseJson: string): Promise<RunOutcome> => {
   host.caseJson = caseJson;
   activeRun = runId;
+  // A cell that has just imported plotly wants its figures shown here rather than in a
+  // browser tab; the patch waits for the import and this is when it is looked for.
+  display.apply_pending();
 
-  let outcome: RunOutcome = { status: 'complete', repr: null };
+  let outcome: RunOutcome = { status: 'complete' };
   for (const line of source.split('\n')) {
     const future = pyconsole.push(line);
     const check = future.syntax_check;
@@ -186,30 +200,53 @@ const run = async (runId: number, source: string, caseJson: string): Promise<Run
       continue;
     }
     if (check === 'syntax-error') {
-      const error = pythonError(null, future);
+      reportError(pythonError(null, future));
       pyconsole.buffer.clear();
-      return { status: 'failed', error };
+      return { status: 'failed' };
     }
     try {
       // A copy is awaited rather than the future itself. Awaiting consumes what is
       // awaited, and the traceback has to be read off the future afterwards -- it is
       // only written when the line has finished, which is to say after the await.
       const value = await future.copy();
-      outcome = {
-        status: 'complete',
-        repr: value === undefined ? null : reprShorten!(value, REPR_LIMIT),
-      };
+      if (value !== undefined) {
+        // Asked for every representation it can offer, not just its repr: that is what
+        // lets a figure be a figure here and still print as text anywhere else.
+        display.result(value);
+      }
       if (value && typeof (value as { destroy?: unknown }).destroy === 'function') {
         (value as { destroy: () => void }).destroy();
       }
+      outcome = { status: 'complete' };
     } catch (error) {
+      reportError(pythonError(error, future));
       pyconsole.buffer.clear();
-      return { status: 'failed', error: pythonError(error, future) };
+      return { status: 'failed' };
     } finally {
       future.destroy();
     }
   }
   return outcome;
+};
+
+/**
+ * Reports a failure as the output a notebook stores for one.
+ *
+ * The name and the message are split out of the formatted traceback rather than caught
+ * separately, because that is the text the interpreter itself produced and the only one
+ * guaranteed to say what actually happened.
+ */
+const reportError = (formatted: string): void => {
+  const lines = formatted.split('\n');
+  const last = lines[lines.length - 1] ?? '';
+  const [ename, evalue] = last.includes(': ')
+    ? [last.slice(0, last.indexOf(': ')), last.slice(last.indexOf(': ') + 2)]
+    : [last, ''];
+  post({
+    kind: 'display',
+    runId: activeRun,
+    output: { output_type: 'error', ename, evalue, traceback: lines },
+  });
 };
 
 self.onmessage = async (event: MessageEvent<HostMessage>) => {
@@ -227,12 +264,11 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
     return;
   }
   if (message.kind === 'run') {
+    activeRun = message.runId;
     if (!pyodide) {
-      post({
-        kind: 'ran',
-        runId: message.runId,
-        outcome: { status: 'failed', error: 'the interpreter is not running' },
-      });
+      reportError('RuntimeError: the interpreter is not running');
+      post({ kind: 'ran', runId: message.runId, outcome: { status: 'failed' } });
+      activeRun = -1;
       return;
     }
     try {
@@ -242,11 +278,8 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
         outcome: await run(message.runId, message.source, message.caseJson),
       });
     } catch (error) {
-      post({
-        kind: 'ran',
-        runId: message.runId,
-        outcome: { status: 'failed', error: errorText(error) },
-      });
+      reportError(errorText(error));
+      post({ kind: 'ran', runId: message.runId, outcome: { status: 'failed' } });
     } finally {
       activeRun = -1;
     }

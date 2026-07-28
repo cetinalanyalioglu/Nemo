@@ -15,6 +15,7 @@ import { useGraphStore } from '../store/graphStore';
 import { usePythonStore } from '../store/pythonStore';
 import { logger } from '../utils/logger';
 import { applyBridgeCall } from './bridge';
+import type { CellOutput } from '../types/notebook';
 import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
 import {
   browserTransport,
@@ -34,10 +35,17 @@ export const PYODIDE_VERSION = '314.0.3';
 /** Where that build is served from. The distribution is far too large to bundle. */
 export const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
+/** Where one submission's outputs are collected: a transcript, or a notebook cell. */
+export type OutputSink = (output: CellOutput) => void;
+
 let transport: Transport | null = null;
 let runCounter = 0;
-/** Resolves when the submission with this id reports back. */
-let awaitingRun: { runId: number; resolve: (outcome: RunOutcome) => void } | null = null;
+/** Resolves when the submission with this id reports back, and where its outputs go. */
+let awaitingRun: {
+  runId: number;
+  sink: OutputSink;
+  resolve: (outcome: RunOutcome) => void;
+} | null = null;
 /** Settles when boot finishes, either way; shared by every caller that waits on it. */
 let booting: Promise<void> | null = null;
 let bootSettled: (() => void) | null = null;
@@ -95,8 +103,10 @@ const onMessage = (message: WorkerMessage): void => {
       settleBoot();
       return;
 
-    case 'output':
-      store().appendStream(message.stream === 'err' ? 'error' : 'output', message.text);
+    case 'display':
+      // Outputs belong to whatever asked for the run: they are lines in the prompt's
+      // transcript or they are a cell's, and only the caller knows which.
+      if (awaitingRun?.runId === message.runId) awaitingRun.sink(message.output);
       return;
 
     case 'bridge':
@@ -187,7 +197,7 @@ export const startPython = (): Promise<void> => {
  * `nemo.case()` returns is therefore the canvas as it stood when the line was entered,
  * whatever it is edited into while the line runs.
  */
-export const runPython = async (source: string): Promise<RunOutcome> => {
+export const runPython = async (source: string, sink: OutputSink): Promise<RunOutcome> => {
   // Switching models switches solvers, and an interpreter carries the one it was
   // started with — its packages are installed, not chosen per call. Switching where
   // Python runs is a change of interpreter outright.
@@ -197,7 +207,13 @@ export const runPython = async (source: string): Promise<RunOutcome> => {
   }
   await startPython();
   if (store().status === 'failed') {
-    return { status: 'failed', error: 'the interpreter is not running; use Restart to try again' };
+    sink({
+      output_type: 'error',
+      ename: 'RuntimeError',
+      evalue: 'the interpreter is not running; use Restart to try again',
+      traceback: ['the interpreter is not running; use Restart to try again'],
+    });
+    return { status: 'failed' };
   }
 
   const runId = ++runCounter;
@@ -205,7 +221,7 @@ export const runPython = async (source: string): Promise<RunOutcome> => {
 
   store().setStatus('busy');
   const outcome = await new Promise<RunOutcome>((resolve) => {
-    awaitingRun = { runId, resolve };
+    awaitingRun = { runId, sink, resolve };
     post({ kind: 'run', runId, source, caseJson });
   });
   store().setStatus(store().status === 'failed' ? 'failed' : 'ready');
@@ -227,7 +243,7 @@ const stopPython = (): void => {
   bootedFor = null;
   bootedOn = null;
   if (awaitingRun) {
-    awaitingRun.resolve({ status: 'failed', error: 'the interpreter was restarted' });
+    awaitingRun.resolve({ status: 'failed' });
     awaitingRun = null;
   }
   store().setPending([]);
