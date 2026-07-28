@@ -213,6 +213,19 @@ Results tab alone, so loading a plain case never silently wipes work.
 A saved case carries the whole canvas: the network, the result sets, the annotations —
 including a pinned figure and the figure behind it — and the notebook's source cells.
 
+Three of those are optional, under **SAVE** in the Settings pane, because each is useful
+to someone and heavy to someone else:
+
+|                         | what turning it off costs                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| **Result sets**         | a reopened case has to be solved again before it is coloured                                  |
+| **Figure descriptions** | a pinned figure still travels and still exports, but is fixed in the colours it was pinned in |
+| **Notebook**            | the Results tab opens empty                                                                   |
+
+The network, its layout and the annotations are the drawing and always travel. The
+choices are remembered between sessions, and they are about the _file_: the case handed
+to the console is always the whole of it, whatever the file is set to carry.
+
 ## Pinning a figure to the canvas
 
 A figure output has a **Pin** button. Pinning puts it on the canvas as an _annotation_ —

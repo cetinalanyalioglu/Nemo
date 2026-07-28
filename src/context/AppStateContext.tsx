@@ -3,6 +3,27 @@ import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 import { CONSOLE_DEFAULT_HEIGHT, type ConsoleTab, type WorkspaceTab } from '../types/console';
+import { SAVE_CONTENTS_DEFAULTS, type SaveContents } from '../types/flow';
+
+/** Where the save-contents choices are remembered between sessions. */
+const SAVE_CONTENTS_KEY = 'nemo.save.contents';
+
+/**
+ * The save-contents choices as last set, or the defaults.
+ *
+ * A stored value is merged over the defaults rather than trusted wholesale, so a part
+ * added later is on for someone whose stored choices predate it.
+ */
+const readStoredSaveContents = (): SaveContents => {
+  try {
+    const stored = localStorage.getItem(SAVE_CONTENTS_KEY);
+    if (!stored) return SAVE_CONTENTS_DEFAULTS;
+    const parsed = JSON.parse(stored) as Partial<SaveContents>;
+    return { ...SAVE_CONTENTS_DEFAULTS, ...parsed };
+  } catch {
+    return SAVE_CONTENTS_DEFAULTS;
+  }
+};
 
 export type SidebarPane =
   | 'library'
@@ -56,6 +77,8 @@ type AppStateSnapshot = {
   appearance: AppearanceState;
   layout: LayoutState;
   export: ExportState;
+  /** What a saved case carries beyond the drawing itself. */
+  save: SaveContents;
 };
 
 type AppActions = {
@@ -98,6 +121,10 @@ type AppActions = {
   };
   export: {
     toggleMonochrome: () => void;
+  };
+  save: {
+    /** Turns one of the optional parts of a saved case on or off. */
+    toggle: (part: keyof SaveContents) => void;
   };
   layout: {
     setEdgePathStyle: (style: EdgePathStyle) => void;
@@ -157,6 +184,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     showElementNames: true,
   }));
   const [exportState, setExport] = useState<ExportState>({ monochrome: false });
+  const [saveState, setSave] = useState<SaveContents>(readStoredSaveContents);
   const [layoutState, setLayout] = useState<LayoutState>({
     edgePathStyle: 'bezier',
     layoutEngine: 'elk',
@@ -174,6 +202,20 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       /* localStorage unavailable */
     }
   }, [appearanceState.theme]);
+
+  // Remembered, because it is a choice about how someone works rather than about the
+  // case in front of them, and re-making it every session would be a chore.
+  useEffect(() => {
+    try {
+      localStorage.setItem(SAVE_CONTENTS_KEY, JSON.stringify(saveState));
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, [saveState]);
+
+  const saveToggle = useCallback((part: keyof SaveContents) => {
+    setSave((prev) => ({ ...prev, [part]: !prev[part] }));
+  }, []);
 
   const updateZoom = useCallback((newZoom: number) => {
     setViewport((prev) => ({ ...prev, zoom: newZoom }));
@@ -357,6 +399,9 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       export: {
         toggleMonochrome: exportToggleMonochrome,
       },
+      save: {
+        toggle: saveToggle,
+      },
       layout: {
         setEdgePathStyle: layoutSetEdgePathStyle,
         setLayoutEngine: layoutSetLayoutEngine,
@@ -390,6 +435,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearanceTogglePortNumbers,
       appearanceToggleElementNames,
       exportToggleMonochrome,
+      saveToggle,
       layoutSetEdgePathStyle,
       layoutSetLayoutEngine,
       layoutSetLayoutDirection,
@@ -411,6 +457,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearance: appearanceState,
       layout: layoutState,
       export: exportState,
+      save: saveState,
       actions: appActions,
     }),
     [
@@ -424,6 +471,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       appearanceState,
       layoutState,
       exportState,
+      saveState,
       appActions,
     ]
   );

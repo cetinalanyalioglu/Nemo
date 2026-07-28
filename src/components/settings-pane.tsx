@@ -23,6 +23,7 @@ const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
 const SETTINGS_ROTATION_GROUP = '__settings_rotation__';
 const SETTINGS_EXPORT_GROUP = '__settings_export__';
+const SETTINGS_SAVE_GROUP = '__settings_save__';
 
 const ROTATION_INCREMENT_MIN = 1;
 const ROTATION_INCREMENT_MAX = 90;
@@ -195,6 +196,7 @@ const SettingsPane = React.memo(() => {
     layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
     export: { monochrome },
+    save,
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -318,6 +320,38 @@ const SettingsPane = React.memo(() => {
             checked={monochrome}
             onToggle={actions.export.toggleMonochrome}
             title="Export SVG/PNG/PDF as true black-and-white line art instead of the theme colours"
+          />
+        </div>
+      </div>
+
+      <div className={`parameter-group ${collapsedGroups[SETTINGS_SAVE_GROUP] ? 'collapsed' : ''}`}>
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_SAVE_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>SAVE</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsBooleanField
+            label="Result sets"
+            checked={save.results}
+            onToggle={() => actions.save.toggle('results')}
+            title="Carry the loaded result sets in the case, so a reopened one is coloured without solving again. Which of them is still each set's own switch, in the Data pane."
+          />
+          <SettingsBooleanField
+            label="Figure descriptions"
+            checked={save.figures}
+            onToggle={() => actions.save.toggle('figures')}
+            title="Carry what each pinned figure was drawn from, so it can be drawn again after reopening — for a theme change, and for an export. Without it the picture still travels, fixed in the colours it was pinned in."
+          />
+          <SettingsBooleanField
+            label="Notebook"
+            checked={save.notebook}
+            onToggle={() => actions.save.toggle('notebook')}
+            title="Carry the Results tab's cells. Their source only; outputs belong in a .ipynb export."
           />
         </div>
       </div>

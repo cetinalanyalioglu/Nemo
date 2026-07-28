@@ -30,6 +30,8 @@ const DocumentPane = React.memo(() => {
   const allIncluded = datasetCount > 0 && datasets.every((d) => d.includeInSave);
   const {
     sidebar: { isOpen, collapsedGroups },
+    // What a file carries beyond the drawing is chosen in the Settings pane.
+    save,
     actions,
   } = useAppState();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +94,11 @@ const DocumentPane = React.memo(() => {
               <IoDocumentOutline className="document-pane-file-button-icon" />
               <span>New</span>
             </button>
-            <button type="button" className="document-pane-file-button" onClick={saveToFile}>
+            <button
+              type="button"
+              className="document-pane-file-button"
+              onClick={() => saveToFile(save)}
+            >
               <IoSaveOutline className="document-pane-file-button-icon" />
               <span>Save</span>
             </button>

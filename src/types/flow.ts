@@ -333,6 +333,36 @@ export interface ModelSolverDefinition {
   adapter?: string;
 }
 
+/**
+ * What a saved case carries beyond the drawing itself.
+ *
+ * The network, its layout and the annotations are the drawing and always travel. These
+ * three are the things a case *can* carry, each of which is useful to someone and heavy
+ * to someone else, so each is a choice:
+ *
+ * - `results` — the result sets loaded on the canvas, so a reopened case is coloured
+ *   without solving again. The per-dataset switch in the Data pane still decides which
+ *   of them; this decides whether any go at all.
+ * - `figures` — the description behind each pinned figure, which is what lets it be
+ *   drawn again after reopening: for a theme change, and for an export. Without it the
+ *   picture still travels and still exports, but it is fixed in the colours it was
+ *   pinned in. A swept figure's description can be a few hundred kilobytes.
+ * - `notebook` — the Results tab's source cells. Never its outputs, which belong in a
+ *   `.ipynb` export.
+ */
+export interface SaveContents {
+  results: boolean;
+  figures: boolean;
+  notebook: boolean;
+}
+
+/** Everything, which is what a case carries unless told otherwise. */
+export const SAVE_CONTENTS_DEFAULTS: SaveContents = {
+  results: true,
+  figures: true,
+  notebook: true,
+};
+
 /** Entry in the model manifest used to populate the model selector. */
 export interface ModelSummary {
   id: string;

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from './graphStore';
+import { useNotebookStore } from './notebookStore';
 import { ANNOTATION_NODE_TYPE, type AnnotationData } from '../types/annotations';
+import { SAVE_CONTENTS_DEFAULTS } from '../types/flow';
 
 const annotationOf = (id: string): AnnotationData =>
   useGraphStore.getState().nodes.find((n) => n.id === id)!.data.annotation as AnnotationData;
@@ -58,5 +60,47 @@ describe('an annotation that is a pinned figure', () => {
       .data.annotation as AnnotationData;
     expect(reopened.figure).toEqual({ data: [{ y: [1, 2] }], layout: {} });
     expect(reopened.src).toBeTruthy();
+  });
+});
+
+describe('what a saved case is asked to carry', () => {
+  beforeEach(() => {
+    useGraphStore.setState({ nodes: [], edges: [], past: [], future: [] });
+    useNotebookStore.getState().reset();
+    vi.spyOn(console, 'debug').mockImplementation(() => {});
+  });
+
+  it('carries everything by default', () => {
+    pinnedFigure();
+    useNotebookStore.getState().setSource(useNotebookStore.getState().cells[0].id, 'net = ...');
+    const saved = useGraphStore.getState().generateSaveData();
+    expect(saved.annotations?.[0].figure).toBeTruthy();
+    expect(saved.notebook?.cells).toHaveLength(1);
+  });
+
+  it('leaves out a pinned figure’s description when told to', () => {
+    // The picture still travels; it is simply fixed in the colours it was pinned in.
+    pinnedFigure();
+    const saved = useGraphStore
+      .getState()
+      .generateSaveData({ ...SAVE_CONTENTS_DEFAULTS, figures: false });
+    expect(saved.annotations?.[0].src).toBeTruthy();
+    expect(saved.annotations?.[0].figure).toBeUndefined();
+  });
+
+  it('leaves out the notebook when told to', () => {
+    useNotebookStore.getState().setSource(useNotebookStore.getState().cells[0].id, 'net = ...');
+    const saved = useGraphStore
+      .getState()
+      .generateSaveData({ ...SAVE_CONTENTS_DEFAULTS, notebook: false });
+    expect(saved.notebook).toBeUndefined();
+  });
+
+  it('what it leaves out of the file is still there in the case it hands over', () => {
+    // The choice is about the file. Anything reading the case in memory -- the console
+    // -- sees the whole of it, whatever the file is set to carry.
+    pinnedFigure();
+    const handed = useGraphStore.getState().captureCase();
+    expect(handed.annotations?.[0].figure).toBeTruthy();
   });
 });

@@ -20,6 +20,7 @@ import type {
   AnnotationStyle,
   SaveFileAnnotation,
 } from '../types/annotations';
+import { SAVE_CONTENTS_DEFAULTS, type SaveContents } from '../types/flow';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -301,14 +302,20 @@ export interface GraphStore extends GraphData {
   finishEditing: (nodeId: string, opts?: { fromBlur?: boolean }) => void;
 
   // Save / load.
-  generateSaveData: () => SaveFilePayload;
+  /**
+   * The case as a document. `contents` decides which of the optional parts come with
+   * it; everything is included when it is not given, since anything reading the case
+   * in memory — the console — should see the whole of it.
+   */
+  generateSaveData: (contents?: SaveContents) => SaveFilePayload;
   /**
    * The case as anything outside the canvas should read it: element indices brought
    * up to date first, because result data binds to elements by index and a stale one
    * would land a series on the wrong element.
    */
   captureCase: () => SaveFilePayload;
-  saveToFile: () => void;
+  /** Writes the case to a file, carrying the parts `contents` asks for. */
+  saveToFile: (contents?: SaveContents) => void;
   loadFromFile: (file: File) => void;
   /**
    * Opens a case document that arrived from somewhere other than a file: validates it,
@@ -1639,7 +1646,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
-    generateSaveData: () => {
+    generateSaveData: (contents = SAVE_CONTENTS_DEFAULTS) => {
       const state = get();
 
       // Embed only the datasets the user ticked for saving (Data pane / Document
@@ -1659,8 +1666,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           ...(kind === 'text' ? { text: annotation.text } : {}),
           ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
           // A pinned figure travels with what it was drawn from, so a reopened case can
-          // draw it again -- for its theme, and for an export.
-          ...(annotation.figure ? { figure: annotation.figure } : {}),
+          // draw it again -- for its theme, and for an export. Without it the picture
+          // still travels; it is simply fixed in the colours it was pinned in.
+          ...(contents.figures && annotation.figure ? { figure: annotation.figure } : {}),
           ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
           ...(annotation.name ? { name: annotation.name } : {}),
           ...(annotation.locked ? { locked: true } : {}),
@@ -1673,14 +1681,18 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       // The notebook travels with the case, but only what was written in it: outputs
       // are the bulk of a notebook and are not a description of the network.
       const notebook = toCaseNotebook(useNotebookStore.getState().toNotebook({ outputs: false }));
-      const hasNotebook = notebook.cells.some((cell) => joinLines(cell.source).trim().length > 0);
+      const hasNotebook =
+        contents.notebook &&
+        notebook.cells.some((cell) => joinLines(cell.source).trim().length > 0);
 
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
         meta: { title: state.title },
         ...(hasNotebook ? { notebook } : {}),
-        ...(savedDatasets.length > 0 ? { data: { datasets: savedDatasets } } : {}),
+        ...(contents.results && savedDatasets.length > 0
+          ? { data: { datasets: savedDatasets } }
+          : {}),
         model: {
           id: state.model?.id,
           globalAttributes: { ...state.modelParameters },
@@ -1723,7 +1735,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       return get().generateSaveData();
     },
 
-    saveToFile: () => {
+    saveToFile: (contents = SAVE_CONTENTS_DEFAULTS) => {
       try {
         // Verify on save: surface any validity problems before writing the file
         // and block on hard errors (e.g. a missing required parameter the solver
@@ -1760,7 +1772,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           }
         }
 
-        const saveData = get().captureCase();
+        if (RENUMBER_ON_SAVE) {
+          applyIndices();
+        }
+        const saveData = get().generateSaveData(contents);
         const yamlString = yaml.dump(saveData, { noRefs: true, sortKeys: false, lineWidth: -1 });
 
         const blob = new Blob([yamlString], { type: 'application/x-yaml' });
