@@ -1,8 +1,8 @@
 """The canvas, as seen from Python.
 
 This module is what the console's interpreter finds already imported.  It is the whole
-of the Python side of the boundary: reading the network that is drawn, and sending
-results back to be drawn on it.
+of the Python side of the boundary: reading what is drawn, and sending results back to be
+drawn on it.
 
 Reading is a plain function call.  The case is copied into the interpreter before every
 submission, so ``case()`` hands back what is on the canvas at the moment the line was
@@ -13,23 +13,19 @@ message log rather than as an exception here.
 The case document is the same one the canvas saves and loads, so anything that reads a
 saved case reads this, and anything that writes one can be shown.
 
-Where the model on the canvas brought a solver, the round trip through it is two more
-calls::
+Where the model on the canvas brought a solver, three more calls go through it:
+:func:`build` makes what the solver works on out of what is drawn, :func:`publish` sends
+that model's results back to be drawn, and :func:`draw` replaces the drawing with a model
+this session built rather than read.
 
-    net = nemo.network()
-    sol = net.solve()
-    nemo.publish(net, solution=sol)
-
-And the same trip in the other direction, for a network this notebook built rather than
-read::
-
-    nemo.draw(net, solution=net.solve())
-
-None of those knows which solver it is talking to.  They call the adapter the model file
-declared, which is the one place any solver is named at all.
+None of the three knows which solver it is talking to.  Each calls the adapter the model
+file declared, which is the one place any solver is named at all.  A model may also give
+:func:`build` a second name that suits what that model builds; where it has, the name is
+listed below beside the rest, and ``help()`` on it says what it makes.
 """
 
 import json
+import keyword
 import math
 
 import _nemo_host
@@ -43,10 +39,20 @@ __all__ = [
     "show",
     "replace",
     "log",
-    "network",
+    "build",
     "draw",
     "publish",
 ]
+
+# What the module says about itself before a model has been asked.  The example a model
+# offers is added underneath, so ``help(nemo)`` shows something runnable against the
+# model that is actually on the canvas rather than a general description of the idea.
+_BASE_DOC = __doc__
+
+# The names this module already answers to.  A model's chosen second name for
+# :func:`build` may not be any of them: taking one would leave the thing it replaced
+# unreachable, which is a strange way to find out a name was already spoken for.
+_RESERVED = frozenset(__all__) | {"nemo"}
 
 
 def _dumps(obj) -> str:
@@ -227,14 +233,15 @@ def _as_datasets(result) -> list:
 # --------------------------------------------------------------------------- #
 # The solver the model brought, if it brought one
 # --------------------------------------------------------------------------- #
-def network():
-    """The drawn network, built into whatever the model's solver works on.
+def build():
+    """What is drawn, built into whatever the model's solver works on.
 
     Returns
     -------
     object
-        Whatever the model's adapter makes of a case document -- for a flow-network
-        model, a network ready to solve.
+        Whatever the model's adapter makes of a case document.  What that is depends
+        entirely on the model; ``help()`` on this model's own name for this call, where
+        it gives one, says what it makes.
 
     Raises
     ------
@@ -245,13 +252,7 @@ def network():
     See Also
     --------
     publish : send that model's results back to the canvas.
-
-    Examples
-    --------
-    >>> net = nemo.network()
-    >>> sol = net.solve()
-    >>> sol.converged
-    True
+    draw : replace the drawing with a model built here.
     """
     return _adapter("build")(case())
 
@@ -259,9 +260,9 @@ def network():
 def draw(model, **kwargs) -> None:
     """Draw a model built here on the canvas, in place of what is there.
 
-    The other direction from :func:`network`.  A notebook that assembles its own network
-    -- from a script, from a parameter sweep, from a file it opened -- hands it over
-    here and the canvas draws it, laying it out afresh.
+    The other direction from :func:`build`.  A session that assembles its own model --
+    from a script, from a parameter sweep, from a file it opened -- hands it over here
+    and the canvas draws it, laying it out afresh.
 
     Parameters
     ----------
@@ -269,17 +270,12 @@ def draw(model, **kwargs) -> None:
         Whatever the model's solver works on.
     **kwargs
         Results to send along with it, exactly as :func:`publish` takes them, so a
-        network and the answer for it can arrive together.
+        model and the answer for it can arrive together.
 
     Notes
     -----
     This replaces the drawing.  It is undoable on the canvas, but nothing is asked
     first, so it is worth being sure before calling it in a loop.
-
-    Examples
-    --------
-    >>> net = build_something()
-    >>> nemo.draw(net, solution=net.solve())
     """
     replace(_adapter("results")(model, **kwargs))
 
@@ -290,23 +286,24 @@ def publish(model, **kwargs) -> None:
     Parameters
     ----------
     model : object
-        What :func:`network` returned, solved.  Coming from there is what lets the
+        What :func:`build` returned, worked on.  Coming from there is what lets the
         canvas keep its own drawing; anything else is laid out afresh.
     **kwargs
-        Which results to send.  What these are is the solver's business -- for a
-        flow network, ``solution=``, ``forced=``, ``eigenmodes=`` and so on.
+        Which results to send.  What these are is the solver's business, not this
+        module's: they are handed to the model's adapter as they are given.  Where the
+        adapter documents what it takes, that documentation is added below.
 
     Notes
     -----
     Result sets arrive named, and a name is how several are told apart on the canvas,
-    so a second solve is worth naming rather than left to collide.
-
-    Examples
-    --------
-    >>> net = nemo.network()
-    >>> nemo.publish(net, solution=net.solve())
+    so a second run is worth naming rather than left to collide.
     """
     show(_adapter("results")(model, **kwargs))
+
+
+# Kept as written, so the adapter's own account of what `results()` takes can be added
+# underneath without the two compounding each time a model is loaded.
+_PUBLISH_DOC = publish.__doc__
 
 
 def _adapter(name):
@@ -316,9 +313,77 @@ def _adapter(name):
     except ImportError:
         raise RuntimeError(
             "the model on the canvas declares no solver, so there is nothing to build "
-            "the network with; nemo.case() and nemo.show() work regardless"
+            "a model with; nemo.case() and nemo.show() work regardless"
         ) from None
     fn = getattr(_nemo_solver, name, None)
     if fn is None:
         raise RuntimeError(f"this model's solver adapter defines no {name}()")
     return fn
+
+
+# --------------------------------------------------------------------------- #
+# Fitting the module to the model that is loaded
+# --------------------------------------------------------------------------- #
+def _adapter_doc(name: str) -> str:
+    """What the model's adapter says about one of its own functions, if anything."""
+    try:
+        import _nemo_solver
+    except ImportError:
+        return ""
+    doc = getattr(getattr(_nemo_solver, name, None), "__doc__", None)
+    return doc.strip() if doc else ""
+
+
+def _usable_name(name: str) -> bool:
+    """Whether a model's chosen second name for :func:`build` can be given to it.
+
+    Anything that is not an identifier would make an attribute no line of Python could
+    reach, and anything already spoken for here would hide what it replaced.  Both are
+    silent failures, so neither is accepted.
+    """
+    return bool(name) and name.isidentifier() and not keyword.iskeyword(name) and name not in _RESERVED
+
+
+def _bind_alias(name: str) -> None:
+    """Give :func:`build` the second name this model asked for.
+
+    A separate function rather than another reference to the same one: the two carry
+    different documentation, and a shared object has only one place to keep it.
+    """
+    if not _usable_name(name):
+        return
+
+    def alias():
+        return build()
+
+    alias.__name__ = name
+    alias.__qualname__ = name
+    # The adapter's own words where it has any, since it is the one that knows what it
+    # builds; the general account otherwise.
+    alias.__doc__ = _adapter_doc("build") or build.__doc__
+    globals()[name] = alias
+    if name not in __all__:
+        __all__.append(name)
+
+
+def _bind_model() -> None:
+    """Fit this module to the model on the canvas.  Called once, after its adapter runs.
+
+    Two things come from the model rather than from here: the second name it wants for
+    :func:`build`, and a short example of using it.  Both are read from what the host
+    supplies, so the browser's interpreter and the one on the machine are fitted by the
+    same code and cannot come to describe themselves differently.
+    """
+    global __doc__
+
+    _bind_alias(str(getattr(_nemo_host, "handle", "") or ""))
+
+    example = str(getattr(_nemo_host, "example", "") or "").strip()
+    if example:
+        indented = "\n".join("    " + line if line else "" for line in example.split("\n"))
+        __doc__ = f"{_BASE_DOC}\nFor the model on the canvas now::\n\n{indented}\n"
+    else:
+        __doc__ = _BASE_DOC
+
+    takes = _adapter_doc("results")
+    publish.__doc__ = f"{_PUBLISH_DOC}\n    What this model's adapter says of them:\n\n    {takes}\n" if takes else _PUBLISH_DOC

@@ -86,9 +86,18 @@ class Session:
         self.host.emit = emit
         self.host.display = show
 
-    def start(self, adapter: str) -> list:
-        """Bring up the bridge and the model's adapter; return how it describes itself."""
-        self.host = _load_module("_nemo_host", "caseJson = '{}'\n")
+    def start(self, adapter: str, handle: str = "", example: str = "") -> list:
+        """Bring up the bridge and the model's adapter; return how it describes itself.
+
+        ``handle`` and ``example`` are the model's own words about itself, and are put
+        where :mod:`nemo` reads them rather than acted on here: fitting the module to
+        the model is done in the module, once, so this interpreter and the browser's
+        cannot come to describe themselves differently.
+        """
+        self.host = _load_module(
+            "_nemo_host",
+            "caseJson = '{}'\n" + f"handle = {handle!r}\nexample = {example!r}\n",
+        )
 
         with open(DISPLAY_MODULE) as fh:
             self.display = _load_module("_nemo_display", fh.read())
@@ -103,6 +112,14 @@ class Session:
         self.namespace["nemo"] = nemo
         self.namespace["display"] = self.display.display
 
+        described = self._load_adapter(adapter)
+        # After the adapter, since part of what the module fits itself with is the
+        # adapter's own documentation.
+        nemo._bind_model()
+        return described
+
+    def _load_adapter(self, adapter: str) -> list:
+        """Run the model's adapter; return how it describes itself, or what went wrong."""
         if not adapter.strip():
             return []
         try:
@@ -324,7 +341,11 @@ class Handler(BaseHTTPRequestHandler):
     def _boot(self, message: dict) -> None:
         session = self.server.session
         self._reply({"kind": "booting", "step": "connecting to the local interpreter"})
-        described = session.start(message.get("adapter", ""))
+        described = session.start(
+            message.get("adapter", ""),
+            handle=message.get("handle", ""),
+            example=message.get("example", ""),
+        )
         session.bind(self._bridge, self._display(None))
         # Packages are not installed from here: this interpreter is the machine's own,
         # and what is in it is the user's business rather than the model's.

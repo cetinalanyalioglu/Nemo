@@ -40,6 +40,21 @@ const OPENING = [
 ];
 
 /**
+ * Whether the opening belongs in the transcript now.
+ *
+ * A model has to have resolved, since the example offered is the model's own and a model
+ * is fetched. Nothing can have been said yet: a transcript with anything in it is either
+ * a session in progress or one already opened, and writing over either would be reading
+ * the user their introduction twice.
+ *
+ * Both conditions come round again when the model is switched — that clears the
+ * transcript (see `startFresh`), which is what puts the new model's example in the place
+ * of the old one's rather than leaving whichever model happened to be first.
+ */
+export const wantsOpening = (modelReady: boolean, transcriptLength: number): boolean =>
+  modelReady && transcriptLength === 0;
+
+/**
  * Writes one output into the transcript, as a line of text.
  *
  * The prompt is a transcript of lines and shows what it can of an output: printed text,
@@ -129,6 +144,10 @@ TranscriptLine.displayName = 'TranscriptLine';
  * The choice is the session's rather than the document's, so it lives beside the app
  * and not in the case file: which machine is running what is not a property of the
  * network someone drew.
+ *
+ * A local interpreter is reached over plain http on the loopback interface. Where the
+ * app itself is served over https — a published copy rather than a checkout — whether
+ * that is allowed is the browser's to decide, and they do not all decide it the same way.
  */
 const RuntimePicker = React.memo(() => {
   const [kind, setKind] = useState<RuntimeKind>(() => runtimeKind());
@@ -149,7 +168,11 @@ const RuntimePicker = React.memo(() => {
         className="python-runtime-select"
         value={kind}
         onChange={(event) => choose(event.target.value as RuntimeKind)}
-        title="Where the console's Python runs. Either way the prompt is the same."
+        title={
+          "Where the console's Python runs. Either way the prompt is the same. " +
+          'Reaching one on this machine from a published copy of the app depends on ' +
+          'the browser allowing a secure page to reach the loopback interface.'
+        }
       >
         <option value="browser">the browser</option>
         <option value="local">this machine</option>
@@ -192,11 +215,8 @@ const ConsolePythonTab = React.memo(() => {
   // The opening message is written into the transcript rather than rendered above it,
   // so clearing the pane clears it too and the first line the user sees is their own.
   useEffect(() => {
-    // Waits for the model, since the example is the model's and a model is fetched. A
-    // transcript that already has something in it is left alone, so this happens once.
-    if (!modelReady) return;
+    if (!wantsOpening(modelReady, usePythonStore.getState().entries.length)) return;
     const store = usePythonStore.getState();
-    if (store.entries.length !== 0) return;
     OPENING.forEach((line) => store.append('note', line));
     // Shown as code but not as something entered: nothing has run it. The lines go into
     // the recall list so the up arrow offers them rather than making them be retyped.

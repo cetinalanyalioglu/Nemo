@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { IoPlayOutline, IoPricetagOutline, IoTrashOutline } from 'react-icons/io5';
+import { firstExampleLine } from '../../python/example';
 import { pinOutputToCanvas } from '../../python/pin-figure';
 import { useNotebookStore } from '../../store/notebookStore';
 import { joinLines, type CellRunState, type NotebookCell } from '../../types/notebook';
@@ -69,6 +70,9 @@ const NotebookCellView = React.memo(({ cell, state, selected, index }: NotebookC
   const source = joinLines(cell.source);
   const isCode = cell.cell_type === 'code';
   const busy = state === 'running' || state === 'queued';
+  // What an empty cell suggests writing is the model's business, not this app's: a line
+  // about solving a network says nothing under a model that solves nothing.
+  const codePlaceholder = firstExampleLine();
 
   const run = useCallback(() => {
     if (isCode) {
@@ -159,7 +163,7 @@ const NotebookCellView = React.memo(({ cell, state, selected, index }: NotebookC
             value={source}
             language={isCode ? 'python' : 'markdown'}
             readOnly={busy}
-            placeholderText={isCode ? 'net = nemo.network()' : 'Notes, in Markdown. $E = mc^2$'}
+            placeholderText={isCode ? codePlaceholder : 'Notes, in Markdown. $E = mc^2$'}
             onChange={(next) => setSource(cell.id, next)}
             onRun={run}
             onRunAndAdd={runAndAdd}

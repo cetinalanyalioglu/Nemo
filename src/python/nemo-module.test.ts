@@ -18,17 +18,21 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
+import { NEMO_NAMES } from '../models/model-builder';
 import type { ModelDefinition } from '../types/flow';
 
 const PYTHON = process.env.PYTHON ?? 'python3';
 const MODULE = resolve(__dirname, 'nemo-module.py');
 
-/** The adapter the Nefes model declares — what `nemo.network()` and `publish()` call. */
-const ADAPTER = (
+/** The Nefes model's solver section — the adapter, and the words it fits `nemo` out with. */
+const SOLVER = (
   yaml.load(
     readFileSync(resolve(__dirname, '../../public/models/nefes.yaml'), 'utf8')
   ) as ModelDefinition
-).solver?.adapter;
+).solver;
+
+/** The adapter the Nefes model declares — what `nemo.network()` and `publish()` call. */
+const ADAPTER = SOLVER?.adapter;
 
 /** Whether an interpreter the model's adapter can run in is reachable. */
 const usable = (() => {
@@ -45,25 +49,37 @@ const usable = (() => {
  * Runs `body` with the bridge module imported as `nemo`, the way the worker arranges
  * it, and returns what `body` printed as JSON.
  */
-const withBridge = (body: string): Record<string, unknown> => {
+const withBridge = (
+  body: string,
+  model: { handle?: string; example?: string; adapter?: string } = {}
+): Record<string, unknown> => {
   const dir = mkdtempSync(join(tmpdir(), 'nemo-bridge-'));
+  const handle = model.handle ?? SOLVER?.handle ?? '';
+  const example = model.example ?? SOLVER?.example ?? '';
+  const adapter = model.adapter ?? ADAPTER ?? '';
   try {
     // The worker writes each module out under the name it is imported by; so does this.
     copyFileSync(MODULE, join(dir, 'nemo.py'));
-    writeFileSync(join(dir, '_nemo_solver.py'), ADAPTER ?? '');
+    writeFileSync(join(dir, '_nemo_solver.py'), adapter);
     const driver = `
 import json, sys, types
 
 # The stand-in for the host: the case is assigned here rather than asked for, and
-# everything sent back is collected instead of posted.
+# everything sent back is collected instead of posted. The model's own words about
+# itself arrive the same way they do in the browser.
 host = types.ModuleType("_nemo_host")
 host.caseJson = "{}"
+host.handle = ${JSON.stringify(handle)}
+host.example = ${JSON.stringify(example)}
 host.emitted = []
 host.emit = host.emitted.append
 sys.modules["_nemo_host"] = host
 sys.path.insert(0, ${JSON.stringify(dir)})
 
 import nemo
+
+# As the worker does, once the adapter has been loaded.
+nemo._bind_model()
 
 def emitted():
     return [json.loads(e) for e in host.emitted]
@@ -200,5 +216,110 @@ print(json.dumps({
     const rebuilt = result.rebuilt as number[];
     expect(rebuilt).toHaveLength(reference.length);
     rebuilt.forEach((value, i) => expect(value).toBeCloseTo(reference[i], 9));
+  });
+});
+
+describe.skipIf(!usable)('fitting the module to the model', () => {
+  it('gives build the second name the model asked for, and leaves build itself', () => {
+    const result = withBridge(`
+print(json.dumps({
+    "has_alias": hasattr(nemo, "network"),
+    "listed": "network" in nemo.__all__,
+    "build_still_there": hasattr(nemo, "build"),
+    "found_by_dir": "network" in dir(nemo),
+}))`);
+
+    expect(result.has_alias).toBe(true);
+    expect(result.build_still_there).toBe(true);
+    // `help(nemo)` lists what `__all__` names; completion walks `dir()`. Both matter.
+    expect(result.listed).toBe(true);
+    expect(result.found_by_dir).toBe(true);
+  });
+
+  it('documents the alias with the adapter’s own words, without rewriting build’s', () => {
+    // The trap this pins: `network = build` would be one object with one docstring, so
+    // documenting the alias would silently redocument the general call as well.
+    const result = withBridge(`
+print(json.dumps({
+    "same_object": nemo.network is nemo.build,
+    "alias_doc": (nemo.network.__doc__ or "").strip().split("\\n")[0],
+    "build_doc": (nemo.build.__doc__ or "").strip().split("\\n")[0],
+}))`);
+
+    expect(result.same_object).toBe(false);
+    expect(result.alias_doc).toBe('The drawn network, ready to solve.');
+    expect(result.build_doc).not.toBe(result.alias_doc);
+  });
+
+  it('answers help(nemo) with something runnable against the model on the canvas', () => {
+    const result = withBridge(`
+print(json.dumps({"doc": nemo.__doc__ or ""}))`);
+
+    const doc = result.doc as string;
+    expect(doc).toContain('nemo.network()');
+    expect(doc).toContain('nemo.publish(net, solution=sol)');
+  });
+
+  it('answers what publish takes with what this model’s adapter says it takes', () => {
+    const result = withBridge(`
+print(json.dumps({"doc": nemo.publish.__doc__ or ""}))`);
+
+    const doc = result.doc as string;
+    // The general contract stays, and the model's own account is added under it.
+    expect(doc).toContain("the solver's business");
+    expect(doc).toContain('eigenmodes=');
+  });
+
+  it('offers no second name where the model asked for none', () => {
+    const result = withBridge(
+      `
+print(json.dumps({
+    "has_alias": hasattr(nemo, "network"),
+    "has_build": hasattr(nemo, "build"),
+    "doc_has_example": "nemo.network()" in (nemo.__doc__ or ""),
+}))`,
+      { handle: '', example: '' }
+    );
+
+    expect(result.has_alias).toBe(false);
+    // `build` is always there; it is only the convenience that is the model's to name.
+    expect(result.has_build).toBe(true);
+    expect(result.doc_has_example).toBe(false);
+  });
+
+  it('refuses a name that would hide one of its own', () => {
+    const result = withBridge(
+      `
+print(json.dumps({"case_is_callable": callable(nemo.case), "reads": nemo.case()  == {}}))`,
+      { handle: 'case' }
+    );
+
+    expect(result.case_is_callable).toBe(true);
+    expect(result.reads).toBe(true);
+  });
+
+  it('refuses a name no line of Python could reach', () => {
+    const result = withBridge(
+      `
+print(json.dumps({"names": [n for n in dir(nemo) if not n.startswith("_")]}))`,
+      { handle: 'not a name' }
+    );
+
+    expect(result.names as string[]).not.toContain('not a name');
+  });
+});
+
+describe.skipIf(!usable)('the reserved names the app validates against', () => {
+  it('are the names the module actually answers to', () => {
+    // The app refuses a model whose `handle` would hide one of these, and keeps its own
+    // list because it never parses the Python. This is what keeps the two in step: a
+    // name added to the module and forgotten there fails here rather than in a console.
+    const result = withBridge(`
+print(json.dumps({"names": list(nemo.__all__)}))`);
+
+    const listed = new Set(result.names as string[]);
+    // The alias the model asked for is bound at boot, not part of the module's own set.
+    listed.delete('network');
+    expect([...listed].sort()).toEqual([...NEMO_NAMES].filter((n) => n !== 'nemo').sort());
   });
 });

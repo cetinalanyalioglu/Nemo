@@ -12,14 +12,17 @@ import '../styles/sidebar.css';
 import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
+import { useConsoleStore } from '../store/consoleStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
+import { CONSOLE_VERBOSITY_OPTIONS, type ConsoleVerbosity } from '../types/console';
 import { THEME_OPTIONS } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { EdgePathStyle } from '../context/AppStateContext';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
+const SETTINGS_MESSAGES_GROUP = '__settings_messages__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
 const SETTINGS_ROTATION_GROUP = '__settings_rotation__';
 const SETTINGS_EXPORT_GROUP = '__settings_export__';
@@ -205,6 +208,14 @@ const SettingsPane = React.memo(() => {
   // so the toggle stays inert until then rather than switching on nothing.
   const indicesReady = useGraphStore(selectIndicesReady);
 
+  const verbosity = useConsoleStore((s) => s.verbosity);
+  const setVerbosity = useConsoleStore((s) => s.setVerbosity);
+
+  const handleVerbosityChange = useCallback(
+    (value: string) => setVerbosity(value as ConsoleVerbosity),
+    [setVerbosity]
+  );
+
   const handleThemeChange = useCallback(
     (value: string) => actions.appearance.setTheme(value as ThemeId),
     [actions.appearance]
@@ -299,6 +310,33 @@ const SettingsPane = React.memo(() => {
                 : 'Run Renumber (Tools) first to assign indices'
             }
           />
+        </div>
+      </div>
+
+      <div
+        className={`parameter-group ${collapsedGroups[SETTINGS_MESSAGES_GROUP] ? 'collapsed' : ''}`}
+      >
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_MESSAGES_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>MESSAGES</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsSelectField
+            id="console-verbosity-select"
+            label="Detail"
+            value={verbosity}
+            options={CONSOLE_VERBOSITY_OPTIONS}
+            onChange={handleVerbosityChange}
+          />
+          <p className="settings-note">
+            How much the message log records. It applies to messages from here on; what is already
+            listed stays, and everything reaches the browser&rsquo;s own console regardless.
+          </p>
         </div>
       </div>
 

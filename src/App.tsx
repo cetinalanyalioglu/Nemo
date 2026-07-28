@@ -1,7 +1,6 @@
 import React from 'react';
 import GraphStoreBridge from './store/GraphStoreBridge';
 import { installDiagnosticsBridge } from './utils/diagnostics';
-import { isDebugMode } from './utils/debug';
 import NodeLibrary from './components/node-library';
 import DocumentPane from './components/document-pane';
 import ModelPane from './components/model-pane';
@@ -81,10 +80,10 @@ function AppContent() {
 }
 
 function App() {
+  // Errors are worth capturing however quiet the message log is set: what the log's
+  // verbosity decides is what is worth showing, not what is worth knowing.
   React.useEffect(() => {
-    if (isDebugMode()) {
-      installDiagnosticsBridge();
-    }
+    installDiagnosticsBridge();
   }, []);
 
   // Dev-only design-review sheet for the glyph set (light + dark, all sizes).

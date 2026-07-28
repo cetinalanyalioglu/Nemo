@@ -591,6 +591,14 @@
   color: var(--color-text-secondary);
 }
 
+/* A line of explanation under a setting whose effect is not obvious from its name. */
+.settings-note {
+  margin: 2px 12px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 .model-status {
   padding: 10px 16px;
   font-size: 12px;

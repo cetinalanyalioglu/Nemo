@@ -71,7 +71,13 @@ const store = () => usePythonStore.getState();
  * and some Python, and neither means anything here. A model that declares none gets a
  * prompt that reads and draws the canvas and has nothing to compute with.
  */
-const activeSolver = (): { id: string | null; wheels: string[]; adapter: string } => {
+const activeSolver = (): {
+  id: string | null;
+  wheels: string[];
+  adapter: string;
+  handle: string;
+  example: string;
+} => {
   const model = useGraphStore.getState().model;
   const solver = model?.solver ?? null;
   const base = new URL(import.meta.env.BASE_URL, window.location.href);
@@ -79,6 +85,8 @@ const activeSolver = (): { id: string | null; wheels: string[]; adapter: string 
     id: model?.id ?? null,
     wheels: (solver?.packages ?? []).map((pkg) => resolvePackage(pkg, base)),
     adapter: solver?.adapter ?? '',
+    handle: solver?.handle ?? '',
+    example: solver?.example ?? '',
   };
 };
 
@@ -90,7 +98,7 @@ const activeSolver = (): { id: string | null; wheels: string[]; adapter: string 
  * wherever the installer resolves requirements, and must be handed over as written:
  * turning `plotly` into an address of this app asks for a file that is not there.
  */
-const resolvePackage = (pkg: string, base: URL): string =>
+export const resolvePackage = (pkg: string, base: URL): string =>
   pkg.includes('/') ? new URL(pkg, base).href : pkg;
 
 /** Releases everything waiting on boot. Called however boot ends, so nothing waits forever. */
@@ -216,6 +224,8 @@ export const startPython = (): Promise<void> => {
       indexURL: PYODIDE_INDEX_URL,
       wheels: solver.wheels,
       adapter: solver.adapter,
+      handle: solver.handle,
+      example: solver.example,
     });
   });
 
@@ -234,9 +244,11 @@ export const runPython = async (
   sink: OutputSink,
   mode: 'line' | 'block' = 'line'
 ): Promise<RunOutcome> => {
-  // Switching models switches solvers, and an interpreter carries the one it was
-  // started with — its packages are installed, not chosen per call. Switching where
-  // Python runs is a change of interpreter outright.
+  // An interpreter carries the solver it was started with — its packages are installed,
+  // not chosen per call — so one belonging to something else is no use. A model switch
+  // discards it outright (see `startFresh`), which leaves the runtime pick: choosing
+  // where Python runs is a change of interpreter, and the check is kept general so it
+  // stays true of any other way the two could come apart.
   if (booting && (bootedFor !== activeSolver().id || bootedOn !== runtimeKind())) {
     store().append('note', 'Starting an interpreter for what is selected now.');
     await restartPython();
@@ -356,6 +368,20 @@ const stopPython = (): void => {
   awaitingHints.clear();
   store().setPending([]);
   store().setVariables([]);
+};
+
+/**
+ * Puts the console back to how it starts: no interpreter, and nothing said yet.
+ *
+ * An interpreter belongs to the model it was started for — its packages are installed,
+ * not chosen per call — so when the canvas changes to something else it is not stale,
+ * it is wrong. Dropping it here rather than at the next submission also keeps the status
+ * line honest: it would otherwise go on naming a solver that is no longer on the canvas.
+ */
+export const discardPython = (): void => {
+  stopPython();
+  store().reset();
+  store().setStatus('off', '');
 };
 
 /**

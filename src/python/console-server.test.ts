@@ -250,3 +250,41 @@ describe.skipIf(!usable)('what the local interpreter will answer', () => {
     expect(source).toContain('"127.0.0.1"');
   });
 });
+
+describe.skipIf(!usable)('fitting nemo to the model, here as in the browser', () => {
+  it('binds the model’s chosen name and its example, from the same code the browser runs', () => {
+    // The failure this guards is silent: the two interpreters run the same `nemo.py`,
+    // and if only one of them were told to fit it to the model, `help(nemo)` would
+    // differ between them with nothing to say so.
+    const driver = `
+import json, sys
+sys.argv = ["console_server.py"]
+
+import importlib.util
+spec = importlib.util.spec_from_file_location("console_server", ${JSON.stringify(SERVER)})
+server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(server)
+
+session = server.Session()
+session.start(
+    "def build(doc):\\n    'A circuit, ready to run.'\\n    return doc\\n",
+    handle="circuit",
+    example="c = nemo.circuit()\\n",
+)
+nemo = session.namespace["nemo"]
+print(json.dumps({
+    "has_alias": hasattr(nemo, "circuit"),
+    "alias_doc": (nemo.circuit.__doc__ or "").strip(),
+    "separate": nemo.circuit is not nemo.build,
+    "doc_has_example": "c = nemo.circuit()" in (nemo.__doc__ or ""),
+}))
+`;
+    const out = execFileSync(PYTHON, ['-c', driver], { encoding: 'utf8' });
+    const result = JSON.parse(out.trim().split('\n').pop() as string);
+
+    expect(result.has_alias).toBe(true);
+    expect(result.alias_doc).toBe('A circuit, ready to run.');
+    expect(result.separate).toBe(true);
+    expect(result.doc_has_example).toBe(true);
+  });
+});

@@ -44,6 +44,13 @@ const HINTS_MODULE_PATH = '/home/pyodide/_nemo_hints.py';
  */
 const host = {
   caseJson: '{}',
+  /**
+   * The model's own words about itself, read by `nemo` when it fits itself to the model:
+   * the second name it wants for `nemo.build()`, and a few lines worth running. Set once
+   * at boot, since an interpreter belongs to one model.
+   */
+  handle: '',
+  example: '',
   emit: (json: string): void => {
     post({ kind: 'bridge', call: JSON.parse(json) });
   },
@@ -145,7 +152,13 @@ _load()
   return lines;
 };
 
-const boot = async (indexURL: string, wheels: string[], adapter: string): Promise<void> => {
+const boot = async ({
+  indexURL,
+  wheels,
+  adapter,
+  handle,
+  example,
+}: Extract<HostMessage, { kind: 'boot' }>): Promise<void> => {
   post({ kind: 'booting', step: 'starting Python' });
   // Loaded from wherever the distribution is served rather than bundled, so the
   // interpreter and the packages it resolves always come from the same build.
@@ -156,6 +169,9 @@ const boot = async (indexURL: string, wheels: string[], adapter: string): Promis
 
   const packages = await installWheels(py, wheels);
 
+  // Set before `nemo` is imported, since that is where they are read.
+  host.handle = handle;
+  host.example = example;
   py.registerJsModule('_nemo_host', host);
   py.FS.writeFile(NEMO_MODULE_PATH, NEMO_MODULE_SOURCE);
   py.FS.writeFile(DISPLAY_MODULE_PATH, DISPLAY_SHIMS_SOURCE);
@@ -190,6 +206,11 @@ _build_console()
   mainNamespace = py.runPython('import __main__; __main__.__dict__');
 
   const described = loadAdapter(py, adapter);
+
+  // After the adapter, since what `nemo` fits itself with is partly the adapter's own
+  // documentation. The fitting is all in the `nemo` module, so the two interpreters
+  // cannot come to describe themselves differently.
+  py.runPython('import nemo; nemo._bind_model()');
 
   pyodide = py;
   post({
@@ -331,7 +352,7 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
   }
   if (message.kind === 'boot') {
     try {
-      await boot(message.indexURL, message.wheels, message.adapter);
+      await boot(message);
     } catch (error) {
       post({ kind: 'boot-failed', error: errorText(error) });
     }

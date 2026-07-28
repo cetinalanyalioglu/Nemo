@@ -78,8 +78,20 @@ export type HostMessage =
    * Start the interpreter: fetch it from `indexURL`, install `wheels` in order, then
    * run `adapter` — the Python the active model brought, and the only thing in this
    * exchange that knows what a particular solver is. Empty where the model has none.
+   *
+   * `handle` and `example` are the model's words about itself, and are handed to the
+   * `nemo` module to fit itself out with: the second name it wants for `nemo.build()`,
+   * and a few lines worth running against it. They travel as data because the fitting
+   * is done in one place, in Python, rather than once per interpreter here.
    */
-  | { kind: 'boot'; indexURL: string; wheels: string[]; adapter: string }
+  | {
+      kind: 'boot';
+      indexURL: string;
+      wheels: string[];
+      adapter: string;
+      handle: string;
+      example: string;
+    }
   /**
    * Run one submission, against the case as it stands right now.
    *

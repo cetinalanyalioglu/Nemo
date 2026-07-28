@@ -2097,6 +2097,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         selectedEdgeId: null,
         nodeCounters: initialCounters,
         totalNodeCounters: { ...initialCounters },
+        // The elements the title named are gone with it, so the name goes too.
+        title: DEFAULT_CASE_TITLE,
       });
       get().clearHistory();
     },

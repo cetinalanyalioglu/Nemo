@@ -332,6 +332,19 @@ export interface ModelSolverDefinition {
    */
   adapter?: string;
   /**
+   * A second name for `nemo.build()`, suiting what this model models.
+   *
+   * `build` says what the call does and is always there; a model that works on networks
+   * would rather write `nemo.network()`, and one that works on circuits `nemo.circuit()`.
+   * Naming it here is what keeps that convenience without the app having to know any of
+   * those words. The name carries the adapter's own `build()` documentation, so
+   * `help(nemo.network)` describes that model's networks.
+   *
+   * Must be a Python identifier, and not one of the names the module already answers to.
+   * Omitted where `build` reads well enough on its own.
+   */
+  handle?: string;
+  /**
    * A short worked example, shown on an empty prompt and an empty notebook.
    *
    * It belongs to the model because what a first line looks like depends entirely on

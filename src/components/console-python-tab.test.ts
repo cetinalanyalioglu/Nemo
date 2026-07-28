@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { fitToContent, listedNames, sharedPrefix } from './console-python-tab';
+import { fitToContent, listedNames, sharedPrefix, wantsOpening } from './console-python-tab';
+
+describe('the opening message', () => {
+  it('waits for the model, whose example it offers', () => {
+    expect(wantsOpening(false, 0)).toBe(false);
+  });
+
+  it('is written into an empty transcript', () => {
+    expect(wantsOpening(true, 0)).toBe(true);
+  });
+
+  it('is not written over a session already in progress', () => {
+    expect(wantsOpening(true, 3)).toBe(false);
+  });
+
+  it('comes round again once a switch has emptied the transcript', () => {
+    // Which is what makes the example the model's own rather than whichever model
+    // happened to be loaded first. See `startFresh`.
+    expect(wantsOpening(true, 12)).toBe(false);
+    expect(wantsOpening(true, 0)).toBe(true);
+  });
+});
 
 /** A textarea whose content height is `scrollHeight`, as the browser would report it. */
 const promptWith = (scrollHeight: number): HTMLTextAreaElement => {

@@ -4,7 +4,7 @@ import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 import { validateSolverDefinition } from '../models/model-builder';
 import type { ModelDefinition } from '../types/flow';
-import { PYODIDE_INDEX_URL, PYODIDE_VERSION } from './python-runtime';
+import { PYODIDE_INDEX_URL, PYODIDE_VERSION, resolvePackage } from './python-runtime';
 
 const ROOT = resolve(__dirname, '../..');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
@@ -81,5 +81,44 @@ describe('the packages a model brings', () => {
       expect(adapter, `${model.id}`).toMatch(/^def build\(/m);
       expect(adapter, `${model.id}`).toMatch(/^def results\(/m);
     }
+  });
+});
+
+describe('where a model’s packages are looked for', () => {
+  // A published copy lives under a sub-path, so an address built from the root works in
+  // development and breaks once deployed. Both forms below only differ there.
+  const PAGES = new URL('https://someone.github.io/Nemo/');
+
+  it('looks for a file the app is serving under the app’s own base', () => {
+    expect(resolvePackage('wheels/thing.whl', PAGES)).toBe(
+      'https://someone.github.io/Nemo/wheels/thing.whl'
+    );
+  });
+
+  it('leaves a bare requirement alone, so it is resolved where requirements are', () => {
+    // Turning `plotly` into an address of this app asks the site for a file that is not
+    // there, which is a failure only a deployed copy would ever show.
+    expect(resolvePackage('plotly', PAGES)).toBe('plotly');
+  });
+
+  it('takes an absolute address as written', () => {
+    expect(resolvePackage('https://elsewhere.example/x.whl', PAGES)).toBe(
+      'https://elsewhere.example/x.whl'
+    );
+  });
+
+  it('resolves the shipped model’s own packages, each to the right kind of address', () => {
+    const definition = yaml.load(
+      readFileSync(resolve(ROOT, 'public/models/nefes.yaml'), 'utf8')
+    ) as ModelDefinition;
+    const solver = validateSolverDefinition(definition.id, definition.solver);
+    const resolved = (solver?.packages ?? []).map((pkg) => resolvePackage(pkg, PAGES));
+
+    // The wheel is a file this app serves, so it moves with the app.
+    expect(resolved.some((url) => url.startsWith('https://someone.github.io/Nemo/wheels/'))).toBe(
+      true
+    );
+    // The requirement is not, so it must not.
+    expect(resolved).toContain('plotly');
   });
 });

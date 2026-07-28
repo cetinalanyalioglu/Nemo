@@ -10,6 +10,10 @@ The console pane has three tabs.
 **Python** is a prompt, running in the browser, with the drawn network in reach.
 **Variables** is what the session is holding.
 
+How much Messages records is set in **Settings › Messages › Detail**.
+It opens on _Normal_, which keeps outcomes and problems and leaves out the running commentary of what the app is doing; _Everything_ keeps the trace as well, and _Problems only_ keeps warnings and errors.
+The setting applies to messages from then on rather than filtering what is already listed, and everything reaches the browser's own console whatever it is set to.
+
 Clicking a name opens the pane on it, and clicking the name already showing puts the pane
 away again, so whichever name opened the console also closes it. The chevron on the right
 does the same, and remembers which name to come back to.
@@ -32,24 +36,30 @@ It is the whole of the Python side of the boundary: reading what is drawn, and s
 | `nemo.show(result)`    | Draws result sets on the network                                          |
 | `nemo.replace(doc)`    | Replaces the drawing with the network in a case document                  |
 | `nemo.log(message)`    | Writes a line to the Messages tab                                         |
-| `nemo.network()`       | Builds what the model's solver works on                                   |
+| `nemo.build()`         | Builds what the model's solver works on                                   |
 | `nemo.draw(net, …)`    | Draws a model built here on the canvas, in place of what is there         |
 | `nemo.publish(net, …)` | Sends that model's results back to the canvas                             |
 
 `help(nemo)` documents them at the prompt, and `help(nemo.publish)` names what results it takes.
 
-The last two are the only ones that depend on a solver, and even they do not name one — see [the model's solver](#the-models-solver) below. On a model that declares none they say so and the rest still works.
+The last three are the only ones that depend on a solver, and even they do not name one — see [the model's solver](#the-models-solver) below. On a model that declares none they say so and the rest still works.
+
+A model may also give `build` a second name suiting what it builds, declared as `solver.handle` in the model file.
+The Nefes model asks for `network`, so `nemo.network()` is `nemo.build()` under a name that reads better beside one, and `help(nemo.network)` shows the adapter's own account of what it makes.
+The two are separate functions carrying separate documentation, so a model naming one does not reword the other.
+That name is the model's choice alone; nothing in the app knows the word.
 
 ## The round trip
 
 ```python
-net = nemo.network()
+net = nemo.network()   # nemo.build(), under the name this model asked for
 sol = net.solve()
 nemo.publish(net, solution=sol)
 ```
 
 That is the whole loop: the network is read from the canvas, solved, and its fields land as a result set the Data pane can colour the network with.
-What `publish` accepts is the solver's business, not the console's. For the Nefes model it is whatever `nefes.io.case_to_dict` takes, so a forced response, an eigenmode, or a Nyquist summary go the same way:
+What `publish` accepts is the solver's business, not the console's: the keywords are handed to the model's adapter exactly as given, and `help(nemo.publish)` shows whatever that adapter documents about them.
+For the Nefes model it is whatever `nefes.io.case_to_dict` takes, so a forced response, an eigenmode, or a Nyquist summary go the same way:
 
 ```python
 from nefes.perturbation import forced_response
@@ -100,6 +110,27 @@ Two things about that token. It is the whole of the access control, and it matte
 
 The server is standard library only, so it runs wherever the solver does, and it installs nothing: the model's packages are for the browser's interpreter, and this one is the machine's own.
 
+One thing to expect from a **published** copy of the app rather than a checkout: the page is served over https and the local interpreter is reached over plain http on the loopback interface, and whether a browser allows that is the browser's own rule.
+Chromium allows it — measured, from a page whose origin is not itself localhost — so the option works there.
+Other browsers treat the loopback exemption differently, so a published copy is not the place to rely on it.
+The browser interpreter is unaffected, needs nothing running, and is what a published copy is for.
+
+## Serving it from a static host
+
+There is nothing to run behind the app: it is files, and GitHub Pages serves them.
+`.github/workflows/deploy.yml` builds with `VITE_BASE=/<repo>/` and publishes the result, since a project site lives under a sub-path rather than at the root.
+
+Everything the app fetches at runtime is resolved against that base — the model manifest, the model files, and the wheels a model names — so the sub-path does not have to be repeated anywhere.
+A package named without a slash (`plotly`) is left as written and resolved wherever the installer resolves requirements, which is what keeps it from being looked for on the site.
+
+Two properties worth keeping true, since both fail only once deployed:
+
+- **No cross-origin isolation.** The interpreter runs in an ordinary worker and shares no memory with the page, so no `Cross-Origin-Opener-Policy` or `Cross-Origin-Embedder-Policy` header is needed. That matters because a static host cannot set headers at all: anything requiring them could not be deployed this way. It is also why a running solve cannot be interrupted and is discarded instead.
+- **Nothing is looked for at the root.** A request the app builds from `/` rather than from its base works in development and breaks on a project site, where the root is not the app.
+
+Both were checked by deploying rather than by reading: the built app served under a sub-path, driven through a boot and a line of Python, with every address it asked for recorded.
+The interpreter came up, installed the wheel from the sub-path, and reported its compiled kernels; nothing was requested from the root and no request failed.
+
 ## What the session is holding
 
 The **Variables** tab lists every name defined at the prompt or in a cell — what it is,
@@ -132,6 +163,10 @@ solver:
 A model that offers none falls back to lines about reading and colouring the canvas, which
 are true of every model.
 
+The same example is what `help(nemo)` closes with, and its first line is what an empty
+notebook cell suggests in grey. All three come from the one place, so a model that changes
+its example changes what it says about itself everywhere at once.
+
 ## The model's solver
 
 Nemo has no solver in it, and this console did not put one there.
@@ -139,12 +174,14 @@ A model is a YAML file describing an element library, and it may additionally de
 
 ```yaml
 solver:
+  handle: network
   packages:
     - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
   adapter: |
     from nefes.io import case_from_dict, case_to_dict
 
     def build(doc):
+        """The drawn network, ready to solve."""
         return case_from_dict(doc, source="<canvas>")
 
     def results(net, **kwargs):
@@ -157,14 +194,18 @@ solver:
 ```
 
 `packages` are installed into the interpreter when it starts, resolved against the app's base.
-`adapter` is run once afterwards, and `nemo.network()` and `nemo.publish()` are calls into the `build` and `results` it defines; `describe()`, if present, is the line the status bar shows.
+`adapter` is run once afterwards, and `nemo.build()` and `nemo.publish()` are calls into the `build` and `results` it defines; `describe()`, if present, is the line the status bar shows.
+`handle` is the model's own name for `build` — it must be a Python name, and not one `nemo` already answers to.
+
+The adapter's docstrings are not decoration: `build`'s becomes `help(nemo.network)`, and `results`' is added to `help(nemo.publish)` as this model's answer to what results it takes.
+That is how a model documents itself at the prompt without the app carrying a word about it.
 
 That is the whole of it. The app knows a model may name packages and some Python; it never knows what either is for, exactly as the data pane colours a network from whatever a file declares without knowing what the numbers mean.
 
 Two consequences worth expecting:
 
-- **Switching models restarts the interpreter**, since a different model brings different packages, and every name defined at the prompt goes with it.
-- **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.network()` says plainly that there is nothing to build with.
+- **Switching models starts a new session.** The canvas, any loaded results, the notebook and the interpreter all belong to the model they were made under, so all four are cleared; the Messages tab is kept, being the record of how the session got where it did. You are asked first when there is something to lose.
+- **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.build()` says plainly that there is nothing to build with.
 
 ## The Results tab
 

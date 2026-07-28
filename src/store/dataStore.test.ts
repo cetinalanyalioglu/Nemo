@@ -35,6 +35,8 @@ const dataFile = (contents: string, name = 'data.json'): File =>
 describe('dataStore logging', () => {
   beforeEach(() => {
     useDataStore.setState({ datasets: [], loadCount: 0, pendingDatasets: null });
+    // What gets logged is the subject here, so nothing is filtered out from under it.
+    useConsoleStore.getState().setVerbosity('debug');
     useConsoleStore.getState().clear();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(window, 'alert').mockImplementation(() => {});

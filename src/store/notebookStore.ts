@@ -289,6 +289,12 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       selectedId: null,
       executionCount: 0,
       dirty: false,
+      // The session-only three go with them. A notebook can be reset from under a
+      // run — switching the model does exactly that — and a `running` left standing
+      // would refuse every Run afterwards, over cells that are no longer there.
+      running: false,
+      dragId: null,
+      dropSlot: null,
     }),
 
   markSaved: () => set({ dirty: false }),

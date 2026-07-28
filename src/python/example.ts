@@ -40,3 +40,16 @@ export const useModelReady = (): boolean => useGraphStore((s) => s.model !== nul
 
 /** The example as lines, for a surface that shows one line at a time. */
 export const solverExampleLines = (example: string): string[] => example.split('\n');
+
+/**
+ * The example's opening line, with any trailing comment taken off.
+ *
+ * For a surface with room for one line and no room to explain it: an empty notebook
+ * cell, which shows a greyed suggestion of what could go in it. Subscribed nowhere, so
+ * a cell rendered before its model has resolved suggests the generic line and the next
+ * one suggests the model's.
+ */
+export const firstExampleLine = (): string => {
+  const [first = ''] = solverExampleLines(solverExample());
+  return first.split('#')[0].trimEnd();
+};

@@ -46,7 +46,18 @@ interface PythonStore {
   remember: (source: string) => void;
   setVariables: (variables: WorkspaceVariable[]) => void;
   setPending: (pending: string[]) => void;
+  /**
+   * Empties the transcript, keeping what has been typed: the recall list is the
+   * user's own and clearing the pane is about the pane.
+   */
   clear: () => void;
+  /**
+   * Everything, recall included.
+   *
+   * For a console that is not the same console any more — a different model, a
+   * different solver — where the lines worth offering back are the new one's.
+   */
+  reset: () => void;
 }
 
 let nextId = 0;
@@ -100,4 +111,6 @@ export const usePythonStore = create<PythonStore>((set) => ({
   setVariables: (variables) => set({ variables }),
 
   clear: () => set({ entries: [], pending: [] }),
+
+  reset: () => set({ entries: [], pending: [], history: [], variables: [], detail: '' }),
 }));

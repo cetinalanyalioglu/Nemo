@@ -142,6 +142,35 @@ export const isSourceConnectionToTargetAllowed = (
 };
 
 /**
+ * A bare Python name. Anything else would become an attribute of the `nemo` module that
+ * no line of Python could reach, which is a silent way to lose a model's convenience.
+ */
+const PYTHON_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * What the `nemo` module already answers to.
+ *
+ * Kept beside the validation rather than imported from the Python, which the app never
+ * parses. `nemo-module.test.ts` checks the two against each other, so a name added there
+ * and forgotten here is a failing test rather than a model that quietly breaks the
+ * console it was loaded into.
+ */
+export const NEMO_NAMES = new Set([
+  'case',
+  'title',
+  'nodes',
+  'edges',
+  'counts',
+  'show',
+  'replace',
+  'log',
+  'build',
+  'draw',
+  'publish',
+  'nemo',
+]);
+
+/**
  * Checks a model's `solver` section, if it declares one.
  *
  * What it declares is checked; what it means is not. The packages are strings the
@@ -167,7 +196,23 @@ export const validateSolverDefinition = (
   if (candidate.example !== undefined && typeof candidate.example !== 'string') {
     throw new Error(`Model "${modelId}": "solver.example" must be a string of Python.`);
   }
-  return { packages: [...packages], adapter: candidate.adapter, example: candidate.example };
+  if (candidate.handle !== undefined) {
+    if (typeof candidate.handle !== 'string' || !PYTHON_NAME.test(candidate.handle)) {
+      throw new Error(`Model "${modelId}": "solver.handle" must be a Python name.`);
+    }
+    if (NEMO_NAMES.has(candidate.handle)) {
+      throw new Error(
+        `Model "${modelId}": "solver.handle" cannot be "${candidate.handle}" — the nemo ` +
+          'module already answers to that, and taking it would hide what it names.'
+      );
+    }
+  }
+  return {
+    packages: [...packages],
+    adapter: candidate.adapter,
+    example: candidate.example,
+    handle: candidate.handle,
+  };
 };
 
 /**

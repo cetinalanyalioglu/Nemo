@@ -77,9 +77,11 @@ theme: nefes
 #   results(net, **kwargs)   that network's results back out as a case document
 #   describe()               one line naming the solver, for the status line
 #
-# `nemo.network()` and `nemo.publish()` at the prompt are these; a model that declares
-# no solver simply does not have them.
+# `nemo.build()` and `nemo.publish()` at the prompt are these; a model that declares no
+# solver simply does not have them.  `handle` below is what lets this model also call
+# `build` by the name that suits what it builds.
 solver:
+  handle: network
   packages:
     - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
     # Nefes keeps plotting optional, so the wheel above does not pull this in and the
@@ -99,7 +101,13 @@ solver:
         """A network as a case document: the drawing, and any results asked for.
 
         With no results named this is just the network, which is what `nemo.draw()`
-        wants; with `solution=` and the rest it carries those too.
+        wants.  Otherwise it takes what `nefes.io.case_to_dict` takes, each of which
+        arrives on the canvas as a set of result series that can be coloured by:
+
+            solution=    a solved mean flow
+            forced=      a forced response, over frequency
+            eigenmodes=  the modes of the network, as an animation
+            nyquist=     a Nyquist sweep
 
         An element that stands for several expands behind the drawing, so its interior
         is left out: what is sent has to be as long as what it binds to.
