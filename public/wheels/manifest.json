@@ -1,0 +1,4 @@
+{
+  "comment": "Wheels the Python console installs, in order, on top of the base interpreter. Paths are relative to this file. Refresh with: npm run wheels -- <path-to-nefes-checkout>",
+  "wheels": ["nefes-0.1.0-py3-none-any.whl"]
+}

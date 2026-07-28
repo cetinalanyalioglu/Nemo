@@ -284,8 +284,20 @@ export interface GraphStore extends GraphData {
 
   // Save / load.
   generateSaveData: () => SaveFilePayload;
+  /**
+   * The case as anything outside the canvas should read it: element indices brought
+   * up to date first, because result data binds to elements by index and a stale one
+   * would land a series on the wrong element.
+   */
+  captureCase: () => SaveFilePayload;
   saveToFile: () => void;
   loadFromFile: (file: File) => void;
+  /**
+   * Opens a case document that arrived from somewhere other than a file: validates it,
+   * switches models when it targets a different one, and reports failures against
+   * `label`. Returns whether the document was accepted.
+   */
+  openCase: (document: unknown, label: string) => boolean;
   applySaveData: (saveData: SaveFilePayload) => void;
 
   // History.
@@ -1664,6 +1676,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       };
     },
 
+    captureCase: () => {
+      if (RENUMBER_ON_SAVE) {
+        applyIndices();
+      }
+      return get().generateSaveData();
+    },
+
     saveToFile: () => {
       try {
         // Verify on save: surface any validity problems before writing the file
@@ -1701,10 +1720,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           }
         }
 
-        if (RENUMBER_ON_SAVE) {
-          applyIndices();
-        }
-        const saveData = get().generateSaveData();
+        const saveData = get().captureCase();
         const yamlString = yaml.dump(saveData, { noRefs: true, sortKeys: false, lineWidth: -1 });
 
         const blob = new Blob([yamlString], { type: 'application/x-yaml' });
@@ -1856,61 +1872,75 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
+    openCase: (document, label) => {
+      try {
+        const saveData = document as SaveFilePayload | null;
+
+        if (!saveData || !saveData.version) {
+          throw new Error('Invalid save file: Missing version information');
+        }
+
+        const [major] = saveData.version.split('.');
+        if (parseInt(major) > 2) {
+          throw new Error('This save file was created with a newer version and is not compatible.');
+        }
+
+        if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
+          throw new Error('Invalid save file: Missing model data');
+        }
+
+        // When the document carries no explicit title, fall back to where it came
+        // from. Set it on the payload so both the immediate and deferred
+        // (model-switch) load paths pick it up in applySaveData.
+        if (!saveData.meta?.title) {
+          saveData.meta = { ...(saveData.meta ?? {}), title: label };
+        }
+
+        const state = get();
+        const targetModelId = saveData.model.id;
+        if (targetModelId && !state.models.some((m) => m.id === targetModelId)) {
+          set({ pendingLoad: null });
+          throw new Error(
+            `The model "${targetModelId}" required by this file is not available. Load cancelled.`
+          );
+        }
+
+        if (!targetModelId || targetModelId === state.model?.id) {
+          set({ pendingLoad: null });
+          state.applySaveData(saveData);
+        } else {
+          set({ pendingLoad: saveData });
+          state.requestModelSwitch(targetModelId);
+        }
+        return true;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to load "${label}": ${message}`);
+        return false;
+      }
+    },
+
     loadFromFile: (file) => {
       const reader = new FileReader();
+      // The filename, extension stripped, is the title a file gets when it carries none.
+      const label = file.name.replace(/\.[^./\\]+$/, '');
 
       reader.onload = (event: ProgressEvent<FileReader>) => {
+        let saveData: unknown;
         try {
           const raw = event.target?.result;
           if (typeof raw !== 'string') {
             throw new Error('Invalid file contents');
           }
-
-          const saveData = yaml.load(raw) as SaveFilePayload | null;
-
-          if (!saveData || !saveData.version) {
-            throw new Error('Invalid save file: Missing version information');
-          }
-
-          const [major] = saveData.version.split('.');
-          if (parseInt(major) > 2) {
-            throw new Error(
-              'This save file was created with a newer version and is not compatible.'
-            );
-          }
-
-          if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
-            throw new Error('Invalid save file: Missing model data');
-          }
-
-          // When the file carries no explicit title, default to the filename
-          // (extension stripped). Set it on the payload so both the immediate
-          // and deferred (model-switch) load paths pick it up in applySaveData.
-          if (!saveData.meta?.title) {
-            const fallbackTitle = file.name.replace(/\.[^./\\]+$/, '');
-            saveData.meta = { ...(saveData.meta ?? {}), title: fallbackTitle };
-          }
-
-          const state = get();
-          const targetModelId = saveData.model.id;
-          if (targetModelId && !state.models.some((m) => m.id === targetModelId)) {
-            set({ pendingLoad: null });
-            throw new Error(
-              `The model "${targetModelId}" required by this file is not available. Load cancelled.`
-            );
-          }
-
-          if (!targetModelId || targetModelId === state.model?.id) {
-            set({ pendingLoad: null });
-            state.applySaveData(saveData);
-          } else {
-            set({ pendingLoad: saveData });
-            state.requestModelSwitch(targetModelId);
-          }
+          saveData = yaml.load(raw);
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           logger.error(`Failed to load file "${file.name}": ${message}`);
           alert('Error loading file: ' + message);
+          return;
+        }
+        if (!get().openCase(saveData, label)) {
+          alert(`Error loading file "${file.name}" — see the console for details.`);
         }
       };
 

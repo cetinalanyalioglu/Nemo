@@ -40,7 +40,8 @@
     "lint:check": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "wheels": "node scripts/build-wheels.mjs"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
@@ -59,6 +60,7 @@
     "jsdom": "^25.0.0",
     "lint-staged": "^15.4.3",
     "prettier": "^3.6.2",
+    "pyodide": "^314.0.3",
     "serve": "^14.2.4",
     "typescript": "^6.0.3",
     "vite": "^6.0.0",
