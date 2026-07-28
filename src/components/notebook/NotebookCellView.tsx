@@ -56,6 +56,12 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
     }
   }, [cell.id, isCode, runCell]);
 
+  /** Run, then leave a fresh cell under this one to carry on in. */
+  const runAndAdd = useCallback(() => {
+    run();
+    addCell('code', cell.id);
+  }, [addCell, cell.id, run]);
+
   const mark = isCode
     ? state === 'done'
       ? `[${cell.execution_count ?? ' '}]`
@@ -74,7 +80,7 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
           className="notebook-cell-run"
           onClick={run}
           disabled={busy}
-          title={isCode ? 'Run this cell (Ctrl+Enter)' : 'Done editing'}
+          title={isCode ? 'Run this cell (Shift+Enter; Ctrl+Enter also adds one)' : 'Done editing'}
           aria-label={isCode ? 'Run this cell' : 'Done editing'}
         >
           <IoPlayOutline aria-hidden />
@@ -99,6 +105,7 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
             placeholderText={isCode ? 'net = nemo.network()' : 'Notes, in Markdown. $E = mc^2$'}
             onChange={(next) => setSource(cell.id, next)}
             onRun={run}
+            onRunAndAdd={runAndAdd}
             onFocus={() => select(cell.id)}
           />
         )}

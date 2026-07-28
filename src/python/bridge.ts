@@ -61,7 +61,11 @@ export const applyBridgeCall = (call: BridgeCall): void => {
       showDatasets(call.datasets);
       return;
     case 'case':
-      useGraphStore.getState().openCase(call.doc, CONSOLE_CASE_TITLE);
+      // Whatever result sets came with it are taken, not offered: the line that sent
+      // this case sent them too.
+      useGraphStore.getState().openCase(call.doc, CONSOLE_CASE_TITLE, {
+        askAboutDatasets: false,
+      });
       return;
     case 'log':
       logger[call.level](call.message);

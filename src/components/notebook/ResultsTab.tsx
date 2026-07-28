@@ -170,13 +170,30 @@ const ResultsTab = React.memo(() => {
             selected={selectedId === cell.id}
           />
         ))}
-        <button
-          type="button"
-          className="results-add-below"
-          onClick={() => useNotebookStore.getState().addCell('code')}
-        >
-          + cell
-        </button>
+        {/* A rule with a button sitting on it: present where a cell would go, and out
+            of the way until it is wanted. */}
+        <div className="results-add">
+          <button
+            type="button"
+            className="results-add-button"
+            onClick={() => useNotebookStore.getState().addCell('code')}
+            title="Add a cell at the end"
+            aria-label="Add a cell at the end"
+          >
+            <IoAddOutline aria-hidden />
+            <span>Code</span>
+          </button>
+          <button
+            type="button"
+            className="results-add-button"
+            onClick={() => useNotebookStore.getState().addCell('markdown')}
+            title="Add a note at the end"
+            aria-label="Add a note at the end"
+          >
+            <IoAddOutline aria-hidden />
+            <span>Note</span>
+          </button>
+        </div>
       </div>
     </div>
   );

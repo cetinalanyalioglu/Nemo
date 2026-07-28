@@ -42,6 +42,17 @@ import type {
 /** Maximum number of undo steps retained in history. */
 export const MAX_HISTORY_DEPTH = 100;
 
+/**
+ * How a case is opened.
+ *
+ * `askAboutDatasets` is the one difference between a file someone chose to open and a
+ * case handed over from the console: the second was asked for by the line that handed it
+ * over, so asking again is a question with only one answer.
+ */
+export interface LoadOptions {
+  askAboutDatasets?: boolean;
+}
+
 /** When true, indices are recomputed and applied to state before writing a save file. */
 export const RENUMBER_ON_SAVE = true;
 
@@ -225,6 +236,8 @@ export interface GraphStore extends GraphData {
     kind?: AnnotationKind;
     text?: string;
     src?: string;
+    /** What `src` was drawn from, for an image that came from a figure. */
+    figure?: unknown;
     style?: AnnotationStyle;
     layer?: AnnotationLayer;
   }) => Node | undefined;
@@ -241,6 +254,8 @@ export interface GraphStore extends GraphData {
     annotationId: string,
     patch: {
       text?: string;
+      /** A fresh picture for an image annotation — a pinned figure, drawn again. */
+      src?: string;
       style?: AnnotationStyle;
       layer?: AnnotationLayer;
       name?: string;
@@ -300,8 +315,8 @@ export interface GraphStore extends GraphData {
    * switches models when it targets a different one, and reports failures against
    * `label`. Returns whether the document was accepted.
    */
-  openCase: (document: unknown, label: string) => boolean;
-  applySaveData: (saveData: SaveFilePayload) => void;
+  openCase: (document: unknown, label: string, options?: LoadOptions) => boolean;
+  applySaveData: (saveData: SaveFilePayload, options?: LoadOptions) => void;
 
   // History.
   recordHistory: () => void;
@@ -997,6 +1012,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       kind = 'text',
       text = '',
       src,
+      figure,
       style = {},
       layer = 'front',
     } = {}) => {
@@ -1008,7 +1024,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         id = `annotation-${generateRandomSuffix(6)}`;
       }
 
-      const annotation: AnnotationData = { kind, text, style, ...(src ? { src } : {}), layer };
+      const annotation: AnnotationData = {
+        kind,
+        text,
+        style,
+        ...(src ? { src } : {}),
+        ...(figure ? { figure } : {}),
+        layer,
+      };
       const newNode: Node = {
         id,
         type: ANNOTATION_NODE_TYPE,
@@ -1054,6 +1077,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const next: AnnotationData = {
         ...current,
         text: patch.text ?? current.text,
+        ...(patch.src ? { src: patch.src } : {}),
         style,
         layer,
         name,
@@ -1066,8 +1090,12 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       if (!hidden) delete next.hidden;
       if (!rotation) delete next.rotation;
 
+      // Nothing actually changed: leave the node alone rather than churn a render and
+      // a history entry. Every field the patch can carry has to be checked here, or a
+      // change to the one that is missing looks like no change at all.
       if (
         next.text === current.text &&
+        next.src === current.src &&
         layer === (current.layer ?? 'front') &&
         locked === (current.locked ?? false) &&
         hidden === (current.hidden ?? false) &&
@@ -1630,6 +1658,9 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           position: node.position,
           ...(kind === 'text' ? { text: annotation.text } : {}),
           ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
+          // A pinned figure travels with what it was drawn from, so a reopened case can
+          // draw it again -- for its theme, and for an export.
+          ...(annotation.figure ? { figure: annotation.figure } : {}),
           ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
           ...(annotation.name ? { name: annotation.name } : {}),
           ...(annotation.locked ? { locked: true } : {}),
@@ -1750,7 +1781,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
-    applySaveData: (saveData) => {
+    applySaveData: (saveData, options = {}) => {
       get().reset();
 
       // A case that carries a notebook opens with it; one that does not leaves the
@@ -1841,6 +1872,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           text: a.text ?? '',
           style: a.style ?? {},
           ...(a.src ? { src: a.src } : {}),
+          ...(a.figure ? { figure: a.figure } : {}),
           layer,
           ...(a.name ? { name: a.name } : {}),
           ...(a.locked ? { locked: true } : {}),
@@ -1872,8 +1904,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       // Let the user choose which embedded datasets to import. (The Document
       // pane clears existing datasets before loading, so this is the
       // authoritative set.) The dialog imports the chosen subset.
+      //
+      // Unless the case did not come from a file. A case handed over from the console
+      // was asked for by the line that handed it over -- being asked again, about
+      // result sets the same line produced, is a question with only one answer.
       if (saveData.data?.datasets && saveData.data.datasets.length > 0) {
-        useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
+        if (options.askAboutDatasets === false) {
+          useDataStore.getState().loadDatasetsFromObject(saveData.data.datasets);
+        } else {
+          useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
+        }
       }
 
       logger.success(
@@ -1886,7 +1926,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
-    openCase: (document, label) => {
+    openCase: (document, label, options = {}) => {
       try {
         const saveData = document as SaveFilePayload | null;
 
@@ -1921,7 +1961,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
         if (!targetModelId || targetModelId === state.model?.id) {
           set({ pendingLoad: null });
-          state.applySaveData(saveData);
+          state.applySaveData(saveData, options);
         } else {
           set({ pendingLoad: saveData });
           state.requestModelSwitch(targetModelId);

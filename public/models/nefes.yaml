@@ -82,6 +82,10 @@ theme: nefes
 solver:
   packages:
     - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+    # Nefes keeps plotting optional, so the wheel above does not pull this in and the
+    # Results tab would have to be told to install it before it could draw anything.
+    # Named here instead: what the model needs is the model's business.
+    - plotly
   adapter: |
     from nefes.io import case_from_dict, case_to_dict
 
@@ -92,7 +96,10 @@ solver:
 
 
     def results(net, **kwargs):
-        """A solved network as a case document the canvas can colour itself from.
+        """A network as a case document: the drawing, and any results asked for.
+
+        With no results named this is just the network, which is what `nemo.draw()`
+        wants; with `solution=` and the rest it carries those too.
 
         An element that stands for several expands behind the drawing, so its interior
         is left out: what is sent has to be as long as what it binds to.

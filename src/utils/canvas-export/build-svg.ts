@@ -51,6 +51,12 @@ export interface CanvasExportOptions {
    */
   monochrome?: boolean;
   /**
+   * Pictures to place instead of the ones the annotations carry, keyed by annotation id
+   * — a pinned figure drawn for the page rather than for the screen. Drawing one is
+   * async and this build is not, so they arrive ready.
+   */
+  figures?: Map<string, string>;
+  /**
    * Formulas pre-typeset to SVG paths, keyed by TeX source (see `math-svg.ts`).
    * Prepared by `exportCanvas` before the build, since MathJax is async and the
    * build is not.
@@ -516,7 +522,9 @@ function harvestAnnotation(
   h: number,
   rotation: number,
   zoom: number,
-  math: Map<string, SVGSVGElement> | undefined
+  math: Map<string, SVGSVGElement> | undefined,
+  /** A picture drawn for the page, where one was prepared for this annotation. */
+  printable: string | undefined
 ): SVGElement | null {
   const parts: SVGElement[] = [];
   const cardEl = nodeEl.querySelector<HTMLElement>('.annotation-node') ?? nodeEl;
@@ -524,15 +532,18 @@ function harvestAnnotation(
   const card = boxFrom(cardEl, posX, posY, w, h);
   if (card) parts.push(card);
 
-  if (annotation.kind === 'image' && annotation.src) {
+  // A pinned figure was drawn for the screen; the export places the one drawn for the
+  // page instead, where there is one. Everything else places what it carries.
+  const source = printable ?? annotation.src;
+  if (annotation.kind === 'image' && source) {
     const img = el('image');
     img.setAttribute('x', String(posX));
     img.setAttribute('y', String(posY));
     img.setAttribute('width', String(w));
     img.setAttribute('height', String(h));
     // Data URI — self-contained, works in SVG/PNG/PDF.
-    img.setAttributeNS(XLINK_NS, 'href', annotation.src);
-    img.setAttribute('href', annotation.src);
+    img.setAttributeNS(XLINK_NS, 'href', source);
+    img.setAttribute('href', source);
     parts.push(img);
   } else {
     // Text note: reconstruct the rendered text natively. Markdown emphasis is not
@@ -896,7 +907,8 @@ function buildCanvasSvgInner(
           h,
           rotation,
           zoom,
-          options.math
+          options.math,
+          options.figures?.get(node.id)
         );
         if (g) nodesG.appendChild(g);
       } else {

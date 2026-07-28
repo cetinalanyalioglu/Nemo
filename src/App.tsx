@@ -13,6 +13,7 @@ import Canvas from './components/Canvas';
 import ConsolePane from './components/console-pane';
 import WorkspaceTabs from './components/workspace-tabs';
 import ResultsTab from './components/notebook/ResultsTab';
+import { redrawPinnedFigures } from './python/redraw-figures';
 import PropertiesPanel from './components/PropertiesPanel';
 import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
@@ -23,8 +24,26 @@ import { AppStateProvider, useAppState } from './context/AppStateContext';
 import { ModelProvider } from './context/ModelContext';
 
 function AppContent() {
-  const { sidebar, workspace } = useAppState();
+  const { sidebar, workspace, appearance } = useAppState();
   const workspaceTab = workspace.activeTab;
+
+  // A pinned figure is a picture, so it does not follow a theme change on its own. It
+  // is drawn again from the figure it was made from, which the annotation kept.
+  //
+  // On the next frame, not on this effect. A figure is drawn in whatever colours the
+  // document is carrying when it is drawn, and the attribute that changes those is set
+  // by an effect in the provider above -- which React runs *after* this one, since a
+  // child's effects run before its parent's. Waiting for the frame waits for the theme.
+  const theme = appearance.theme;
+  const firstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const frame = requestAnimationFrame(() => void redrawPinnedFigures());
+    return () => cancelAnimationFrame(frame);
+  }, [theme]);
 
   const renderPane = () => {
     if (sidebar.activePane === 'library') return <NodeLibrary />;

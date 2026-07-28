@@ -15,9 +15,12 @@ import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
  *
  * CodeMirror does the editing — indentation, brackets, highlighting, undo — because
  * that is the part of a notebook that is genuinely hard and already solved. What is
- * added here is the two things a *cell* needs that a text box does not: running on
- * Ctrl/Cmd+Enter, and growing to fit rather than scrolling inside itself, so a notebook
- * scrolls as one document.
+ * added here is the two things a *cell* needs that a text box does not: keys that run
+ * it, and growing to fit rather than scrolling inside itself, so a notebook scrolls as
+ * one document.
+ *
+ * Enter is a newline. Running a cell is a decision, and a decision should not be what
+ * happens when you reach for a new line in the middle of writing one.
  */
 
 interface CellEditorProps {
@@ -26,8 +29,10 @@ interface CellEditorProps {
   readOnly?: boolean;
   placeholderText?: string;
   onChange: (value: string) => void;
-  /** Ctrl/Cmd+Enter. Runs the cell without adding a line. */
+  /** Shift+Enter: run this cell and leave it at that. */
   onRun: () => void;
+  /** Ctrl/Cmd+Enter: run this cell and open a fresh one under it. */
+  onRunAndAdd: () => void;
   onFocus?: () => void;
 }
 
@@ -36,13 +41,22 @@ const languageSlot = new Compartment();
 const readOnlySlot = new Compartment();
 
 const CellEditor = React.memo(
-  ({ value, language, readOnly, placeholderText, onChange, onRun, onFocus }: CellEditorProps) => {
+  ({
+    value,
+    language,
+    readOnly,
+    placeholderText,
+    onChange,
+    onRun,
+    onRunAndAdd,
+    onFocus,
+  }: CellEditorProps) => {
     const host = useRef<HTMLDivElement>(null);
     const view = useRef<EditorView | null>(null);
     // Held in refs so changing a handler does not tear down and rebuild the editor,
     // which would lose the cursor mid-typing.
-    const handlers = useRef({ onChange, onRun, onFocus });
-    handlers.current = { onChange, onRun, onFocus };
+    const handlers = useRef({ onChange, onRun, onRunAndAdd, onFocus });
+    handlers.current = { onChange, onRun, onRunAndAdd, onFocus };
 
     useEffect(() => {
       if (!host.current) return;
@@ -56,10 +70,19 @@ const CellEditor = React.memo(
           bracketMatching(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           keymap.of([
+            // Enter is a newline, as it is in any editor. Running is deliberate:
+            // Shift+Enter runs this cell, Ctrl/Cmd+Enter runs it and opens the next.
+            {
+              key: 'Shift-Enter',
+              run: () => {
+                handlers.current.onRun();
+                return true;
+              },
+            },
             {
               key: 'Mod-Enter',
               run: () => {
-                handlers.current.onRun();
+                handlers.current.onRunAndAdd();
                 return true;
               },
             },

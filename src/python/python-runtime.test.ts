@@ -45,11 +45,17 @@ describe('the packages a model brings', () => {
     expect(declared.length).toBeGreaterThan(0);
   });
 
-  it('names files that are there to install', () => {
-    // The app is served as static files, so a package a model names but the tree does
-    // not carry is a console that starts and then has nothing in it.
+  it('ships the files it names, and names the rest as requirements', () => {
+    // Two kinds. A path is something this app serves, and the app is served as static
+    // files, so one the tree does not carry is a console that starts with nothing in
+    // it. A bare name is a requirement the installer resolves for itself.
     for (const model of models) {
       for (const pkg of solverOf(model.file)?.packages ?? []) {
+        if (!pkg.includes('/')) {
+          // A requirement, not a path: `plotly`, or `plotly==6.9.0`.
+          expect(pkg, `${model.id}: ${pkg}`).toMatch(/^[A-Za-z0-9._-]+(\[.*\])?([<>=!~].*)?$/);
+          continue;
+        }
         expect(
           () => readFileSync(resolve(ROOT, 'public', pkg)),
           `${model.id}: ${pkg}`
@@ -58,7 +64,7 @@ describe('the packages a model brings', () => {
     }
   });
 
-  it('names them relative to the app, so it can be served from any base', () => {
+  it('names a path relative to the app, so it can be served from any base', () => {
     for (const model of models) {
       for (const pkg of solverOf(model.file)?.packages ?? []) {
         expect(pkg.startsWith('/'), `${model.id}: ${pkg}`).toBe(false);

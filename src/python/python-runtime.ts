@@ -70,10 +70,21 @@ const activeSolver = (): { id: string | null; wheels: string[]; adapter: string 
   const base = new URL(import.meta.env.BASE_URL, window.location.href);
   return {
     id: model?.id ?? null,
-    wheels: (solver?.packages ?? []).map((pkg) => new URL(pkg, base).href),
+    wheels: (solver?.packages ?? []).map((pkg) => resolvePackage(pkg, base)),
     adapter: solver?.adapter ?? '',
   };
 };
+
+/**
+ * Where one of a model's packages comes from.
+ *
+ * A path is something the app is serving — the wheel beside it — and is resolved
+ * against wherever the app is being served from. A bare name is a requirement, resolved
+ * wherever the installer resolves requirements, and must be handed over as written:
+ * turning `plotly` into an address of this app asks for a file that is not there.
+ */
+const resolvePackage = (pkg: string, base: URL): string =>
+  pkg.includes('/') ? new URL(pkg, base).href : pkg;
 
 /** Releases everything waiting on boot. Called however boot ends, so nothing waits forever. */
 const settleBoot = (): void => {

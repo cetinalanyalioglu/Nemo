@@ -12,11 +12,10 @@
  * finding pinned to a drawing should keep saying what it said when it was pinned. Re-run
  * the cell and pin again to bring it up to date.
  *
- * And it is drawn in the colours a *document* is drawn in rather than the ones the
- * interface happens to be using. In the Results tab a figure is part of the interface
- * and follows it; pinned to the drawing it becomes part of what the drawing exports, and
- * what a drawing exports is read on white. A figure pinned from a dark session would
- * otherwise be pale ink on a page with nothing pale ink was meant to sit on.
+ * The picture is not the whole of it, though: what it was drawn *from* is kept beside it
+ * on the annotation. A picture cannot be recoloured, and a pinned figure is looked at in
+ * one theme and exported in another — so it is drawn again when the theme changes, and
+ * drawn again in document colours when the canvas is exported.
  */
 
 import { useGraphStore } from '../store/graphStore';
@@ -41,7 +40,10 @@ const PIN_OFFSET = 48;
  * happens, but not hidden with `display: none`: an element with no box has no size for
  * plotly to draw at.
  */
-const figureToImage = async (spec: Record<string, unknown>): Promise<string> => {
+export const figureToImage = async (
+  spec: Record<string, unknown>,
+  { forPrint = false }: { forPrint?: boolean } = {}
+): Promise<string> => {
   const Plotly = await loadPlotly();
   const holder = document.createElement('div');
   holder.style.cssText = `position:fixed;left:-10000px;top:0;width:${PINNED_WIDTH}px;height:${Math.round(
@@ -49,10 +51,10 @@ const figureToImage = async (spec: Record<string, unknown>): Promise<string> => 
   )}px;`;
   document.body.appendChild(holder);
   try {
-    // Read in the theme a document is drawn in rather than the one on screen, and left
-    // opaque: a pinned figure has to carry its own contrast, since it can be looked at
-    // on a dark canvas and printed on a white page without being drawn again between.
-    const restoreTheme = applyPrintTheme();
+    // On the canvas a figure follows the theme, like everything else drawn there. For an
+    // export it is read in the theme a document is drawn in, since a page is white
+    // whatever the session was.
+    const restoreTheme = forPrint ? applyPrintTheme() : () => {};
     let palette;
     try {
       palette = readFigurePalette();
@@ -82,6 +84,12 @@ const svgToDataUri = (svg: string): string =>
 /** Base64 image data as the data URI for its media type. */
 const base64ToDataUri = (mime: string, encoded: string): string =>
   `data:${mime};base64,${encoded.replace(/\s/g, '')}`;
+
+/** The figure description in `output`, where it carried one. */
+const specOf = (output: CellOutput): Record<string, unknown> | undefined =>
+  hasData(output)
+    ? (output.data['application/vnd.plotly.v1+json'] as Record<string, unknown> | undefined)
+    : undefined;
 
 /** The picture of `output`, whichever form it offered, or nothing when it has none. */
 const pictureOf = async (output: CellOutput): Promise<string | null> => {
@@ -126,6 +134,7 @@ export const pinOutputToCanvas = async (output: CellOutput, name?: string): Prom
   const node = addAnnotation({
     kind: 'image',
     src,
+    figure: specOf(output),
     position: { x: PIN_OFFSET + pinned * 24, y: PIN_OFFSET + pinned * 24 },
     style: { width: PINNED_WIDTH },
   });

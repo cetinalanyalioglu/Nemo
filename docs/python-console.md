@@ -28,6 +28,7 @@ It is the whole of the Python side of the boundary: reading what is drawn, and s
 | `nemo.replace(doc)`    | Replaces the drawing with the network in a case document                  |
 | `nemo.log(message)`    | Writes a line to the Messages tab                                         |
 | `nemo.network()`       | Builds what the model's solver works on                                   |
+| `nemo.draw(net, …)`    | Draws a model built here on the canvas, in place of what is there         |
 | `nemo.publish(net, …)` | Sends that model's results back to the canvas                             |
 
 `help(nemo)` documents them at the prompt, and `help(nemo.publish)` names what results it takes.
@@ -52,6 +53,17 @@ nemo.publish(net, solution=sol, forced=fr, forced_sweep=True)
 ```
 
 That one lands as an animated result set with frequency as the frame variable, and the canvas offers playback over it.
+
+The trip also runs the other way. A notebook that builds its own network — from a script,
+a parameter sweep, a file it opened — hands it to the canvas to draw, results and all:
+
+```python
+net = build_something()
+nemo.draw(net, solution=net.solve())
+```
+
+Result sets that arrive with a case this way are taken rather than offered: the line that
+sent the case sent them too, so being asked about them is a question with one answer.
 
 None of that is built in.
 `nemo.show` takes any result set of the shape the case format declares, so a series worked out at the prompt draws just as well:
@@ -122,8 +134,11 @@ Two consequences worth expecting:
 A notebook, in the ordinary sense: cells of Python or of prose, run in order, with what
 they produced kept beneath them.
 
-- **Ctrl/Cmd+Enter** runs a cell; **Run all** runs them from the top and stops at the
-  first failure, because what follows one was written expecting it not to have happened.
+- **Shift+Enter** runs a cell. **Ctrl/Cmd+Enter** runs it and opens a fresh one below.
+  **Enter** is a newline — running is a decision, and a decision should not be what
+  happens when you reach for a new line mid-sentence.
+- **Run all** runs every code cell from the top and stops at the first failure, because
+  what follows one was written expecting it not to have happened.
 - A cell is compiled **whole**, not fed a line at a time. That is the difference between
   a cell and a prompt: a prompt has to know when a block is still open, while a cell with
   a blank line inside a loop is one block and reads as one.
@@ -168,8 +183,10 @@ figure themed light by its library still comes out dark in a dark app.
 The series colours live in `src/styles/theme.css` as `--color-series-1` … `-8`, beside
 the rest of the palette, so there is one place a colour is decided.
 
-A **pinned** figure is drawn the same way but on nothing: its backgrounds are transparent,
-so the canvas shows through it in the drawing and the page shows through it in an export.
+A **pinned** figure keeps the figure it was drawn from beside the picture, so it can be
+drawn again: it follows a theme change on the canvas like everything else there, and is
+drawn once more in document colours when the canvas is exported. A picture cannot be
+recoloured; what it was made from can be used again.
 
 It goes into all three exported formats, each by its own route: SVG embeds it, PNG
 rasterises it with the rest of the drawing, and PDF comes out as **vectors** rather than
@@ -192,6 +209,9 @@ them; **Save** offers that with or without.
 
 Opening a case that carries a notebook opens it. Opening one that does not leaves the
 Results tab alone, so loading a plain case never silently wipes work.
+
+A saved case carries the whole canvas: the network, the result sets, the annotations —
+including a pinned figure and the figure behind it — and the notebook's source cells.
 
 ## Pinning a figure to the canvas
 

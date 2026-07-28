@@ -20,7 +20,12 @@ calls::
     sol = net.solve()
     nemo.publish(net, solution=sol)
 
-Neither of those knows which solver that is.  They call the adapter the model file
+And the same trip in the other direction, for a network this notebook built rather than
+read::
+
+    nemo.draw(net, solution=net.solve())
+
+None of those knows which solver it is talking to.  They call the adapter the model file
 declared, which is the one place any solver is named at all.
 """
 
@@ -39,6 +44,7 @@ __all__ = [
     "replace",
     "log",
     "network",
+    "draw",
     "publish",
 ]
 
@@ -248,6 +254,34 @@ def network():
     True
     """
     return _adapter("build")(case())
+
+
+def draw(model, **kwargs) -> None:
+    """Draw a model built here on the canvas, in place of what is there.
+
+    The other direction from :func:`network`.  A notebook that assembles its own network
+    -- from a script, from a parameter sweep, from a file it opened -- hands it over
+    here and the canvas draws it, laying it out afresh.
+
+    Parameters
+    ----------
+    model : object
+        Whatever the model's solver works on.
+    **kwargs
+        Results to send along with it, exactly as :func:`publish` takes them, so a
+        network and the answer for it can arrive together.
+
+    Notes
+    -----
+    This replaces the drawing.  It is undoable on the canvas, but nothing is asked
+    first, so it is worth being sure before calling it in a loop.
+
+    Examples
+    --------
+    >>> net = build_something()
+    >>> nemo.draw(net, solution=net.solve())
+    """
+    replace(_adapter("results")(model, **kwargs))
 
 
 def publish(model, **kwargs) -> None:
