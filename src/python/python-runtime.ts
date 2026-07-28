@@ -4,8 +4,11 @@
  *
  * There is one interpreter per session and it outlives the pane, so this is a module
  * with state rather than a hook. It starts on the first submission rather than at load,
- * because starting it means fetching some tens of megabytes and most sessions never
+ * because starting it may mean fetching some tens of megabytes and most sessions never
  * open the console at all.
+ *
+ * Where that interpreter runs is a {@link Transport} and nothing here depends on which
+ * one it is.
  */
 
 import { useGraphStore } from '../store/graphStore';
@@ -13,6 +16,14 @@ import { usePythonStore } from '../store/pythonStore';
 import { logger } from '../utils/logger';
 import { applyBridgeCall } from './bridge';
 import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
+import {
+  browserTransport,
+  LOCAL_ADDRESS_KEY,
+  localTransport,
+  RUNTIME_KIND_KEY,
+  type RuntimeKind,
+  type Transport,
+} from './transport';
 
 /**
  * Which Pyodide build to fetch. Kept in step with the `pyodide` dependency, whose types
@@ -23,7 +34,7 @@ export const PYODIDE_VERSION = '314.0.3';
 /** Where that build is served from. The distribution is far too large to bundle. */
 export const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
-let worker: Worker | null = null;
+let transport: Transport | null = null;
 let runCounter = 0;
 /** Resolves when the submission with this id reports back. */
 let awaitingRun: { runId: number; resolve: (outcome: RunOutcome) => void } | null = null;
@@ -32,6 +43,8 @@ let booting: Promise<void> | null = null;
 let bootSettled: (() => void) | null = null;
 /** Which model the running interpreter was started for; a change means a restart. */
 let bootedFor: string | null = null;
+/** Which transport it was started on, for the same reason. */
+let bootedOn: RuntimeKind | null = null;
 
 const store = () => usePythonStore.getState();
 
@@ -101,7 +114,25 @@ const onMessage = (message: WorkerMessage): void => {
 };
 
 const post = (message: HostMessage): void => {
-  worker?.postMessage(message);
+  transport?.send(message);
+};
+
+/** Where this session wants its Python, and how a local one is reached. */
+export const runtimeKind = (): RuntimeKind =>
+  localStorage.getItem(RUNTIME_KIND_KEY) === 'local' ? 'local' : 'browser';
+
+export const localAddress = (): string => localStorage.getItem(LOCAL_ADDRESS_KEY) ?? '';
+
+/**
+ * Chooses where Python runs from here on. The interpreter in use is discarded, since
+ * the choice is what an interpreter *is*; the next submission starts one in the new
+ * place.
+ */
+export const setRuntime = (kind: RuntimeKind, address?: string): void => {
+  localStorage.setItem(RUNTIME_KIND_KEY, kind);
+  if (address !== undefined) localStorage.setItem(LOCAL_ADDRESS_KEY, address);
+  void stopPython();
+  store().setStatus('off', '');
 };
 
 /**
@@ -116,19 +147,27 @@ export const startPython = (): Promise<void> => {
   if (booting) return booting;
 
   const solver = activeSolver();
+  const kind = runtimeKind();
   bootedFor = solver.id;
+  bootedOn = kind;
 
   booting = new Promise<void>((resolve) => {
     bootSettled = resolve;
 
-    store().setStatus('starting', 'fetching the interpreter');
-    worker = new Worker(new URL('./runtime.worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => onMessage(event.data);
-    worker.onerror = (event) => {
-      store().setStatus('failed', 'the interpreter stopped');
-      store().append('error', event.message || 'the interpreter stopped unexpectedly');
+    if (kind === 'local' && localAddress().length === 0) {
+      store().setStatus('failed', 'no address for a local interpreter');
+      store().append(
+        'error',
+        'No address set for a local interpreter. Start one with ' +
+          '`python src/python/console_server.py` and paste the address it prints.'
+      );
       settleBoot();
-    };
+      return;
+    }
+
+    store().setStatus('starting', kind === 'local' ? 'connecting' : 'fetching the interpreter');
+    transport =
+      kind === 'local' ? localTransport(localAddress(), onMessage) : browserTransport(onMessage);
 
     post({
       kind: 'boot',
@@ -150,9 +189,10 @@ export const startPython = (): Promise<void> => {
  */
 export const runPython = async (source: string): Promise<RunOutcome> => {
   // Switching models switches solvers, and an interpreter carries the one it was
-  // started with — its packages are installed, not chosen per call.
-  if (booting && bootedFor !== activeSolver().id) {
-    store().append('note', 'The model changed; starting an interpreter for the new one.');
+  // started with — its packages are installed, not chosen per call. Switching where
+  // Python runs is a change of interpreter outright.
+  if (booting && (bootedFor !== activeSolver().id || bootedOn !== runtimeKind())) {
+    store().append('note', 'Starting an interpreter for what is selected now.');
     await restartPython();
   }
   await startPython();
@@ -178,25 +218,31 @@ export const resetPythonBlock = (): void => {
   store().setPending([]);
 };
 
-/**
- * Stops the interpreter and starts a fresh one.
- *
- * This is also how a run is stopped. A worker that is inside a solve cannot be asked to
- * stop and answer — interrupting it needs memory shared with this thread, which the
- * browser only grants a page served with headers a static host cannot set. So the
- * interpreter is discarded instead, and with it every name defined in the session.
- */
-export const restartPython = async (): Promise<void> => {
-  worker?.terminate();
-  worker = null;
+/** Drops the interpreter and everything waiting on it, without starting another. */
+const stopPython = (): void => {
+  transport?.stop();
+  transport = null;
   booting = null;
+  bootSettled = null;
+  bootedFor = null;
+  bootedOn = null;
   if (awaitingRun) {
     awaitingRun.resolve({ status: 'failed', error: 'the interpreter was restarted' });
     awaitingRun = null;
   }
-  bootSettled = null;
-  bootedFor = null;
   store().setPending([]);
+};
+
+/**
+ * Stops the interpreter and starts a fresh one.
+ *
+ * This is also how a run is stopped. An interpreter that is inside a solve cannot be
+ * asked to stop and answer — in the browser that needs memory shared with this thread,
+ * which is only granted a page served with headers a static host cannot set. So it is
+ * discarded instead, and with it every name defined in the session.
+ */
+export const restartPython = async (): Promise<void> => {
+  stopPython();
   store().append('note', 'The interpreter was restarted; names defined here are gone.');
   await startPython();
 };

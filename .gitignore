@@ -47,3 +47,7 @@ scratch/
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Python bytecode from the console server
+__pycache__/
+*.pyc

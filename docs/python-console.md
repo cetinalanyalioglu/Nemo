@@ -60,6 +60,24 @@ nemo.show({"name": "Guesswork", "items": [
 ]})
 ```
 
+## Where Python runs
+
+The toolbar chooses between two interpreters, and nothing else about the console changes with it — the same prompt, the same `nemo` module, the same case crossing and results coming back.
+
+**The browser** is the default and needs nothing installed. It fetches its own interpreter and the model's packages, and runs kernels compiled to WebAssembly.
+
+**This machine** uses the Python that is already here, with whatever is installed in it and its own compiler behind it. Start the server beside the app:
+
+```bash
+python src/python/console_server.py
+```
+
+It prints an address carrying a token. Paste that into the field beside the picker, and the prompt is served from there.
+
+Two things about that token. It is the whole of the access control, and it matters: the server executes what the prompt sends, and a browser will let _any_ page a user visits make requests to their own machine — so a request without the token is refused, and a page that was never given the address cannot reach an interpreter. The socket is bound to the loopback interface as well, so nothing off the machine can reach it at all.
+
+The server is standard library only, so it runs wherever the solver does, and it installs nothing: the model's packages are for the browser's interpreter, and this one is the machine's own.
+
 ## The model's solver
 
 Nemo has no solver in it, and this console did not put one there.
@@ -133,17 +151,20 @@ READY  Python 3.14.2 · nefes 0.1.0 (accel kernels)
 `accel` are the kernels compiled ahead of time to WebAssembly, and are what the committed wheel carries.
 `python` means the wheel had nothing compiled in it, which is correct and much slower.
 
-Measured in the browser on a 42-element reacting network — a rich-quench-lean combustor with thirteen species in equilibrium:
+Measured through the console on a 42-element reacting network — a rich-quench-lean combustor with thirteen species in equilibrium:
 
-| kernels               | one solve |
-| --------------------- | --------- |
-| `accel` (WebAssembly) | 1.7 s     |
-| `python`              | 58 s      |
+| where        | kernels               | one solve |
+| ------------ | --------------------- | --------- |
+| this machine | `numba`               | 127 ms    |
+| the browser  | `accel` (WebAssembly) | 1.7 s     |
+| the browser  | `python`              | 58 s      |
 
-The gap narrows sharply on small non-reacting networks, where the sparse solve rather than the kernels sets the pace: a four-element perfect-gas nozzle is 17 ms against 50 ms.
+So compiling the kernels is worth some thirty times, and running on the machine another thirteen on top of that. A browser is not in a different league from a workstation; it is one order behind it.
+
+The gap narrows sharply on small non-reacting networks, where the sparse solve rather than the kernels sets the pace: a four-element perfect-gas nozzle is 17 ms in the browser against 50 ms interpreted.
 Chemistry is what the compiled kernels are for.
 
-A word on what "in the browser" costs: the same reacting solve is 222 ms on a desktop install with numba, so the browser is some eight times slower than a workstation and not in a different league from one.
+Connecting is the other difference. A local interpreter answers in under half a second; the browser's takes four or five while it fetches itself.
 
 ## Refreshing the wheels
 
@@ -175,6 +196,8 @@ The console installs whatever the manifest lists, in order.
 | `src/python/python-runtime.ts` | Starting it, feeding it lines, routing what comes back           |
 | `src/python/bridge.ts`         | What Python is allowed to do to the canvas, and the checks on it |
 | `src/python/nemo-module.py`    | The `nemo` module, as Python sees it                             |
+| `src/python/transport.ts`      | The two places Python can run, behind one interface              |
+| `src/python/console_server.py` | The local interpreter, served over HTTP                          |
 | `public/models/*.yaml`         | Each model's own solver: its packages and its adapter            |
 | `src/store/pythonStore.ts`     | The transcript, the prompt state, the recall list                |
 

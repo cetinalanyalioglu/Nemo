@@ -356,6 +356,40 @@ body.console-pane-resizing {
   flex-shrink: 0;
 }
 
+.python-runtime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.python-runtime-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.python-runtime-select,
+.python-runtime-address {
+  padding: 3px 6px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.python-runtime-address {
+  width: 22ch;
+  font-family: var(--font-mono);
+}
+
+.python-runtime-select:focus,
+.python-runtime-address:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
 .python-status {
   display: inline-flex;
   align-items: baseline;

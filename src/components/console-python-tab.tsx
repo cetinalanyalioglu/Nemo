@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { IoPlayOutline, IoRefreshOutline, IoTrashOutline } from 'react-icons/io5';
-import { resetPythonBlock, restartPython, runPython } from '../python/python-runtime';
+import {
+  localAddress,
+  resetPythonBlock,
+  restartPython,
+  runPython,
+  runtimeKind,
+  setRuntime,
+} from '../python/python-runtime';
+import type { RuntimeKind } from '../python/transport';
 import { usePythonStore } from '../store/pythonStore';
 import {
   PYTHON_CONTINUATION_PROMPT,
@@ -60,6 +68,55 @@ const TranscriptLine = React.memo(({ entry }: { entry: PythonEntry }) => (
 ));
 
 TranscriptLine.displayName = 'TranscriptLine';
+
+/**
+ * Where Python runs, and — for a local interpreter — the address it was started at.
+ *
+ * The choice is the session's rather than the document's, so it lives beside the app
+ * and not in the case file: which machine is running what is not a property of the
+ * network someone drew.
+ */
+const RuntimePicker = React.memo(() => {
+  const [kind, setKind] = useState<RuntimeKind>(() => runtimeKind());
+  const [address, setAddress] = useState(() => localAddress());
+
+  const choose = (next: RuntimeKind) => {
+    setKind(next);
+    setRuntime(next, address);
+  };
+
+  return (
+    <div className="python-runtime">
+      <label className="python-runtime-label" htmlFor="python-runtime-select">
+        run in
+      </label>
+      <select
+        id="python-runtime-select"
+        className="python-runtime-select"
+        value={kind}
+        onChange={(event) => choose(event.target.value as RuntimeKind)}
+        title="Where the console's Python runs. Either way the prompt is the same."
+      >
+        <option value="browser">the browser</option>
+        <option value="local">this machine</option>
+      </select>
+      {kind === 'local' && (
+        <input
+          className="python-runtime-address"
+          value={address}
+          spellCheck={false}
+          placeholder="http://127.0.0.1:8765/?token=…"
+          aria-label="Address of the local interpreter"
+          title="The address console_server.py prints when it starts"
+          onChange={(event) => setAddress(event.target.value)}
+          onBlur={() => setRuntime('local', address)}
+        />
+      )}
+    </div>
+  );
+});
+
+RuntimePicker.displayName = 'RuntimePicker';
 
 const ConsolePythonTab = React.memo(() => {
   const entries = usePythonStore((s) => s.entries);
@@ -172,6 +229,7 @@ const ConsolePythonTab = React.memo(() => {
           {detail && <span className="python-status-detail">{detail}</span>}
         </span>
         <div className="console-python-actions">
+          <RuntimePicker />
           <button
             type="button"
             className="console-logs-clear"
