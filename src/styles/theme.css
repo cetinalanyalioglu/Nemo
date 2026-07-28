@@ -47,6 +47,21 @@
   --color-canvas-grid-line: #e1e1e1;
   --color-canvas-grid-cross: #d9d9d9;
 
+  /*
+   * Series colours, in draw order: one line, one bar, one trace after another. The
+   * interface itself never needs more than the accent, but a figure with six curves on
+   * it does, and they have to sit with the rest of the palette rather than beside it.
+   * Ordered so the first two are furthest apart, since most figures show one or two.
+   */
+  --color-series-1: #2563eb;
+  --color-series-2: #ea580c;
+  --color-series-3: #059669;
+  --color-series-4: #7c3aed;
+  --color-series-5: #dc2626;
+  --color-series-6: #0284c7;
+  --color-series-7: #ca8a04;
+  --color-series-8: #db2777;
+
   --color-overlay-dark: rgba(0, 0, 0, 0.8);
 
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -112,6 +127,16 @@
 
   --color-canvas-grid-line: #35353f;
   --color-canvas-grid-cross: #40404c;
+
+  /* Lightened so they carry against a dark plot area at the same weight. */
+  --color-series-1: #60a5fa;
+  --color-series-2: #fb923c;
+  --color-series-3: #34d399;
+  --color-series-4: #a78bfa;
+  --color-series-5: #f87171;
+  --color-series-6: #38bdf8;
+  --color-series-7: #fbbf24;
+  --color-series-8: #f472b6;
 
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 2px 5px rgba(0, 0, 0, 0.35);

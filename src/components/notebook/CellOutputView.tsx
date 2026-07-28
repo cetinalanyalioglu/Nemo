@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
+import { useAppearanceState } from '../../context/AppStateContext';
+import { readFigurePalette, themedLayout } from '../../utils/figure-theme';
 import MarkdownContent from '../MarkdownContent';
 import {
   hasData,
@@ -70,10 +72,16 @@ export const loadPlotly = (): Promise<PlotlyModule> => {
   return plotlyPromise;
 };
 
-/** A figure, drawn from the description the interpreter sent. */
+/**
+ * A figure, drawn from the description the interpreter sent — in the app's own colours.
+ *
+ * Redrawn when the theme changes, since a figure is a picture rather than a stylesheet:
+ * nothing about it moves on its own when the palette underneath it does.
+ */
 const PlotlyFigure = React.memo(({ spec }: { spec: Record<string, unknown> }) => {
   const holder = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const { theme } = useAppearanceState();
 
   useEffect(() => {
     let live = true;
@@ -82,7 +90,10 @@ const PlotlyFigure = React.memo(({ spec }: { spec: Record<string, unknown> }) =>
       .then((Plotly) => {
         if (!live || !holder.current) return;
         drawn = holder.current;
-        const layout = { autosize: true, ...((spec.layout as object) ?? {}) };
+        const layout = {
+          autosize: true,
+          ...themedLayout(spec.layout, readFigurePalette()),
+        };
         return Plotly.newPlot(drawn, (spec.data ?? []) as never, layout as never, {
           responsive: true,
           displaylogo: false,
@@ -95,7 +106,8 @@ const PlotlyFigure = React.memo(({ spec }: { spec: Record<string, unknown> }) =>
       // React removing the node is not enough to let go of either.
       if (drawn) void loadPlotly().then((Plotly) => Plotly.purge(drawn!));
     };
-  }, [spec]);
+    // `theme` is not read here, but changing it changes what the stylesheet answers.
+  }, [spec, theme]);
 
   if (failed)
     return <pre className="cell-output-text error">could not draw the figure: {failed}</pre>;

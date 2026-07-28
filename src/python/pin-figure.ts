@@ -15,6 +15,7 @@
 
 import { useGraphStore } from '../store/graphStore';
 import { ANNOTATION_NODE_TYPE } from '../types/annotations';
+import { readFigurePalette, themedLayout } from '../utils/figure-theme';
 import { logger } from '../utils/logger';
 import { hasData, joinLines, type CellOutput, type MultilineString } from '../types/notebook';
 import { loadPlotly } from '../components/notebook/CellOutputView';
@@ -41,7 +42,14 @@ const figureToImage = async (spec: Record<string, unknown>): Promise<string> => 
   )}px;`;
   document.body.appendChild(holder);
   try {
-    const layout = { ...((spec.layout as object) ?? {}) };
+    // Styled like every other figure, but with nothing behind it: it is about to sit on
+    // the canvas, so the canvas is what should show through — in the drawing, and in the
+    // export, where the page underneath is whatever the figure is printed on.
+    const layout = {
+      ...themedLayout(spec.layout, readFigurePalette()),
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+    };
     await Plotly.newPlot(
       holder,
       (spec.data ?? []) as never,

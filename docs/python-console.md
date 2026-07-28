@@ -147,6 +147,30 @@ behave alike.
 (`%timeit`, `%matplotlib`), and matplotlib, which has no browser backend. Plotly is what
 the Nefes examples use and what is supported.
 
+### How a figure is styled
+
+A figure arrives as a description of what to draw and the plotting library's idea of how
+to draw it. Left alone that is a picture from another program sitting in this one, and in
+dark mode it is a white slab.
+
+So the interface supplies the styling and the figure supplies the data. Backgrounds,
+type, gridlines, axis and label colours and the series palette are read from the
+stylesheet **at the moment of drawing**, which means they are the colours the pane around
+the figure is using, they follow the active model's theme, and they follow a light/dark
+change — the figure is redrawn, since a picture does not restyle itself.
+
+What a figure asks for, a figure gets: these are applied _under_ whatever its own layout
+sets, so `fig.update_layout(paper_bgcolor="black")` still comes out black. What they do
+override is a **template** — the styling a library applies on the figure's behalf — since
+that is the thing most likely to disagree with the interface about which mode it is in. A
+figure themed light by its library still comes out dark in a dark app.
+
+The series colours live in `src/styles/theme.css` as `--color-series-1` … `-8`, beside
+the rest of the palette, so there is one place a colour is decided.
+
+A **pinned** figure is drawn the same way but on nothing: its backgrounds are transparent,
+so the canvas shows through it in the drawing and the page shows through it in an export.
+
 ### Where the notebook is kept
 
 The case file carries the notebook's **source cells** and not its outputs — outputs are
