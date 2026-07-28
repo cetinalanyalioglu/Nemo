@@ -33,6 +33,8 @@ interface CellEditorProps {
   onRun: () => void;
   /** Ctrl/Cmd+Enter: run this cell and open a fresh one under it. */
   onRunAndAdd: () => void;
+  /** Ctrl/Cmd+Shift+Up or Down: move this cell one place, without leaving it. */
+  onMove?: (delta: number) => void;
   onFocus?: () => void;
 }
 
@@ -49,14 +51,15 @@ const CellEditor = React.memo(
     onChange,
     onRun,
     onRunAndAdd,
+    onMove,
     onFocus,
   }: CellEditorProps) => {
     const host = useRef<HTMLDivElement>(null);
     const view = useRef<EditorView | null>(null);
     // Held in refs so changing a handler does not tear down and rebuild the editor,
     // which would lose the cursor mid-typing.
-    const handlers = useRef({ onChange, onRun, onRunAndAdd, onFocus });
-    handlers.current = { onChange, onRun, onRunAndAdd, onFocus };
+    const handlers = useRef({ onChange, onRun, onRunAndAdd, onMove, onFocus });
+    handlers.current = { onChange, onRun, onRunAndAdd, onMove, onFocus };
 
     useEffect(() => {
       if (!host.current) return;
@@ -83,6 +86,21 @@ const CellEditor = React.memo(
               key: 'Mod-Enter',
               run: () => {
                 handlers.current.onRunAndAdd();
+                return true;
+              },
+            },
+            // Reordering from the keyboard, for what the gutter does with a drag.
+            {
+              key: 'Mod-Shift-ArrowUp',
+              run: () => {
+                handlers.current.onMove?.(-1);
+                return true;
+              },
+            },
+            {
+              key: 'Mod-Shift-ArrowDown',
+              run: () => {
+                handlers.current.onMove?.(1);
                 return true;
               },
             },

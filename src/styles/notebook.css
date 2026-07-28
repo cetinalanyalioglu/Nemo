@@ -187,6 +187,11 @@
   border-left-color: var(--color-accent);
 }
 
+/*
+ * Also the handle a cell is carried by. The rest of a cell is text, and dragging text
+ * should select it, so the one part of a cell that holds none is the part to pick it up
+ * by.
+ */
 .notebook-cell-gutter {
   display: flex;
   flex-direction: column;
@@ -194,6 +199,45 @@
   gap: 2px;
   padding-top: 4px;
   user-select: none;
+  cursor: grab;
+}
+
+.notebook-cell-gutter:active {
+  cursor: grabbing;
+}
+
+/* Faded while it is in the air, so what is being carried is the thing that looks lifted. */
+.notebook-cell.dragging {
+  opacity: 0.4;
+}
+
+/* The gap it would fall into, drawn across the cell rather than the gutter. */
+.notebook-cell-drop {
+  position: absolute;
+  left: 48px;
+  right: 26px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.notebook-cell-drop.above {
+  top: -4px;
+}
+
+.notebook-cell-drop.below {
+  bottom: -4px;
+}
+
+/*
+ * An editor takes the pointer for its own text drag, and would take a cell dropped on it
+ * as text. While a cell is being carried it stops taking it at all, and the drag reaches
+ * the cell underneath.
+ */
+.results-scroll.dragging .cell-editor,
+.results-scroll.dragging .notebook-cell-outputs {
+  pointer-events: none;
 }
 
 .notebook-cell-run {

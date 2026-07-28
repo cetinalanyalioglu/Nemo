@@ -105,6 +105,84 @@ describe('what a notebook is written out as', () => {
   });
 });
 
+describe('carrying a cell to somewhere else', () => {
+  /** Three cells, named for what they hold, and the id of each. */
+  const three = (): string[] => {
+    store().reset();
+    const a = store().cells[0].id;
+    const b = store().addCell('code', a);
+    const c = store().addCell('code', b);
+    store().setSource(a, 'a');
+    store().setSource(b, 'b');
+    store().setSource(c, 'c');
+    store().markSaved();
+    return [a, b, c];
+  };
+
+  it('lands the cell in the gap it was dropped into', () => {
+    const [, , c] = three();
+    store().startDrag(c);
+    store().hoverGap(0);
+    store().endDrag(true);
+    expect(sources()).toEqual(['c', 'a', 'b']);
+  });
+
+  it('reads the gap against the list the cell is still in', () => {
+    // Gap 3 is under 'c' while 'a' is still first; once 'a' is lifted out it is the end.
+    const [a] = three();
+    store().startDrag(a);
+    store().hoverGap(3);
+    store().endDrag(true);
+    expect(sources()).toEqual(['b', 'c', 'a']);
+  });
+
+  it('draws no line for either gap beside where the cell already is', () => {
+    const [, b] = three();
+    store().startDrag(b);
+    store().hoverGap(1);
+    expect(store().dropSlot).toBeNull();
+    store().hoverGap(2);
+    expect(store().dropSlot).toBeNull();
+    store().hoverGap(0);
+    expect(store().dropSlot).toBe(0);
+  });
+
+  it('leaves the notebook alone when the cell is let go of nowhere', () => {
+    const [, , c] = three();
+    store().startDrag(c);
+    store().hoverGap(0);
+    store().endDrag(false);
+    expect(sources()).toEqual(['a', 'b', 'c']);
+    expect(store().dragId).toBeNull();
+    expect(store().dropSlot).toBeNull();
+    expect(store().dirty).toBe(false);
+  });
+
+  it('leaves it alone when it is dropped without a gap under it', () => {
+    const [, , c] = three();
+    store().startDrag(c);
+    store().endDrag(true);
+    expect(sources()).toEqual(['a', 'b', 'c']);
+    expect(store().dirty).toBe(false);
+  });
+
+  it('keeps hold of the cell that was moved, and counts the move as a change', () => {
+    const [, , c] = three();
+    store().startDrag(c);
+    store().hoverGap(1);
+    store().endDrag(true);
+    expect(sources()).toEqual(['a', 'c', 'b']);
+    expect(store().selectedId).toBe(c);
+    expect(store().dirty).toBe(true);
+  });
+
+  it('reports no gap when nothing is being carried', () => {
+    three();
+    store().hoverGap(2);
+    expect(store().dropSlot).toBeNull();
+  });
+});
+
 describe('whether there is anything unsaved', () => {
   beforeEach(() => store().reset());
 

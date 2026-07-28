@@ -185,6 +185,10 @@ they produced kept beneath them.
 - A cell carries one control, to delete it, and it sits in a gutter to the right of the
   cell rather than over it. The selected cell is marked by a rail down its left edge, so
   a figure or a table beneath it keeps the background it was drawn to sit on.
+- **Cells are reordered by dragging the gutter on the left**, where the run arrow and the
+  count are, since the rest of a cell is text and dragging text should select it. A line
+  shows where it would land, and no line means the drop would move it nowhere.
+  **Ctrl/Cmd+Shift+Up** and **Down** do the same without leaving the editor.
 
 ### Your existing notebooks open here
 

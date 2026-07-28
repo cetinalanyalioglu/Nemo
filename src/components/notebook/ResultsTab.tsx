@@ -50,6 +50,7 @@ const ResultsTab = React.memo(() => {
   const runState = useNotebookStore((s) => s.runState);
   const selectedId = useNotebookStore((s) => s.selectedId);
   const running = useNotebookStore((s) => s.running);
+  const carrying = useNotebookStore((s) => s.dragId !== null);
   const status = usePythonStore((s) => s.status);
   const detail = usePythonStore((s) => s.detail);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -159,7 +160,9 @@ const ResultsTab = React.memo(() => {
         </div>
       </div>
 
-      <div className="results-scroll">
+      {/* While a cell is in the air the editors stop taking the pointer, so the cell
+          under it sees the drag rather than the text box inside it. */}
+      <div className={`results-scroll ${carrying ? 'dragging' : ''}`}>
         {empty && (
           <div className="results-opening">
             <React.Suspense fallback={null}>
@@ -167,10 +170,11 @@ const ResultsTab = React.memo(() => {
             </React.Suspense>
           </div>
         )}
-        {cells.map((cell) => (
+        {cells.map((cell, index) => (
           <NotebookCellView
             key={cell.id}
             cell={cell}
+            index={index}
             state={runState[cell.id] ?? 'idle'}
             selected={selectedId === cell.id}
           />

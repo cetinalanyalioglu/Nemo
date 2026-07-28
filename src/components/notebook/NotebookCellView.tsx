@@ -14,6 +14,11 @@ import CellOutputView, { isPinnable } from './CellOutputView';
  * reads rather than how a form behaves. A code cell keeps its editor open and its
  * outputs beneath, each of which can be pinned to the canvas when it is something to
  * look at.
+ *
+ * The gutter beside a cell is also its handle: a cell is picked up there and dropped
+ * between two others, because the rest of a cell is text and dragging text should select
+ * it. Ctrl/Cmd+Shift+Up and Down do the same from the keyboard, without leaving the
+ * editor.
  */
 
 /** The marker beside a cell, saying where it stands with the interpreter. */
@@ -25,14 +30,38 @@ const RUN_MARK: Record<CellRunState, string> = {
   failed: '[!]',
 };
 
+/** What a cell is dragged as. Not `text/plain`, which the editor would take as text. */
+const CELL_DRAG_TYPE = 'application/x-nemo-cell';
+
 interface NotebookCellViewProps {
   cell: NotebookCell;
   state: CellRunState;
   selected: boolean;
+  /** Where this cell sits in the notebook, which is what a drop is measured against. */
+  index: number;
 }
 
-const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellViewProps) => {
-  const { select, setSource, removeCell, runCell, addCell } = useNotebookStore.getState();
+const NotebookCellView = React.memo(({ cell, state, selected, index }: NotebookCellViewProps) => {
+  const {
+    select,
+    setSource,
+    removeCell,
+    runCell,
+    addCell,
+    moveCell,
+    startDrag,
+    hoverGap,
+    endDrag,
+  } = useNotebookStore.getState();
+  const dragging = useNotebookStore((s) => s.dragId === cell.id);
+  // The line is drawn above the cell whose gap it is, except the last gap of all, which
+  // has no cell below it to hang from.
+  const dropLine = useNotebookStore((s) => {
+    if (s.dropSlot === null) return null;
+    if (s.dropSlot === index) return 'above';
+    if (s.dropSlot === s.cells.length && index === s.cells.length - 1) return 'below';
+    return null;
+  });
   // A markdown cell reads as prose and edits when asked; a fresh one opens for editing,
   // since an empty note has nothing to read.
   const [editing, setEditing] = useState(joinLines(cell.source).length === 0);
@@ -61,13 +90,48 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
       : RUN_MARK[state]
     : '';
 
+  /** Which side of this cell the pointer is on, as the gap a drop would fall into. */
+  const gapUnder = useCallback(
+    (event: React.DragEvent<HTMLDivElement>): number => {
+      const box = event.currentTarget.getBoundingClientRect();
+      return event.clientY > box.top + box.height / 2 ? index + 1 : index;
+    },
+    [index]
+  );
+
   return (
     <div
-      className={`notebook-cell ${cell.cell_type} ${selected ? 'selected' : ''} ${state}`}
+      className={`notebook-cell ${cell.cell_type} ${selected ? 'selected' : ''} ${state} ${
+        dragging ? 'dragging' : ''
+      }`}
       onFocus={() => select(cell.id)}
       onClick={() => select(cell.id)}
+      onDragOver={(event) => {
+        if (!useNotebookStore.getState().dragId) return;
+        // Without this the drop is refused, and the pointer says so.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        hoverGap(gapUnder(event));
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        endDrag(true);
+      }}
     >
-      <div className="notebook-cell-gutter">
+      {dropLine && <div className={`notebook-cell-drop ${dropLine}`} aria-hidden />}
+
+      <div
+        className="notebook-cell-gutter"
+        draggable
+        title="Drag to move this cell (Ctrl+Shift+Up or Down)"
+        onDragStart={(event) => {
+          // Firefox starts no drag at all unless the event carries something.
+          event.dataTransfer.setData(CELL_DRAG_TYPE, cell.id);
+          event.dataTransfer.effectAllowed = 'move';
+          startDrag(cell.id);
+        }}
+        onDragEnd={() => endDrag(false)}
+      >
         <button
           type="button"
           className="notebook-cell-run"
@@ -99,6 +163,7 @@ const NotebookCellView = React.memo(({ cell, state, selected }: NotebookCellView
             onChange={(next) => setSource(cell.id, next)}
             onRun={run}
             onRunAndAdd={runAndAdd}
+            onMove={(delta) => moveCell(cell.id, delta)}
             onFocus={() => select(cell.id)}
           />
         )}

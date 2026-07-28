@@ -33,6 +33,14 @@ interface NotebookStore {
   runState: Record<string, CellRunState>;
   /** The cell the toolbar acts on, or null when none is selected. */
   selectedId: string | null;
+  /** The cell being carried, while one is being dragged. Session only. */
+  dragId: string | null;
+  /**
+   * Where a drop would put it: the gap it would fall into, counting from 0 above the
+   * first cell to `cells.length` below the last. Null when a drop would move it nowhere,
+   * and so when no line is drawn. Session only.
+   */
+  dropSlot: number | null;
   /** Counts executions, as a notebook numbers its cells. */
   executionCount: number;
   /** Whether anything has changed since the notebook was opened or saved. */
@@ -44,6 +52,14 @@ interface NotebookStore {
   addCell: (kind: CellKind, afterId?: string | null) => string;
   removeCell: (id: string) => void;
   moveCell: (id: string, delta: number) => void;
+
+  /** Picks a cell up. */
+  startDrag: (id: string) => void;
+  /** Reports the gap under the pointer, or null when it is over none. */
+  hoverGap: (slot: number | null) => void;
+  /** Puts it down: in the gap if `drop`, and back where it came from otherwise. */
+  endDrag: (drop: boolean) => void;
+
   setSource: (id: string, source: string) => void;
   setKind: (id: string, kind: CellKind) => void;
   clearOutputs: (id?: string) => void;
@@ -84,6 +100,8 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
   metadata: {},
   runState: {},
   selectedId: null,
+  dragId: null,
+  dropSlot: null,
   executionCount: 0,
   dirty: false,
   running: false,
@@ -124,6 +142,36 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       const [cell] = cells.splice(from, 1);
       cells.splice(to, 0, cell);
       return { cells, dirty: true };
+    }),
+
+  startDrag: (dragId) => set({ dragId, dropSlot: null }),
+
+  hoverGap: (slot) =>
+    set((s) => {
+      if (s.dragId === null) return {};
+      const from = s.cells.findIndex((c) => c.id === s.dragId);
+      // The gaps either side of where a cell already sits would put it back where it
+      // was, so neither is a drop and neither draws a line.
+      const nowhere = slot === null || slot === from || slot === from + 1;
+      const dropSlot = nowhere ? null : slot;
+      // Dragging reports continuously; only a changed answer is worth a redraw.
+      return dropSlot === s.dropSlot ? {} : { dropSlot };
+    }),
+
+  endDrag: (drop) =>
+    set((s) => {
+      const { dragId, dropSlot } = s;
+      const idle = { dragId: null, dropSlot: null };
+      if (!drop || dragId === null || dropSlot === null) return idle;
+      const from = s.cells.findIndex((c) => c.id === dragId);
+      if (from < 0) return idle;
+      const cells = [...s.cells];
+      const [cell] = cells.splice(from, 1);
+      // The gap was read against the list with the cell still in it, so a gap below the
+      // cell closes up by one once it is lifted out.
+      cells.splice(dropSlot > from ? dropSlot - 1 : dropSlot, 0, cell);
+      // Selected where it landed, so it is still the cell being worked on.
+      return { ...idle, cells, dirty: true, selectedId: dragId };
     }),
 
   setSource: (id, source) =>
