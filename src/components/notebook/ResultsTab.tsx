@@ -6,7 +6,7 @@ import {
   IoPlayForwardOutline,
   IoTrashOutline,
 } from 'react-icons/io5';
-import { useSolverExample } from '../../python/example';
+import { firstExampleLine, useSolverExample } from '../../python/example';
 import { parseNotebook, serializeNotebook } from '../../python/ipynb';
 import { useNotebookStore } from '../../store/notebookStore';
 import { usePythonStore } from '../../store/pythonStore';
@@ -57,6 +57,9 @@ const ResultsTab = React.memo(() => {
   // The model's own, since what a useful first line looks like depends on its solver.
   // Subscribed, because a model is fetched and is not there for the first render.
   const example = useSolverExample();
+  // Handed down rather than read in the cell: a cell is memoized on its own props, so
+  // one that read this itself would keep the line it first rendered with.
+  const placeholder = firstExampleLine(example);
 
   const openFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -177,6 +180,7 @@ const ResultsTab = React.memo(() => {
             index={index}
             state={runState[cell.id] ?? 'idle'}
             selected={selectedId === cell.id}
+            placeholder={placeholder}
           />
         ))}
         {/* A rule with a button sitting on it: present where a cell would go, and out

@@ -76,11 +76,23 @@ describe('consoleStore verbosity', () => {
     expect(useConsoleStore.getState().entries).toHaveLength(1);
   });
 
-  it('opens quiet enough to leave out the running commentary', () => {
-    // The point of the default: an outcome is worth a line, a step taken towards one
-    // is not. Pinned because it is the whole of what "less verbose" means here.
-    const rank = { debug: 0, info: 1, success: 2, warn: 3, error: 4 };
-    expect(rank[CONSOLE_VERBOSITY_DEFAULT]).toBeGreaterThan(rank.info);
+  it('opens keeping everything that answers something the user did', () => {
+    // The rule the levels encode, and the one that decides which level a call site
+    // should use: a message reporting the outcome of an action someone took survives
+    // the default, and only the app's account of its own progress is left out. A site
+    // that explains why a click did nothing is `warn` or `success` for this reason.
+    useConsoleStore.getState().setVerbosity(CONSOLE_VERBOSITY_DEFAULT);
+    useConsoleStore.getState().clear();
+
+    const { append } = useConsoleStore.getState();
+    (['success', 'warn', 'error'] as const).forEach((level) => append(level, level));
+    (['info', 'debug'] as const).forEach((level) => append(level, level));
+
+    expect(useConsoleStore.getState().entries.map((e) => e.level)).toEqual([
+      'success',
+      'warn',
+      'error',
+    ]);
   });
 
   it('remembers the choice between sessions', () => {

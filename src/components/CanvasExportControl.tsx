@@ -55,7 +55,9 @@ const CanvasExportControl = memo(() => {
       setBusy(format);
       try {
         const ok = await exportCanvas(format, reactFlowInstance, { monochrome });
-        if (!ok) logger.info('Nothing to export — the canvas is empty.');
+        // Warned rather than noted: this is the only account of why a click on Export
+        // produced no file, so it has to outlive a log turned down.
+        if (!ok) logger.warn('Nothing to export — the canvas is empty.');
       } catch {
         window.alert(
           `Sorry, the ${format.toUpperCase()} export failed. See the console for details.`

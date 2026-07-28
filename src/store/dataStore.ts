@@ -475,7 +475,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
     });
     if (accepted.length === 0) return 0;
     set((s) => ({ datasets: [...s.datasets, ...accepted], loadCount: s.loadCount + 1 }));
-    logger.info(`Imported ${accepted.length} dataset${accepted.length === 1 ? '' : 's'}.`);
+    logger.success(`Imported ${accepted.length} dataset${accepted.length === 1 ? '' : 's'}.`);
     return accepted.length;
   },
 

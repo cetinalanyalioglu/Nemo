@@ -112,7 +112,7 @@ The server is standard library only, so it runs wherever the solver does, and it
 
 One thing to expect from a **published** copy of the app rather than a checkout: the page is served over https and the local interpreter is reached over plain http on the loopback interface, and whether a browser allows that is the browser's own rule.
 Chromium allows it — measured, from a page whose origin is not itself localhost — so the option works there.
-Other browsers treat the loopback exemption differently, so a published copy is not the place to rely on it.
+Other browsers were not measured, so a published copy is not the place to rely on it.
 The browser interpreter is unaffected, needs nothing running, and is what a published copy is for.
 
 ## Serving it from a static host
