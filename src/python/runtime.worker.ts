@@ -17,6 +17,7 @@
 import type { PyodideInterface } from 'pyodide';
 import type { CellOutput } from '../types/notebook';
 import DISPLAY_SHIMS_SOURCE from './display-shims.py?raw';
+import HINTS_MODULE_SOURCE from './hints.py?raw';
 import NEMO_MODULE_SOURCE from './nemo-module.py?raw';
 import SESSION_MODULE_SOURCE from './session.py?raw';
 import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
@@ -32,6 +33,9 @@ const SOLVER_MODULE_PATH = '/home/pyodide/_nemo_solver.py';
 
 /** Where the session's own bookkeeping is written: what names it holds, and forgetting them. */
 const SESSION_MODULE_PATH = '/home/pyodide/_nemo_session.py';
+
+/** Where the completer is written: what could finish a name, and what a call takes. */
+const HINTS_MODULE_PATH = '/home/pyodide/_nemo_hints.py';
 
 /**
  * Set up before every submission and read by `nemo.case()`. Assigning the case here
@@ -59,6 +63,8 @@ let display: any = null;
 let mainNamespace: any = null;
 /** What names the session holds, and forgetting them. */
 let session: any = null;
+/** What could finish what is being typed, and what the call it is inside takes. */
+let hints: any = null;
 /** The submission being run, so stream output can be attributed to it. */
 let activeRun = -1;
 
@@ -154,6 +160,7 @@ const boot = async (indexURL: string, wheels: string[], adapter: string): Promis
   py.FS.writeFile(NEMO_MODULE_PATH, NEMO_MODULE_SOURCE);
   py.FS.writeFile(DISPLAY_MODULE_PATH, DISPLAY_SHIMS_SOURCE);
   py.FS.writeFile(SESSION_MODULE_PATH, SESSION_MODULE_SOURCE);
+  py.FS.writeFile(HINTS_MODULE_PATH, HINTS_MODULE_SOURCE);
 
   // Built inside a function so the names it needs are local to it. Run at the top level
   // this would work in __main__ -- which is the prompt's own namespace -- and leave
@@ -179,6 +186,7 @@ _build_console()
   pyconsole.stderr_callback = stream('stderr');
   display = py.pyimport('_nemo_display');
   session = py.pyimport('_nemo_session');
+  hints = py.pyimport('_nemo_hints');
   mainNamespace = py.runPython('import __main__; __main__.__dict__');
 
   const described = loadAdapter(py, adapter);
@@ -276,8 +284,51 @@ const reportError = (formatted: string): void => {
   });
 };
 
+/**
+ * Answers a question about what is being typed.
+ *
+ * Nothing here starts an interpreter or waits for one: a question asked before Python is
+ * up, or while it is inside a solve, is answered with nothing rather than held. Someone
+ * typing would rather have no list than a pause.
+ */
+const answerHint = (message: HostMessage & { kind: 'complete' | 'signature' }): void => {
+  if (message.kind === 'complete') {
+    if (!hints) {
+      post({ kind: 'completions', hintId: message.hintId, items: [], from: 0 });
+      return;
+    }
+    const found = hints.completions(message.source, mainNamespace);
+    const { items, from } = found.toJs({ dict_converter: Object.fromEntries });
+    found.destroy();
+    post({ kind: 'completions', hintId: message.hintId, items, from });
+    return;
+  }
+  if (!hints) {
+    post({ kind: 'signature', hintId: message.hintId, hint: null });
+    return;
+  }
+  const found = hints.signature(message.source, mainNamespace);
+  const hint = found ? found.toJs({ dict_converter: Object.fromEntries }) : null;
+  found?.destroy();
+  post({ kind: 'signature', hintId: message.hintId, hint });
+};
+
 self.onmessage = async (event: MessageEvent<HostMessage>) => {
   const message = event.data;
+  if (message.kind === 'complete' || message.kind === 'signature') {
+    try {
+      answerHint(message);
+    } catch {
+      // A question about half-written code is allowed to have no answer, and saying so
+      // is the whole of what a failure here means.
+      if (message.kind === 'complete') {
+        post({ kind: 'completions', hintId: message.hintId, items: [], from: 0 });
+      } else {
+        post({ kind: 'signature', hintId: message.hintId, hint: null });
+      }
+    }
+    return;
+  }
   if (message.kind === 'boot') {
     try {
       await boot(message.indexURL, message.wheels, message.adapter);

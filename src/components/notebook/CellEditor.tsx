@@ -9,6 +9,7 @@ import {
 } from '@codemirror/language';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
+import { pythonHints } from './python-hints';
 
 /**
  * The box a cell is written in.
@@ -40,6 +41,7 @@ interface CellEditorProps {
 
 /** Held apart so the language can be swapped when a cell changes kind. */
 const languageSlot = new Compartment();
+const hintsSlot = new Compartment();
 const readOnlySlot = new Compartment();
 
 const CellEditor = React.memo(
@@ -111,6 +113,9 @@ const CellEditor = React.memo(
             ...historyKeymap,
           ]),
           languageSlot.of(language === 'python' ? python() : []),
+          // Asked of the interpreter, so the names offered are the ones the session is
+          // actually holding. A note is prose and has none of this.
+          hintsSlot.of(language === 'python' ? pythonHints() : []),
           readOnlySlot.of(EditorState.readOnly.of(Boolean(readOnly))),
           placeholder(placeholderText ?? ''),
           EditorView.lineWrapping,
@@ -143,7 +148,10 @@ const CellEditor = React.memo(
 
     useEffect(() => {
       view.current?.dispatch({
-        effects: languageSlot.reconfigure(language === 'python' ? python() : []),
+        effects: [
+          languageSlot.reconfigure(language === 'python' ? python() : []),
+          hintsSlot.reconfigure(language === 'python' ? pythonHints() : []),
+        ],
       });
     }, [language]);
 

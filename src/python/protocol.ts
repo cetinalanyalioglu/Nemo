@@ -43,6 +43,26 @@ export interface WorkspaceVariable {
   summary: string;
 }
 
+/** One name the interpreter offers to finish what is being written. */
+export interface Completion {
+  /** The name itself, which is what is written in when it is chosen. */
+  label: string;
+  /** What sort of thing it is: `function`, `class`, `namespace`, `keyword`, and so on. */
+  kind: string;
+  /** What it takes where it takes anything, what type it is otherwise. */
+  detail: string;
+}
+
+/** What the call being written takes, read off the thing being called. */
+export interface SignatureHint {
+  /** The call written out: its name and its parameters. */
+  label: string;
+  /** The argument the caret is in, where that can be said. */
+  parameter: string;
+  /** What the documentation says about that argument, or the opening of the docstring. */
+  doc: string;
+}
+
 /** Something Python asked the canvas to do. Fire-and-forget, applied in arrival order. */
 export type BridgeCall =
   /** Add result datasets to the canvas, in the shape the case format declares. */
@@ -74,7 +94,17 @@ export type HostMessage =
   /** What names is the session holding? Answered with a `workspace`. */
   | { kind: 'workspace' }
   /** Forget them. The interpreter and its imports stay; only the names go. */
-  | { kind: 'clear-workspace' };
+  | { kind: 'clear-workspace' }
+  /**
+   * What could finish what has been written up to the caret, and what does the call it
+   * is inside take?
+   *
+   * `hintId` rather than `runId`: these are asked while typing and answered out of turn,
+   * so a slow answer to an old question has to be recognised and dropped rather than
+   * shown against what is on the screen now. They run nothing and change nothing.
+   */
+  | { kind: 'complete'; hintId: number; source: string }
+  | { kind: 'signature'; hintId: number; source: string };
 
 /** Sent by the worker, back to the host. */
 export type WorkerMessage =
@@ -95,4 +125,8 @@ export type WorkerMessage =
   /** Python asked the canvas for something. */
   | { kind: 'bridge'; call: BridgeCall }
   /** The names the session is holding, in answer to a `workspace` or a clear. */
-  | { kind: 'workspace'; variables: WorkspaceVariable[] };
+  | { kind: 'workspace'; variables: WorkspaceVariable[] }
+  /** What could finish the word. `from` is the offset in the source that they replace. */
+  | { kind: 'completions'; hintId: number; items: Completion[]; from: number }
+  /** What the call being written takes, or null where there is no call to describe. */
+  | { kind: 'signature'; hintId: number; hint: SignatureHint | null };

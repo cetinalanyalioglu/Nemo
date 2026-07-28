@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { IoPlayOutline, IoRefreshOutline, IoTrashOutline } from 'react-icons/io5';
 import {
+  askForCompletions,
+  askForSignature,
   localAddress,
   resetPythonBlock,
   restartPython,
@@ -73,6 +75,35 @@ export const fitToContent = (input: HTMLTextAreaElement | null): void => {
   if (!input) return;
   input.style.height = 'auto';
   if (input.scrollHeight > 0) input.style.height = `${input.scrollHeight}px`;
+};
+
+/** Most names listed at once when Tab cannot choose between them. */
+const LISTED_LIMIT = 60;
+
+/**
+ * The most that can be written in without choosing between the names offered.
+ *
+ * What every name begins with is not a choice, so Tab can write it and leave the choice
+ * for the next keystroke. This is what a terminal does, and the habit anyone typing at a
+ * prompt already has.
+ */
+export const sharedPrefix = (labels: string[]): string => {
+  if (labels.length === 0) return '';
+  let prefix = labels[0];
+  for (const label of labels.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < label.length && prefix[i] === label[i]) i += 1;
+    prefix = prefix.slice(0, i);
+    if (prefix.length === 0) break;
+  }
+  return prefix;
+};
+
+/** The names as one line of the transcript, saying how many were left out. */
+export const listedNames = (labels: string[]): string => {
+  const shown = labels.slice(0, LISTED_LIMIT).join('  ');
+  const hidden = labels.length - LISTED_LIMIT;
+  return hidden > 0 ? `${shown}  … and ${hidden} more` : shown;
 };
 
 /** The marker a transcript line is shown behind, where it has one. */
@@ -219,9 +250,59 @@ const ConsolePythonTab = React.memo(() => {
     [history, recallAt]
   );
 
+  /**
+   * Finishes the name being typed, as a terminal does.
+   *
+   * One name is written in. Several are written in as far as they agree and listed when
+   * they agree no further. Nothing to finish is taken as a question about the call the
+   * caret is in, which is the other thing worth knowing mid-line.
+   */
+  const complete = useCallback(
+    async (input: HTMLTextAreaElement) => {
+      const caret = input.selectionStart ?? draft.length;
+      const source = draft.slice(0, caret);
+      const { items, from } = await askForCompletions(source);
+      const store = usePythonStore.getState();
+      const typed = source.slice(from);
+
+      // Nothing half-typed is a question about the call the caret is in. Listing every
+      // name there is would be an answer to a question nobody asked; a dot is the one
+      // case where an empty word does mean "what is behind this".
+      const wantsNames = typed.length > 0 || source.endsWith('.');
+      if (!wantsNames || items.length === 0) {
+        const hint = await askForSignature(source);
+        if (hint) {
+          store.append('note', hint.label);
+          if (hint.doc) store.append('note', hint.doc);
+        }
+        if (!wantsNames || items.length === 0) return;
+      }
+
+      const labels = items.map((item) => item.label);
+      const chosen = labels.length === 1 ? labels[0] : sharedPrefix(labels);
+      if (chosen.length > typed.length) {
+        setDraft(source.slice(0, from) + chosen + draft.slice(caret));
+        // Set once React has written the new text in, or the caret would be placed in
+        // the draft as it was before.
+        const at = from + chosen.length;
+        requestAnimationFrame(() => input.setSelectionRange(at, at));
+        return;
+      }
+      if (labels.length > 1) store.append('note', listedNames(labels));
+    },
+    [draft]
+  );
+
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const input = event.currentTarget;
+      // Tab finishes a name here rather than leaving the prompt, as it does at any other
+      // prompt; Shift+Tab is left alone, so there is still a way out by keyboard.
+      if (event.key === 'Tab' && !event.shiftKey) {
+        event.preventDefault();
+        void complete(input);
+        return;
+      }
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         void submit();
@@ -242,7 +323,7 @@ const ConsolePythonTab = React.memo(() => {
         event.preventDefault();
       }
     },
-    [pending, recall, submit]
+    [complete, pending, recall, submit]
   );
 
   const busy = status === 'busy' || status === 'starting';

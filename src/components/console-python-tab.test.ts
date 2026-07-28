@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitToContent } from './console-python-tab';
+import { fitToContent, listedNames, sharedPrefix } from './console-python-tab';
 
 /** A textarea whose content height is `scrollHeight`, as the browser would report it. */
 const promptWith = (scrollHeight: number): HTMLTextAreaElement => {
@@ -28,5 +28,36 @@ describe('the growing prompt', () => {
 
   it('does nothing when there is no prompt yet', () => {
     expect(() => fitToContent(null)).not.toThrow();
+  });
+});
+
+describe('what Tab can write in without choosing', () => {
+  it('writes the whole name when only one was offered', () => {
+    expect(sharedPrefix(['solve'])).toBe('solve');
+  });
+
+  it('writes as far as the names agree', () => {
+    expect(sharedPrefix(['field', 'fields', 'field_names'])).toBe('field');
+  });
+
+  it('writes nothing when they agree nowhere', () => {
+    expect(sharedPrefix(['area', 'length'])).toBe('');
+  });
+
+  it('has nothing to write when nothing was offered', () => {
+    expect(sharedPrefix([])).toBe('');
+  });
+});
+
+describe('the names Tab lists when it cannot choose', () => {
+  it('puts them on one line', () => {
+    expect(listedNames(['area', 'length'])).toBe('area  length');
+  });
+
+  it('says how many it left out rather than running down the pane', () => {
+    const many = Array.from({ length: 75 }, (_, i) => `name${i}`);
+    const listed = listedNames(many);
+    expect(listed).toContain('… and 15 more');
+    expect(listed).not.toContain('name60');
   });
 });

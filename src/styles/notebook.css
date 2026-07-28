@@ -341,6 +341,95 @@
   border-color: var(--color-border);
 }
 
+/* ------------------------------------------- what the interpreter offers while typing */
+
+/*
+ * CodeMirror brings its own look for these, which is nobody's design language. They are
+ * restated in the app's own, so a list of names reads as part of the same program as the
+ * panel behind it.
+ */
+.cm-tooltip.cm-tooltip-autocomplete,
+.cm-tooltip:has(> .cm-signature) {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/*
+ * Written against the same shape CodeMirror states its own theme in, since a rule that
+ * only ties as hard as theirs loses to it.
+ */
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  max-height: 220px;
+  font-family: var(--font-mono);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  color: var(--color-text-primary);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionLabel {
+  flex: none;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionMatchedText {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* What it takes, or what type it is: there to be glanced at, not read first. */
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail {
+  overflow: hidden;
+  margin-left: auto;
+  max-width: 60%;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionIcon {
+  width: 1em;
+  opacity: 0.7;
+  color: var(--color-text-secondary);
+}
+
+.cm-signature {
+  padding: 6px 8px;
+  max-width: 460px;
+}
+
+.cm-signature-label {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* The documentation of the argument being written, where there is any. */
+.cm-signature-doc {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-subtle);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
 .cell-editor .cm-editor {
   font-family: var(--font-mono);
   font-size: 12px;

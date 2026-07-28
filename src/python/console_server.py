@@ -40,6 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 NEMO_MODULE = os.path.join(HERE, "nemo-module.py")
 DISPLAY_MODULE = os.path.join(HERE, "display-shims.py")
 SESSION_MODULE = os.path.join(HERE, "session.py")
+HINTS_MODULE = os.path.join(HERE, "hints.py")
 
 DEFAULT_PORT = 8765
 
@@ -72,6 +73,7 @@ class Session:
         self.host = None
         self.display = None
         self.session = None
+        self.hints = None
         self.lock = threading.Lock()
 
     def bind(self, emit, show) -> None:
@@ -92,6 +94,8 @@ class Session:
             self.display = _load_module("_nemo_display", fh.read())
         with open(SESSION_MODULE) as fh:
             self.session = _load_module("_nemo_session", fh.read())
+        with open(HINTS_MODULE) as fh:
+            self.hints = _load_module("_nemo_hints", fh.read())
         with open(NEMO_MODULE) as fh:
             nemo = _load_module("nemo", fh.read())
         # As in a notebook, both are there before the first line rather than waiting to
@@ -127,6 +131,16 @@ class Session:
         if self.session:
             self.session.clear(self.namespace)
         return self.variables()
+
+    def completions(self, source: str) -> dict:
+        """What could finish the word at the end of ``source``."""
+        if self.hints is None:
+            return {"items": [], "from": 0}
+        return self.hints.completions(source, self.namespace)
+
+    def signature(self, source: str):
+        """What the call being written takes, or None where there is no call."""
+        return self.hints.signature(source, self.namespace) if self.hints else None
 
     def run_block(self, source: str) -> dict:
         """Run a whole cell.
@@ -294,6 +308,17 @@ class Handler(BaseHTTPRequestHandler):
         elif kind == "clear-workspace":
             self._reply(
                 {"kind": "workspace", "variables": self.server.session.clear_variables()}
+            )
+        elif kind == "complete":
+            found = self.server.session.completions(message.get("source", ""))
+            self._reply({"kind": "completions", "hintId": message.get("hintId"), **found})
+        elif kind == "signature":
+            self._reply(
+                {
+                    "kind": "signature",
+                    "hintId": message.get("hintId"),
+                    "hint": self.server.session.signature(message.get("source", "")),
+                }
             )
 
     def _boot(self, message: dict) -> None:

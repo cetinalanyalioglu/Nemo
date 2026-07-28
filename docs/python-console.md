@@ -190,6 +190,32 @@ they produced kept beneath them.
   shows where it would land, and no line means the drop would move it nowhere.
   **Ctrl/Cmd+Shift+Up** and **Down** do the same without leaving the editor.
 
+### What the interpreter knows about what you are writing
+
+Names are completed and calls describe themselves, and both answers come from the
+interpreter rather than from a reading of the text.
+
+- **In a cell**, names appear as you type and **Ctrl+Space** asks for them outright.
+  Beside each is what it takes, or what type it is.
+- **What a call takes** appears above the line while its arguments are being written,
+  together with what the documentation says about _that_ argument — which for a solver is
+  usually where the units are.
+- **At the prompt**, **Tab** finishes a name. Where several fit it writes them in as far
+  as they agree and lists them when they agree no further, as a terminal does. With
+  nothing half-typed it says what the call the caret is in takes.
+
+Asking the interpreter is what makes the answers the solver's own: `sol.` lists the
+fields of the solution in hand rather than of solutions in general, and it does so for
+whatever model is on the canvas without the app knowing one solver from another.
+
+It is also the limit, and worth expecting: a name exists once something has defined it, so
+a cell written before anything has run has little to offer, and the same cell after a run
+has the lot.
+
+Nothing being written is run to answer. Plain dotted names are evaluated and no more, so
+`net.solve().` completes nothing rather than solving anything, and attributes are read
+without waking the properties behind them.
+
 ### Your existing notebooks open here
 
 **Open** takes a `.ipynb` and **Save** writes one, because the cells were already in the
@@ -367,21 +393,23 @@ The console installs whatever the manifest lists, in order.
 
 ## Where the pieces are
 
-| File                           | What it holds                                                    |
-| ------------------------------ | ---------------------------------------------------------------- |
-| `src/python/protocol.ts`       | The messages the console and the interpreter exchange            |
-| `src/python/runtime.worker.ts` | The interpreter itself, off the main thread                      |
-| `src/python/python-runtime.ts` | Starting it, feeding it lines, routing what comes back           |
-| `src/python/bridge.ts`         | What Python is allowed to do to the canvas, and the checks on it |
-| `src/python/nemo-module.py`    | The `nemo` module, as Python sees it                             |
-| `src/python/transport.ts`      | The two places Python can run, behind one interface              |
-| `src/python/console_server.py` | The local interpreter, served over HTTP                          |
-| `public/models/*.yaml`         | Each model's own solver: its packages and its adapter            |
-| `src/store/pythonStore.ts`     | The transcript, the prompt state, the recall list                |
-| `src/store/notebookStore.ts`   | The cells, in the shape a `.ipynb` holds them                    |
-| `src/python/ipynb.ts`          | Reading and writing that file                                    |
-| `src/python/display-shims.py`  | The display protocol, and what makes notebook code run unchanged |
-| `src/python/pin-figure.ts`     | Turning a figure output into an annotation                       |
-| `src/components/notebook/`     | The Results tab: cells, the editor, the output renderers         |
+| File                                      | What it holds                                                    |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `src/python/protocol.ts`                  | The messages the console and the interpreter exchange            |
+| `src/python/runtime.worker.ts`            | The interpreter itself, off the main thread                      |
+| `src/python/python-runtime.ts`            | Starting it, feeding it lines, routing what comes back           |
+| `src/python/bridge.ts`                    | What Python is allowed to do to the canvas, and the checks on it |
+| `src/python/nemo-module.py`               | The `nemo` module, as Python sees it                             |
+| `src/python/transport.ts`                 | The two places Python can run, behind one interface              |
+| `src/python/console_server.py`            | The local interpreter, served over HTTP                          |
+| `public/models/*.yaml`                    | Each model's own solver: its packages and its adapter            |
+| `src/store/pythonStore.ts`                | The transcript, the prompt state, the recall list                |
+| `src/store/notebookStore.ts`              | The cells, in the shape a `.ipynb` holds them                    |
+| `src/python/ipynb.ts`                     | Reading and writing that file                                    |
+| `src/python/display-shims.py`             | The display protocol, and what makes notebook code run unchanged |
+| `src/python/hints.py`                     | What could finish a name, and what a call takes; used by both    |
+| `src/components/notebook/python-hints.ts` | The same, as the editor asks for it                              |
+| `src/python/pin-figure.ts`                | Turning a figure output into an annotation                       |
+| `src/components/notebook/`                | The Results tab: cells, the editor, the output renderers         |
 
 `src/python/nemo-module.test.ts` runs the Python module under a real interpreter and skips where there is none; point `PYTHON` at one that has Nefes in it to include it.

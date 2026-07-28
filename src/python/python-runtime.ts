@@ -16,7 +16,7 @@ import { usePythonStore } from '../store/pythonStore';
 import { logger } from '../utils/logger';
 import { applyBridgeCall } from './bridge';
 import type { CellOutput } from '../types/notebook';
-import type { HostMessage, RunOutcome, WorkerMessage } from './protocol';
+import type { Completion, HostMessage, RunOutcome, SignatureHint, WorkerMessage } from './protocol';
 import {
   browserTransport,
   LOCAL_ADDRESS_KEY,
@@ -40,6 +40,13 @@ export type OutputSink = (output: CellOutput) => void;
 
 let transport: Transport | null = null;
 let runCounter = 0;
+let hintCounter = 0;
+/**
+ * Questions about what is being typed, waiting on their answers, by `hintId`. Each keeps
+ * what to answer with if the interpreter goes away before it replies, so nothing typed
+ * against a discarded interpreter waits forever.
+ */
+const awaitingHints = new Map<number, { settle: (answer: unknown) => void; fallback: unknown }>();
 /** Resolves when the submission with this id reports back, and where its outputs go. */
 let awaitingRun: {
   runId: number;
@@ -127,6 +134,16 @@ const onMessage = (message: WorkerMessage): void => {
     case 'workspace':
       store().setVariables(message.variables);
       return;
+
+    case 'completions':
+    case 'signature': {
+      // Typing has moved on since the question was asked, but whoever asked it decides
+      // whether the answer is still worth anything; here it is only handed back.
+      const waiting = awaitingHints.get(message.hintId);
+      awaitingHints.delete(message.hintId);
+      waiting?.settle(message);
+      return;
+    }
 
     case 'ran':
       if (awaitingRun && awaitingRun.runId === message.runId) {
@@ -248,6 +265,54 @@ export const runPython = async (
 };
 
 /**
+ * Whether a question about half-written code can be answered at all.
+ *
+ * Only a running interpreter can say what a name means, and only an idle one can say it
+ * now: a question put while a solve is running would be answered when the solve ends,
+ * which is minutes too late to be about what is on the screen. Neither case is worth
+ * starting an interpreter for — someone typing has not asked for one.
+ */
+const canAnswerHints = (): boolean => booting !== null && store().status === 'ready';
+
+/**
+ * Puts one question about what is being typed, and resolves with the answer.
+ *
+ * Unanswerable questions resolve with `fallback` rather than rejecting, so a caller can
+ * treat "no interpreter" and "nothing to offer" as the same thing, which for a list of
+ * suggestions they are.
+ */
+const askHint = <T>(kind: 'complete' | 'signature', source: string, fallback: T): Promise<T> => {
+  if (!canAnswerHints()) return Promise.resolve(fallback);
+  const hintId = ++hintCounter;
+  return new Promise<T>((resolve) => {
+    awaitingHints.set(hintId, { settle: resolve as (answer: unknown) => void, fallback });
+    post({ kind, hintId, source });
+  });
+};
+
+/**
+ * What could finish the word at the end of `source`, and where in it the answers start.
+ *
+ * The names come from the objects the session is holding, so they are the solver's own
+ * and follow whatever model is on the canvas. Nothing being typed is run to find them.
+ */
+export const askForCompletions = async (
+  source: string
+): Promise<{ items: Completion[]; from: number }> => {
+  const answer = await askHint<{ items: Completion[]; from: number }>('complete', source, {
+    items: [],
+    from: source.length,
+  });
+  return { items: answer.items ?? [], from: answer.from ?? source.length };
+};
+
+/** What the call being written takes, or null where the caret is in no call. */
+export const askForSignature = async (source: string): Promise<SignatureHint | null> => {
+  const answer = await askHint<{ hint: SignatureHint | null }>('signature', source, { hint: null });
+  return answer.hint ?? null;
+};
+
+/**
  * Asks what names the session is holding. The answer arrives as a message and lands in
  * the store, so this returns nothing.
  */
@@ -287,6 +352,8 @@ const stopPython = (): void => {
     awaitingRun.resolve({ status: 'failed' });
     awaitingRun = null;
   }
+  for (const { settle, fallback } of awaitingHints.values()) settle(fallback);
+  awaitingHints.clear();
   store().setPending([]);
   store().setVariables([]);
 };
