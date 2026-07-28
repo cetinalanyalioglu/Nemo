@@ -171,6 +171,12 @@ the rest of the palette, so there is one place a colour is decided.
 A **pinned** figure is drawn the same way but on nothing: its backgrounds are transparent,
 so the canvas shows through it in the drawing and the page shows through it in an export.
 
+It goes into all three exported formats, each by its own route: SVG embeds it, PNG
+rasterises it with the rest of the drawing, and PDF comes out as **vectors** rather than
+a pasted picture, which is what a figure headed for a paper wants. Under **Black &
+white** it is mapped to grey along with everything else — by luminance, so two series
+stay apart instead of both going black, and a translucent band stays translucent.
+
 ### Where the notebook is kept
 
 The case file carries the notebook's **source cells** and not its outputs — outputs are
