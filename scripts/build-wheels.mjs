@@ -3,10 +3,10 @@
  *
  *     npm run wheels -- ../Nefes
  *
- * The console installs whatever `public/wheels/manifest.json` lists, so this builds the
- * wheel, drops it beside the manifest, removes the version it replaces, and rewrites the
- * manifest to name it. The wheel is committed: the app is served as static files, and a
- * deploy has no way to build one.
+ * The console installs what a *model* declares — the `solver.packages` list in its own
+ * file — so this builds the wheel, drops it in `public/wheels`, removes the version it
+ * replaces, and repoints every model that named the old one. The wheel is committed: the
+ * app is served as static files, and a deploy has no way to build one.
  *
  * The build is a *cross*-compile — the browser's Python is WebAssembly, so a wheel with
  * compiled parts has to be built for it, and the machine doing the building cannot run
@@ -28,16 +28,20 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, copyFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  copyFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const WHEEL_DIR = resolve(fileURLToPath(new URL('../public/wheels', import.meta.url)));
-const MANIFEST = join(WHEEL_DIR, 'manifest.json');
-const COMMENT =
-  'Wheels the Python console installs, in order, on top of the base interpreter. ' +
-  'Paths are relative to this file. Refresh with: npm run wheels -- <path-to-nefes-checkout>';
+const MODEL_DIR = resolve(fileURLToPath(new URL('../public/models', import.meta.url)));
 
 const args = process.argv.slice(2);
 const pure = args.includes('--pure');
@@ -70,6 +74,46 @@ const runBuild = (src) => {
   });
 };
 
+/** The package a wheel is of: everything before the first hyphen, as the format has it. */
+const packageOf = (wheel) => wheel.split('-')[0];
+
+/**
+ * Points every model that installs one of these wheels at the file just built.
+ *
+ * This is the step that makes a rebuild usable. The console installs what a model's
+ * `solver.packages` names, and that names the wheel *by filename*, version and all — so
+ * a rebuild at a new version leaves every model asking for a file that is no longer
+ * there, and a console that dies at install with a 404. Nothing else reads the wheel
+ * directory, so nothing else notices.
+ *
+ * Rewritten in place, by path, rather than by loading and re-dumping the YAML: a model
+ * file is mostly comments explaining itself to whoever writes the next one, and a round
+ * trip through a YAML library would throw every one of them away.
+ */
+const repointModels = (built) => {
+  const changes = [];
+  for (const file of readdirSync(MODEL_DIR).filter((name) => name.endsWith('.yaml'))) {
+    const path = join(MODEL_DIR, file);
+    const before = readFileSync(path, 'utf8');
+    let after = before;
+    for (const wheel of built) {
+      // The same package at whatever version this file names now. Anchored on the
+      // `wheels/` prefix so it cannot touch a bare requirement that shares the name.
+      const naming = new RegExp(
+        `wheels/${packageOf(wheel).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-[^\\s'"]*\\.whl`,
+        'g'
+      );
+      after = after.replace(naming, (found) => {
+        const replacement = `wheels/${wheel}`;
+        if (found !== replacement) changes.push({ file, from: found, to: replacement });
+        return replacement;
+      });
+    }
+    if (after !== before) writeFileSync(path, after);
+  }
+  return changes;
+};
+
 try {
   console.log(`building ${pure ? 'a pure-Python' : 'a WebAssembly'} wheel from ${resolve(source)}`);
   runBuild(resolve(source));
@@ -91,11 +135,15 @@ try {
     console.log(`  ${name}`);
   }
 
-  const wheels = readdirSync(WHEEL_DIR)
-    .filter((name) => name.endsWith('.whl'))
-    .sort();
-  writeFileSync(MANIFEST, `${JSON.stringify({ comment: COMMENT, wheels }, null, 2)}\n`);
-  console.log(`wrote ${basename(MANIFEST)} naming ${wheels.length} wheel(s)`);
+  const repointed = repointModels(built);
+  if (repointed.length === 0) {
+    console.warn(
+      'warning: no model names these wheels, so nothing will install them.\n' +
+        `         Add them to solver.packages as wheels/<file> in a model under public/models.`
+    );
+  } else {
+    for (const { file, from, to } of repointed) console.log(`  ${file}: ${from} -> ${to}`);
+  }
 } finally {
   rmSync(staging, { recursive: true, force: true });
 }
