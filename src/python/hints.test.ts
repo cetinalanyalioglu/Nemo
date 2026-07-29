@@ -148,6 +148,18 @@ describe.skipIf(!usable)('what the call being written takes', () => {
     expect(signature('duct("(", ')?.parameter).toBe('area');
   });
 
+  it('reads no bracket inside a tripled-quote string either', () => {
+    // Counted one quote at a time, `"""` reads as a string that opens and shuts and
+    // then a third quote opening another — which comes out right by luck for plain
+    // text, and stops being lucky as soon as the text contains a quote of its own.
+    // From there the count is inverted: what is inside the string is read as code, and
+    // the bracket below is taken for the call the caret sits in.
+    expect(signature('duct("""say "x (y""", ')?.parameter).toBe('area');
+    expect(signature("duct('''say 'x (y''', ")?.parameter).toBe('area');
+    // A string still open at the caret swallows the rest, brackets included.
+    expect(signature('duct("""a (b')?.parameter).toBe('length');
+  });
+
   it('says nothing about something that will not say what it takes', () => {
     // Plenty of compiled routines carry no parameter list at all; there is nothing to
     // report, and reporting a guess would be worse.

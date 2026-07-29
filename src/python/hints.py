@@ -230,10 +230,17 @@ def _open_call(source: str):
             if char == "\\":
                 index += 2
                 continue
-            if char == quote:
+            if source.startswith(quote, index):
+                index += len(quote)
                 quote = ""
+                continue
         elif char in "\"'":
-            quote = char
+            # A tripled quote opens a string that runs to the next tripled one, so the
+            # brackets between them are text.  Read as a single quote it would close on
+            # the very next character, and everything after it would be read as code.
+            quote = char * 3 if source.startswith(char * 3, index) else char
+            index += len(quote)
+            continue
         elif char in "([{":
             stack.append([index, char, 0])
         elif char in ")]}":
