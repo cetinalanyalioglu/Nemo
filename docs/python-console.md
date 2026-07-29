@@ -241,6 +241,10 @@ they produced kept beneath them.
   happens when you reach for a new line mid-sentence.
 - **Run all** runs every code cell from the top and stops at the first failure, because
   what follows one was written expecting it not to have happened.
+- Cells run **one at a time**, however many are asked for. There is one interpreter
+  holding one set of names, so a cell run while another is going waits for it rather
+  than joining it. What a cell prints appears as it is printed, gathered a frame at a
+  time — a loop printing thousands of lines should not cost a redraw per line.
 - A cell is compiled **whole**, not fed a line at a time. That is the difference between
   a cell and a prompt: a prompt has to know when a block is still open, while a cell with
   a blank line inside a loop is one block and reads as one.
@@ -397,14 +401,17 @@ The colour scale already skips such entries.
 
 ## What the case looks like on each side
 
-The canvas hands the case over as it stands when a line is entered, and is not read again while that line runs.
+The canvas hands the case over as it stands when a line reaches the interpreter, and is not read again while that line runs.
+A submission that waited its turn behind another therefore reads the canvas the one in front of it left, which is what a notebook run in order means by "the canvas".
 So `nemo.case()` is a copy, and editing it changes nothing on the canvas; `nemo.replace(doc)` is how an edited one is put back, and it discards what was drawn.
 A document that carries result sets is offered for choosing on the way in, as any loaded case is.
 
 ## Stopping something
 
 Restart discards the interpreter and starts a fresh one, and is also how a run that is taking too long is stopped.
-Every name defined at the prompt goes with it.
+Every name defined at the prompt goes with it, wherever Python is running: the browser gets a fresh interpreter by terminating the worker, and the local server puts its session back to how it started, so the choice of runtime stays invisible.
+
+Anything that was waiting its turn goes too. A submission was written against the interpreter being dropped — its names, its imports — so it is answered with what happened rather than carried over to a fresh one that has none of it.
 
 There is no way to interrupt a running line and keep the session: that needs memory shared between the page and the worker, which browsers only grant a page served with headers a static host cannot set.
 
@@ -451,8 +458,8 @@ EMSDK_ENV=~/emsdk/emsdk_env.sh \
 npm run wheels -- ../Nefes
 ```
 
-That builds the wheel, drops it in `public/wheels`, removes the version it replaces, and rewrites `public/wheels/manifest.json` to name it.
-The console installs whatever the manifest lists, in order.
+That builds the wheel, drops it in `public/wheels`, removes the version it replaces, and repoints every model that named the old one.
+The console installs what a model declares — the `solver.packages` list in its own file — and that names the wheel by filename, version and all, so a rebuild that left those alone would point every model at a file that is no longer there.
 
 `npm run wheels -- ../Nefes --pure` skips the cross-compile and builds a wheel with nothing compiled in it, which needs only a plain Python and lands in the second row of the table above.
 
