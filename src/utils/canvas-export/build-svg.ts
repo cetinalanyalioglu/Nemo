@@ -121,7 +121,7 @@ const TEXT_PROPS = [
 const TEXT_TAGS = new Set(['text', 'tspan', 'textPath']);
 
 /** Copies resolved presentation styles from a live SVG element onto its clone. */
-function inlinePaint(live: Element, clone: Element): void {
+export function inlinePaint(live: Element, clone: Element): void {
   const cs = getComputedStyle(live);
   const style = (clone as SVGElement).style;
   if (TEXT_TAGS.has(clone.tagName)) {
@@ -149,7 +149,7 @@ function inlinePaint(live: Element, clone: Element): void {
 }
 
 /** Recursively inline paint styles across a cloned SVG subtree, in lockstep with the live tree. */
-function inlineTree(live: Element, clone: Element): void {
+export function inlineTree(live: Element, clone: Element): void {
   inlinePaint(live, clone);
   const liveKids = live.children;
   const cloneKids = clone.children;
@@ -169,7 +169,7 @@ const el = (name: string): SVGElement => document.createElementNS(SVG_NS, name);
  * re-applies node rotation itself, so only translations belong in the unrotated
  * local frame.
  */
-function translateOf(node: HTMLElement): { x: number; y: number } {
+export function translateOf(node: HTMLElement): { x: number; y: number } {
   const transform = getComputedStyle(node).transform;
   if (!transform || transform === 'none') return { x: 0, y: 0 };
   const match = /^matrix\(([^)]+)\)$/.exec(transform);
@@ -250,7 +250,12 @@ function textFrom(
 }
 
 /** Wraps children in a rotation group about (cx,cy) when the node is rotated. */
-function maybeRotate(children: SVGElement[], rotation: number, cx: number, cy: number): SVGElement {
+export function maybeRotate(
+  children: SVGElement[],
+  rotation: number,
+  cx: number,
+  cy: number
+): SVGElement {
   const g = el('g');
   if (rotation) g.setAttribute('transform', `rotate(${rotation} ${cx} ${cy})`);
   children.forEach((c) => g.appendChild(c));
@@ -258,7 +263,13 @@ function maybeRotate(children: SVGElement[], rotation: number, cx: number, cy: n
 }
 
 /** Reconstructs a bordered/filled HTML box as a native `<rect>`, or null if invisible. */
-function boxFrom(box: HTMLElement, x: number, y: number, w: number, h: number): SVGElement | null {
+export function boxFrom(
+  box: HTMLElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): SVGElement | null {
   const cs = getComputedStyle(box);
   const hasBg = !!cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
   const borderW = parseFloat(cs.borderTopWidth);
@@ -601,7 +612,7 @@ function themeColor(name: string, fallback: string): string {
  * anything inside <defs>/<pattern>/<marker> whose used value can't be read).
  * They resolve by inheritance, and reflect whichever theme is active now.
  */
-function bakeDynamicColors(svg: SVGSVGElement): void {
+export function bakeDynamicColors(svg: SVGSVGElement): void {
   // Glyph ink is authored as `currentColor`; anchor it to the frame ink color.
   svg.style.color = themeColor('--color-text-secondary', '#6c757d');
 
@@ -718,7 +729,7 @@ function inkBounds(
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-function fmtTick(value: number): string {
+export function fmtTick(value: number): string {
   if (!Number.isFinite(value)) return '—';
   if (Number.isInteger(value)) return String(value);
   return value.toPrecision(3);
