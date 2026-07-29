@@ -38,6 +38,20 @@ export const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VE
 /** Where one submission's outputs are collected: a transcript, or a notebook cell. */
 export type OutputSink = (output: CellOutput) => void;
 
+/**
+ * What a submission reports when it could not be put to an interpreter at all.
+ *
+ * Declared up here rather than beside its callers, which sit either side of each other:
+ * the module's own ordering should not be the thing keeping this defined by the time it
+ * is reached.
+ */
+const notRun = (reason: string): CellOutput => ({
+  output_type: 'error',
+  ename: 'RuntimeError',
+  evalue: reason,
+  traceback: [reason],
+});
+
 let transport: Transport | null = null;
 let runCounter = 0;
 let hintCounter = 0;
@@ -53,6 +67,30 @@ let awaitingRun: {
   sink: OutputSink;
   resolve: (outcome: RunOutcome) => void;
 } | null = null;
+
+/** One submission waiting for the interpreter, and how to answer whoever made it. */
+interface Submission {
+  source: string;
+  sink: OutputSink;
+  mode: 'line' | 'block';
+  settle: (outcome: RunOutcome) => void;
+}
+
+/**
+ * Submissions in the order they were made, and whether one is being worked through.
+ *
+ * There is one interpreter holding one set of names, so two submissions cannot run at
+ * once: the second would take the slot above and the first's answer would never be
+ * recognised, leaving whoever asked for it waiting forever — a cell stuck on `running`
+ * with its editor sealed, or a Run All that never reaches its own cleanup.
+ *
+ * Which submissions are *offered* is each surface's business — the prompt refuses one
+ * while the interpreter is busy, a cell's Run button greys out while that cell runs.
+ * That two never run together is settled here, once, because a rule enforced at every
+ * surface separately is a rule with a hole in it.
+ */
+const waiting: Submission[] = [];
+let working = false;
 /** Settles when boot finishes, either way; shared by every caller that waits on it. */
 let booting: Promise<void> | null = null;
 let bootSettled: (() => void) | null = null;
@@ -233,17 +271,15 @@ export const startPython = (): Promise<void> => {
 };
 
 /**
- * Runs one submission and returns what the interpreter made of it.
+ * Puts one submission to the interpreter and waits for its answer.
  *
  * The canvas is read here rather than in the worker, and sent along with the line: what
- * `nemo.case()` returns is therefore the canvas as it stood when the line was entered,
- * whatever it is edited into while the line runs.
+ * `nemo.case()` returns is therefore the canvas as it stood when the submission reached
+ * the interpreter, whatever it is edited into while the line runs. One that waited its
+ * turn behind another therefore reads the canvas the one in front of it left, which is
+ * what a notebook run in order means by "the canvas".
  */
-export const runPython = async (
-  source: string,
-  sink: OutputSink,
-  mode: 'line' | 'block' = 'line'
-): Promise<RunOutcome> => {
+const runOne = async ({ source, sink, mode }: Submission): Promise<RunOutcome> => {
   // An interpreter carries the solver it was started with — its packages are installed,
   // not chosen per call — so one belonging to something else is no use. A model switch
   // discards it outright (see `startFresh`), which leaves the runtime pick: choosing
@@ -255,12 +291,7 @@ export const runPython = async (
   }
   await startPython();
   if (store().status === 'failed') {
-    sink({
-      output_type: 'error',
-      ename: 'RuntimeError',
-      evalue: 'the interpreter is not running; use Restart to try again',
-      traceback: ['the interpreter is not running; use Restart to try again'],
-    });
+    sink(notRun('the interpreter is not running; use Restart to try again'));
     return { status: 'failed' };
   }
 
@@ -275,6 +306,46 @@ export const runPython = async (
   store().setStatus(store().status === 'failed' ? 'failed' : 'ready');
   return outcome;
 };
+
+/**
+ * Works through what is waiting, one submission at a time, until nothing is left.
+ *
+ * Every submission is answered, including one whose run threw on the way out: a caller
+ * that is never answered is a surface stuck mid-run, which is worse than being told the
+ * run failed.
+ */
+const drainRuns = async (): Promise<void> => {
+  if (working) return;
+  working = true;
+  try {
+    for (let next = waiting.shift(); next; next = waiting.shift()) {
+      try {
+        next.settle(await runOne(next));
+      } catch (error) {
+        next.sink(notRun(`the submission could not be run: ${String(error)}`));
+        next.settle({ status: 'failed' });
+      }
+    }
+  } finally {
+    working = false;
+  }
+};
+
+/**
+ * Runs one submission and returns what the interpreter made of it.
+ *
+ * Submissions are answered in the order they were made, and one made while another is
+ * still running waits rather than displacing it — see {@link waiting}.
+ */
+export const runPython = (
+  source: string,
+  sink: OutputSink,
+  mode: 'line' | 'block' = 'line'
+): Promise<RunOutcome> =>
+  new Promise<RunOutcome>((settle) => {
+    waiting.push({ source, sink, mode, settle });
+    void drainRuns();
+  });
 
 /**
  * Whether a question about half-written code can be answered at all.
@@ -363,6 +434,20 @@ const stopPython = (): void => {
   if (awaitingRun) {
     awaitingRun.resolve({ status: 'failed' });
     awaitingRun = null;
+  }
+  // Submissions still waiting were made against the interpreter being dropped — its
+  // names, its imports, its installed solver — and a fresh one has none of that. So
+  // they are abandoned rather than carried over and run against a session that is not
+  // the one they were written for. Each is told why, since a cell that simply stopped
+  // without saying anything looks like a cell that did nothing.
+  //
+  // Every way of dropping an interpreter comes through here, not only the Restart
+  // button: switching model, switching where Python runs, or finding at the last
+  // moment that the interpreter belongs to something else. The wording says what
+  // actually happened rather than naming the button, because it was often not pressed.
+  for (const abandoned of waiting.splice(0, waiting.length)) {
+    abandoned.sink(notRun('the interpreter this was queued for was replaced before it ran'));
+    abandoned.settle({ status: 'failed' });
   }
   for (const { settle, fallback } of awaitingHints.values()) settle(fallback);
   awaitingHints.clear();
