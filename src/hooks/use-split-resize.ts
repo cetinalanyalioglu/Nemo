@@ -46,6 +46,17 @@ export const useSplitResize = (ratio: number, setRatio: (ratio: number) => void)
   const splitRef = useRef<HTMLDivElement>(null);
   const pendingRatioRef = useRef(ratio);
   const rafRef = useRef<number | null>(null);
+  /**
+   * The drag going on now, and the handle on everything it put on the document.
+   *
+   * A drag listens on the document rather than on the divider, so that the pointer can
+   * leave the divider without the drag ending — which is most of a drag. Those listeners
+   * therefore outlive the element they were added for, and something has to be able to
+   * take them off again from outside the drag: a pointer the browser cancels, or the
+   * divider going away mid-drag, which switching the arrangement away from the split
+   * does.
+   */
+  const dragRef = useRef<AbortController | null>(null);
 
   pendingRatioRef.current = ratio;
 
@@ -54,6 +65,8 @@ export const useSplitResize = (ratio: number, setRatio: (ratio: number) => void)
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
+      dragRef.current?.abort();
+      dragRef.current = null;
       document.body.classList.remove('workspace-split-resizing');
     },
     []
@@ -93,6 +106,11 @@ export const useSplitResize = (ratio: number, setRatio: (ratio: number) => void)
       const gap = handle.offsetWidth;
       const shared = bounds.width - gap;
 
+      // One drag at a time: anything still listening from a previous one is done with.
+      dragRef.current?.abort();
+      const drag = new AbortController();
+      dragRef.current = drag;
+
       handle.setPointerCapture(event.pointerId);
       document.body.classList.add('workspace-split-resizing');
       handle.classList.add('dragging');
@@ -100,26 +118,49 @@ export const useSplitResize = (ratio: number, setRatio: (ratio: number) => void)
       const ratioAt = (clientX: number) =>
         clampRatio((clientX - bounds.left - gap / 2) / shared, shared);
 
-      const onPointerMove = (moveEvent: PointerEvent) => {
-        scheduleRatio(ratioAt(moveEvent.clientX));
-      };
-
-      const onPointerUp = (upEvent: PointerEvent) => {
-        handle.releasePointerCapture(event.pointerId);
+      /** Everything a drag has to undo, however it ends. */
+      const stopDragging = () => {
         if (rafRef.current !== null) {
           cancelAnimationFrame(rafRef.current);
           rafRef.current = null;
         }
-        applyRatio(ratioAt(upEvent.clientX));
+        // A cancelled pointer is one the browser has already taken back, so there may
+        // be no capture left to release.
+        if (handle.hasPointerCapture(event.pointerId)) {
+          handle.releasePointerCapture(event.pointerId);
+        }
         handle.classList.remove('dragging');
         document.body.classList.remove('workspace-split-resizing');
-        setRatio(pendingRatioRef.current);
-        document.removeEventListener('pointermove', onPointerMove);
-        document.removeEventListener('pointerup', onPointerUp);
+        // Takes the document listeners with it.
+        drag.abort();
+        if (dragRef.current === drag) dragRef.current = null;
       };
 
-      document.addEventListener('pointermove', onPointerMove);
-      document.addEventListener('pointerup', onPointerUp);
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        scheduleRatio(ratioAt(moveEvent.clientX));
+      };
+
+      document.addEventListener('pointermove', onPointerMove, { signal: drag.signal });
+      document.addEventListener(
+        'pointerup',
+        (upEvent: PointerEvent) => {
+          stopDragging();
+          applyRatio(ratioAt(upEvent.clientX));
+          setRatio(pendingRatioRef.current);
+        },
+        { signal: drag.signal }
+      );
+      // A pointer the browser takes away mid-drag — a system gesture, a window
+      // switch — ends the drag where it stood. There is no position to finish at,
+      // since the pointer that had one is gone.
+      document.addEventListener(
+        'pointercancel',
+        () => {
+          stopDragging();
+          setRatio(pendingRatioRef.current);
+        },
+        { signal: drag.signal }
+      );
     },
     [setRatio, applyRatio, scheduleRatio]
   );
