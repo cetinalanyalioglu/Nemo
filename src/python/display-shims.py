@@ -357,13 +357,28 @@ def _watch_imports() -> None:
     import builtins
 
     real_import = builtins.__import__
+    # Once per interpreter, not once per load.  The local server re-imports this module
+    # on every restart, and a wrapper that wrapped the previous wrapper would nest a
+    # layer deeper each time, for the life of the process, since nothing unwinds them.
+    if getattr(real_import, "_nemo_watching", False):
+        return
 
     def watching_import(name, *args, **kwargs):
         module = real_import(name, *args, **kwargs)
-        if _PENDING:
-            apply_pending()
+        # Looked up rather than closed over.  This wrapper outlives any one load of this
+        # module, and what still wants applying belongs to the load that is current.
+        #
+        # Fetched defensively, because one of the loads this outlives is the one going
+        # on right now: a reload publishes the new module before running it, so the
+        # imports at the top of this very file arrive here to find a module with none
+        # of its names bound yet.  There is nothing pending on a module that has not
+        # finished building, so there is nothing to do but leave it alone.
+        shims = sys.modules.get("_nemo_display")
+        if getattr(shims, "_PENDING", None):
+            shims.apply_pending()
         return module
 
+    watching_import._nemo_watching = True
     builtins.__import__ = watching_import
 
 

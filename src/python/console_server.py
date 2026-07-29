@@ -93,7 +93,22 @@ class Session:
         where :mod:`nemo` reads them rather than acted on here: fitting the module to
         the model is done in the module, once, so this interpreter and the browser's
         cannot come to describe themselves differently.
+
+        This is also where a restart lands, and a restart is a *fresh* interpreter.
+        The browser gets one by terminating the worker it runs in; there is nothing to
+        terminate here, so the session is put back to how it started instead -- no
+        names, no half-entered block, no compiler flags left over from a ``__future__``
+        import.  Without it the console would tell the user their names were gone while
+        they were still there, and where Python runs would stop being invisible.
+
+        What does *not* come back is the imported modules: they are the interpreter's,
+        not the session's, and unimporting them is neither possible nor wanted -- the
+        seconds saved not re-importing a solver are most of the point of running here.
         """
+        self.namespace = {"__name__": "__main__", "__builtins__": __builtins__}
+        self.compile = codeop.CommandCompiler()
+        self.buffer.clear()
+
         self.host = _load_module(
             "_nemo_host",
             "caseJson = '{}'\n" + f"handle = {handle!r}\nexample = {example!r}\n",

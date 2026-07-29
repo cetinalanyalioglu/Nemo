@@ -251,6 +251,89 @@ describe.skipIf(!usable)('what the local interpreter will answer', () => {
   });
 });
 
+describe.skipIf(!usable)('restarting the interpreter served from the machine', () => {
+  /**
+   * A restart, as the console makes one: the connection is dropped and a fresh `boot`
+   * arrives, which lands on `Session.start` again. The browser answers that by
+   * terminating the worker, so the session really is new — and this has to match, or
+   * the console's "names defined here are gone" is untrue on one of the two runtimes.
+   */
+  const acrossRestart = (before: string[]) => {
+    const driver = `
+import json, sys, builtins
+sys.argv = ["console_server.py"]
+
+import importlib.util
+spec = importlib.util.spec_from_file_location("console_server", ${JSON.stringify(SERVER)})
+server = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(server)
+
+def watchers():
+    """How many import watchers are stacked on builtins.__import__ right now."""
+    depth = 0
+    probe = builtins.__import__
+    while getattr(probe, "_nemo_watching", False):
+        depth += 1
+        # Each wrapper closes over the import it wrapped; following that unwinds the
+        # stack however deep it happens to be.
+        inner = [c.cell_contents for c in (probe.__closure__ or ()) if callable(c.cell_contents)]
+        if not inner:
+            break
+        probe = inner[0]
+    return depth
+
+session = server.Session()
+session.start("")
+session.bind(lambda payload: None, lambda payload: None)
+for line in ${JSON.stringify(before)}:
+    session.push(line)
+held = sorted(v["name"] for v in session.variables())
+depth_before = watchers()
+
+session.start("")
+session.bind(lambda payload: None, lambda payload: None)
+
+print(json.dumps({
+    "before": held,
+    "after": sorted(v["name"] for v in session.variables()),
+    "buffer": session.buffer,
+    "watchersBefore": depth_before,
+    "watchersAfter": watchers(),
+}))
+`;
+    const out = execFileSync(PYTHON, ['-c', driver], { encoding: 'utf8' });
+    return JSON.parse(out.trim().split('\n').pop() as string) as {
+      before: string[];
+      after: string[];
+      buffer: string[];
+      watchersBefore: number;
+      watchersAfter: number;
+    };
+  };
+
+  it('forgets the names the session was holding', () => {
+    const result = acrossRestart(['x = 41', 'secret = "hunter2"']);
+    expect(result.before).toEqual(['secret', 'x']);
+    expect(result.after).toEqual([]);
+  });
+
+  it('abandons a half-entered block with them', () => {
+    // The prompt is put back to a fresh one on this side too, so the block the console
+    // stopped showing a continuation marker for is not still waiting here.
+    const result = acrossRestart(['def half(x):']);
+    expect(result.buffer).toEqual([]);
+  });
+
+  it('does not stack another import watcher on top of the last one', () => {
+    // The shims module is re-imported by every boot. Wrapping the wrapper would nest a
+    // layer per restart, for the life of the process, since nothing unwinds them — so
+    // every import in the session would pay for every restart ever made.
+    const result = acrossRestart(['x = 1']);
+    expect(result.watchersBefore).toBe(1);
+    expect(result.watchersAfter).toBe(1);
+  });
+});
+
 describe.skipIf(!usable)('fitting nemo to the model, here as in the browser', () => {
   it('binds the model’s chosen name and its example, from the same code the browser runs', () => {
     // The failure this guards is silent: the two interpreters run the same `nemo.py`,
