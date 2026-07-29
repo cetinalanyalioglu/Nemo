@@ -210,17 +210,43 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       cells: s.cells.map((c) => (c.id === id ? { ...c, outputs: [], execution_count: null } : c)),
     }));
 
-    // Outputs are appended as they arrive rather than collected and set at the end, so
-    // a long cell shows its progress instead of nothing until it finishes.
-    const collect = (output: CellOutput) =>
+    // Outputs are shown as they arrive rather than collected and set at the end, so a
+    // long cell shows its progress instead of nothing until it finishes.
+    //
+    // They are written a frame at a time rather than one at a time. A cell that prints
+    // in a loop produces thousands, and a store write each would be a render each, over
+    // a cell list copied every time — the cost of showing the progress swamping the work
+    // whose progress it is. Nothing is lost by waiting a frame: a frame is how often the
+    // screen changes at all.
+    let buffered: CellOutput[] = [];
+    let frame: number | null = null;
+
+    const flush = () => {
+      frame = null;
+      if (buffered.length === 0) return;
+      const arrived = buffered;
+      buffered = [];
       set((s) => ({
         cells: s.cells.map((c) =>
-          c.id === id ? { ...c, outputs: appendOutput(c.outputs ?? [], output) } : c
+          c.id === id ? { ...c, outputs: arrived.reduce(appendOutput, c.outputs ?? []) } : c
         ),
       }));
+    };
+
+    const collect = (output: CellOutput) => {
+      // Run together as they arrive rather than at the flush, so a loop printing a
+      // million lines is holding one output and not a million.
+      buffered = appendOutput(buffered, output);
+      if (frame === null) frame = requestAnimationFrame(flush);
+    };
 
     // A cell is compiled whole rather than fed a line at a time; that is what a cell is.
     const outcome = await runPython(source, collect, 'block');
+    // Whatever is still held is written now rather than waiting for a frame that may
+    // never come: a tab in the background is not given them at all, and a cell that has
+    // finished should not be showing less than it produced.
+    if (frame !== null) cancelAnimationFrame(frame);
+    flush();
     set((s) => ({
       runState: { ...s.runState, [id]: outcome.status === 'failed' ? 'failed' : 'done' },
       cells: s.cells.map((c) => (c.id === id ? { ...c, execution_count: count } : c)),
