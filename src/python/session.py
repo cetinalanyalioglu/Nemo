@@ -42,7 +42,12 @@ def _summary(value) -> str:
     if isinstance(value, types.ModuleType):
         return getattr(value, "__name__", "")
     if isinstance(value, type) or callable(value):
-        return getattr(value, "__doc__", "") and value.__doc__.strip().split("\n")[0] or ""
+        # Checked for being a string rather than assumed to be one.  ``__doc__`` is
+        # ordinary attribute and a class may bind it to anything at all, so reading it
+        # as text is a guess -- and a name that cannot describe itself is not worth
+        # losing the rest of the list over.
+        doc = getattr(value, "__doc__", None)
+        return doc.strip().split("\n")[0] if isinstance(doc, str) else ""
 
     # A length is more use than a repr for anything that has one: it says how big the
     # thing is without printing it.
@@ -77,7 +82,14 @@ def variables(namespace: dict) -> list:
         if name.startswith("_") or name in PROVIDED:
             continue
         value = namespace[name]
-        out.append({"name": name, "kind": _kind(value), "summary": _summary(value)})
+        try:
+            out.append({"name": name, "kind": _kind(value), "summary": _summary(value)})
+        except Exception:
+            # Describing a value means reading attributes off it, and an object is
+            # entitled to raise on any of them.  One name that will not describe itself
+            # is not a reason to describe none of them: the session is still holding it,
+            # and saying so is the whole job here.
+            out.append({"name": name, "kind": "variable", "summary": "<cannot be shown>"})
     return out
 
 

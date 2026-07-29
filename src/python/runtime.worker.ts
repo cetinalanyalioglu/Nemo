@@ -367,10 +367,26 @@ self.onmessage = async (event: MessageEvent<HostMessage>) => {
       post({ kind: 'workspace', variables: [] });
       return;
     }
-    if (message.kind === 'clear-workspace') session.clear(mainNamespace);
-    const listed = session.variables(mainNamespace);
-    post({ kind: 'workspace', variables: listed.toJs({ dict_converter: Object.fromEntries }) });
-    listed.destroy();
+    try {
+      if (message.kind === 'clear-workspace') session.clear(mainNamespace);
+      const listed = session.variables(mainNamespace);
+      post({ kind: 'workspace', variables: listed.toJs({ dict_converter: Object.fromEntries }) });
+      listed.destroy();
+    } catch (error) {
+      // Something is waiting on this, so it is answered either way: a question left
+      // unanswered leaves the pane showing whatever it last saw, as though that were
+      // still true. Describing a value means reading attributes off it, and an object
+      // is within its rights to raise on every one of them.
+      post({
+        kind: 'bridge',
+        call: {
+          op: 'log',
+          level: 'error',
+          message: `The names this session holds could not be listed: ${errorText(error)}`,
+        },
+      });
+      post({ kind: 'workspace', variables: [] });
+    }
     return;
   }
   if (message.kind === 'run') {

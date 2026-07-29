@@ -92,6 +92,16 @@ describe.skipIf(!usable)('the names a session is holding', () => {
     expect(before.find((v) => v.name === 'bad')!.summary).toBe('<cannot be shown>');
   });
 
+  it('survives a class whose docstring is not a string', () => {
+    // `__doc__` is an ordinary attribute and a class may bind it to anything. Read as
+    // text without asking first, one such name took down the listing it appeared in —
+    // and with it the pane, left waiting on an answer that never came.
+    const { before } = inspect('class Odd:\n    __doc__ = 42\nplain = 1');
+    expect(before.map((v) => v.name)).toEqual(['Odd', 'plain']);
+    expect(before.find((v) => v.name === 'Odd')!.summary).toBe('');
+    expect(before.find((v) => v.name === 'plain')!.summary).toBe('1');
+  });
+
   it('forgets every name, and keeps what the console needs', () => {
     const { after, forgot } = inspect('import math\na = 1\nb = 2');
     expect(forgot).toBe(3);
