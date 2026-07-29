@@ -30,6 +30,18 @@ const pinnedFigures = (): { id: string; spec: Record<string, unknown> }[] =>
     .filter((entry): entry is { id: string; spec: Record<string, unknown> } => Boolean(entry.spec));
 
 /**
+ * Which redraw is the current one.
+ *
+ * Drawing a figure is asynchronous, and a theme can be changed again while the last
+ * change is still being drawn for. Two runs would then be writing pictures for two
+ * different palettes into the same annotations, and the one that finished last would
+ * win — which is whichever figure happened to draw slower, not whichever theme is
+ * actually on. So each run takes a number, and a run that is no longer the newest stops
+ * rather than storing what it has drawn.
+ */
+let redrawGeneration = 0;
+
+/**
  * Redraws every pinned figure in the colours now in use, and stores the result.
  *
  * Nothing happens where none was pinned, which is most sessions, so a theme change costs
@@ -40,14 +52,20 @@ export const redrawPinnedFigures = async (): Promise<void> => {
   const figures = pinnedFigures();
   if (figures.length === 0) return;
 
+  const generation = ++redrawGeneration;
   const { updateAnnotation } = useGraphStore.getState();
   for (const { id, spec } of figures) {
     try {
       const src = await figureToImage(spec);
+      // Checked after the drawing rather than before it: the wait is where a newer
+      // theme change gets in, so this is the only point at which the answer can have
+      // changed since the last figure was stored.
+      if (generation !== redrawGeneration) return;
       // Not a history entry: this is the same figure, drawn for the colours now in use,
       // and undo should not walk back through a theme change.
       updateAnnotation(id, { src }, { recordHistory: false });
     } catch (error) {
+      if (generation !== redrawGeneration) return;
       logger.warn(`A pinned figure could not be redrawn: ${String(error)}`);
     }
   }
