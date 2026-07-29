@@ -15,6 +15,10 @@ const TABS: { id: ConsoleTab; label: string }[] = [
   { id: 'variables', label: 'Variables' },
 ];
 
+/** A tab and the panel it opens each need a name the other can point at. */
+const tabId = (tab: ConsoleTab): string => `console-tab-${tab}`;
+const panelId = (tab: ConsoleTab): string => `console-panel-${tab}`;
+
 /**
  * What clicking a name in the header does.
  *
@@ -78,6 +82,8 @@ const ConsolePane = React.memo(() => {
                   key={tab.id}
                   type="button"
                   role="tab"
+                  id={tabId(tab.id)}
+                  aria-controls={panelId(tab.id)}
                   aria-selected={showing}
                   aria-expanded={showing}
                   className={`console-pane-tab ${showing ? 'active' : ''}`}
@@ -119,14 +125,36 @@ const ConsolePane = React.memo(() => {
       </div>
       <div className="console-pane-body">
         {/* Both tabs stay mounted: the Python prompt holds a draft and a scroll
-            position, and neither should be lost by looking at the messages. */}
-        <div className="console-pane-tab-panel" hidden={activeTab !== 'logs'} role="tabpanel">
+            position, and neither should be lost by looking at the messages.
+
+            Each panel names the tab it belongs to, so a panel reached on its own —
+            which is how anything reading the page by other means arrives at one — is
+            announced as the thing that tab opens rather than as an unnamed region. */}
+        <div
+          className="console-pane-tab-panel"
+          hidden={activeTab !== 'logs'}
+          role="tabpanel"
+          id={panelId('logs')}
+          aria-labelledby={tabId('logs')}
+        >
           <ConsoleLogsTab />
         </div>
-        <div className="console-pane-tab-panel" hidden={activeTab !== 'python'} role="tabpanel">
+        <div
+          className="console-pane-tab-panel"
+          hidden={activeTab !== 'python'}
+          role="tabpanel"
+          id={panelId('python')}
+          aria-labelledby={tabId('python')}
+        >
           <ConsolePythonTab />
         </div>
-        <div className="console-pane-tab-panel" hidden={activeTab !== 'variables'} role="tabpanel">
+        <div
+          className="console-pane-tab-panel"
+          hidden={activeTab !== 'variables'}
+          role="tabpanel"
+          id={panelId('variables')}
+          aria-labelledby={tabId('variables')}
+        >
           <ConsoleVariablesTab active={isOpen && activeTab === 'variables'} />
         </div>
       </div>
