@@ -10,6 +10,7 @@ import { firstExampleLine, useSolverExample } from '../../python/example';
 import { parseNotebook, serializeNotebook } from '../../python/ipynb';
 import { useNotebookStore } from '../../store/notebookStore';
 import { usePythonStore } from '../../store/pythonStore';
+import { downloadBlob } from '../../utils/download-blob';
 import { logger } from '../../utils/logger';
 import NotebookCellView from './NotebookCellView';
 import '../../styles/notebook.css';
@@ -82,16 +83,10 @@ const ResultsTab = React.memo(() => {
   const save = useCallback((withOutputs: boolean) => {
     const notebook = useNotebookStore.getState().toNotebook({ outputs: withOutputs });
     const blob = new Blob([serializeNotebook(notebook)], { type: 'application/x-ipynb+json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'results.ipynb';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const filename = 'results.ipynb';
+    downloadBlob(blob, filename);
     useNotebookStore.getState().markSaved();
-    logger.success(`Saved "${link.download}"${withOutputs ? '' : ' without outputs'}.`);
+    logger.success(`Saved "${filename}"${withOutputs ? '' : ' without outputs'}.`);
   }, []);
 
   const empty = cells.length === 1 && cells[0].source.length === 0;

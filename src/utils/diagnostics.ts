@@ -1,5 +1,6 @@
 import { useConsoleStore } from '../store/consoleStore';
 import { useGraphStore } from '../store/graphStore';
+import { downloadBlob } from './download-blob';
 
 const MAX_CAPTURED_ERRORS = 50;
 
@@ -175,12 +176,7 @@ const serializeDiagnostics = (report: DiagnosticsReport): string => JSON.stringi
 
 export const downloadDiagnostics = (report: DiagnosticsReport = collectDiagnostics()): void => {
   const blob = new Blob([serializeDiagnostics(report)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `nemo-diagnostics-${report.capturedAt.replace(/[:.]/g, '-')}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `nemo-diagnostics-${report.capturedAt.replace(/[:.]/g, '-')}.json`);
 };
 
 export const copyDiagnostics = async (

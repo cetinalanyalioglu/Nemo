@@ -7,6 +7,7 @@ import { fromCaseNotebook, toCaseNotebook } from '../python/ipynb';
 import { useNotebookStore } from './notebookStore';
 import { joinLines } from '../types/notebook';
 import { debugLog } from '../utils/debug';
+import { downloadBlob } from '../utils/download-blob';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
 import { isPortCountParameter, remapPortsAfterCountChange } from '../utils/ports';
@@ -1779,17 +1780,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         const yamlString = yaml.dump(saveData, { noRefs: true, sortKeys: false, lineWidth: -1 });
 
         const blob = new Blob([yamlString], { type: 'application/x-yaml' });
-        const url = URL.createObjectURL(blob);
+        const filename = 'canvas.yaml';
+        downloadBlob(blob, filename);
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'canvas.yaml';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        logger.success(`Saved canvas to "${link.download}".`);
+        logger.success(`Saved canvas to "${filename}".`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to save canvas: ${message}`);
