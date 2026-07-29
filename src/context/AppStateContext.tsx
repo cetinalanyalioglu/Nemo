@@ -2,11 +2,21 @@ import React, { createContext, useContext, useState, useMemo, useCallback, useEf
 import { readStoredTheme, THEME_STORAGE_KEY } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
-import { CONSOLE_DEFAULT_HEIGHT, type ConsoleTab, type WorkspaceTab } from '../types/console';
+import {
+  CONSOLE_DEFAULT_HEIGHT,
+  WORKSPACE_LAYOUT_DEFAULT,
+  WORKSPACE_LAYOUT_OPTIONS,
+  WORKSPACE_SPLIT_DEFAULT,
+  type ConsoleTab,
+  type WorkspaceLayout,
+} from '../types/console';
 import { SAVE_CONTENTS_DEFAULTS, type SaveContents } from '../types/flow';
 
 /** Where the save-contents choices are remembered between sessions. */
 const SAVE_CONTENTS_KEY = 'nemo.save.contents';
+
+/** Where the arrangement of the big surface is remembered between sessions. */
+const WORKSPACE_KEY = 'nemo.workspace';
 
 /**
  * The save-contents choices as last set, or the defaults.
@@ -22,6 +32,39 @@ const readStoredSaveContents = (): SaveContents => {
     return { ...SAVE_CONTENTS_DEFAULTS, ...parsed };
   } catch {
     return SAVE_CONTENTS_DEFAULTS;
+  }
+};
+
+/** How the big surface is arranged, and how the two panes divide it when both show. */
+export type WorkspaceState = { layout: WorkspaceLayout; splitRatio: number };
+
+const WORKSPACE_DEFAULTS: WorkspaceState = {
+  layout: WORKSPACE_LAYOUT_DEFAULT,
+  splitRatio: WORKSPACE_SPLIT_DEFAULT,
+};
+
+/**
+ * The arrangement as last left, or the default.
+ *
+ * Where someone put their panes is a fact about them rather than about the network they
+ * drew, so it is remembered beside the app and never travels in a saved case. Each part
+ * is checked on the way in: a stored value is whatever was in the browser last, which a
+ * later version of the app may no longer recognise.
+ */
+const readStoredWorkspace = (): WorkspaceState => {
+  try {
+    const stored = localStorage.getItem(WORKSPACE_KEY);
+    if (!stored) return WORKSPACE_DEFAULTS;
+    const parsed = JSON.parse(stored) as Partial<WorkspaceState>;
+    const named = WORKSPACE_LAYOUT_OPTIONS.some((option) => option.value === parsed.layout);
+    const ratio = parsed.splitRatio;
+    return {
+      layout: named ? (parsed.layout as WorkspaceLayout) : WORKSPACE_DEFAULTS.layout,
+      splitRatio:
+        typeof ratio === 'number' && ratio > 0 && ratio < 1 ? ratio : WORKSPACE_DEFAULTS.splitRatio,
+    };
+  } catch {
+    return WORKSPACE_DEFAULTS;
   }
 };
 
@@ -71,7 +114,7 @@ type AppStateSnapshot = {
   sidebar: { isOpen: boolean; collapsedGroups: CollapsedGroups; activePane: SidebarPane };
   propertiesPanel: { isOpen: boolean; collapsedGroups: CollapsedGroups };
   consolePane: { isOpen: boolean; height: number; activeTab: ConsoleTab };
-  workspace: { activeTab: WorkspaceTab };
+  workspace: WorkspaceState;
   grid: GridState;
   rotation: RotationState;
   appearance: AppearanceState;
@@ -102,7 +145,9 @@ type AppActions = {
     selectTab: (tab: ConsoleTab) => void;
   };
   workspace: {
-    selectTab: (tab: WorkspaceTab) => void;
+    selectLayout: (layout: WorkspaceLayout) => void;
+    /** The canvas's share of the split, as a fraction. Set when a drag ends. */
+    setSplitRatio: (ratio: number) => void;
   };
   grid: {
     toggleSnap: () => void;
@@ -171,9 +216,7 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     height: CONSOLE_DEFAULT_HEIGHT,
     activeTab: 'logs',
   });
-  const [workspaceState, setWorkspace] = useState<{ activeTab: WorkspaceTab }>({
-    activeTab: 'canvas',
-  });
+  const [workspaceState, setWorkspace] = useState<WorkspaceState>(readStoredWorkspace);
   const [gridState, setGrid] = useState({ snapToGrid: true, size: 15 });
   const [rotationState, setRotation] = useState<RotationState>({ snap: true, increment: 15 });
   const [appearanceState, setAppearance] = useState<AppearanceState>(() => ({
@@ -212,6 +255,16 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       /* localStorage unavailable */
     }
   }, [saveState]);
+
+  // Remembered for the same reason: someone who works with the notebook beside the
+  // drawing wants it there again tomorrow, and a case they open should not move it.
+  useEffect(() => {
+    try {
+      localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspaceState));
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, [workspaceState]);
 
   const saveToggle = useCallback((part: keyof SaveContents) => {
     setSave((prev) => ({ ...prev, [part]: !prev[part] }));
@@ -288,8 +341,12 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     setConsolePane((prev) => ({ ...prev, activeTab, isOpen: true }));
   }, []);
 
-  const workspaceSelectTab = useCallback((activeTab: WorkspaceTab) => {
-    setWorkspace({ activeTab });
+  const workspaceSelectLayout = useCallback((layout: WorkspaceLayout) => {
+    setWorkspace((prev) => ({ ...prev, layout }));
+  }, []);
+
+  const workspaceSetSplitRatio = useCallback((splitRatio: number) => {
+    setWorkspace((prev) => ({ ...prev, splitRatio }));
   }, []);
 
   const gridToggleSnap = useCallback(() => {
@@ -379,7 +436,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
         selectTab: consolePaneSelectTab,
       },
       workspace: {
-        selectTab: workspaceSelectTab,
+        selectLayout: workspaceSelectLayout,
+        setSplitRatio: workspaceSetSplitRatio,
       },
       grid: {
         toggleSnap: gridToggleSnap,
@@ -424,7 +482,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
       consolePaneSetIsOpen,
       consolePaneSetHeight,
       consolePaneSelectTab,
-      workspaceSelectTab,
+      workspaceSelectLayout,
+      workspaceSetSplitRatio,
       gridToggleSnap,
       gridUpdateSize,
       rotationToggleSnap,

@@ -49,10 +49,34 @@ export const CONSOLE_VERBOSITY_OPTIONS: { value: ConsoleVerbosity; label: string
 export type ConsoleTab = 'logs' | 'python' | 'variables';
 
 /**
- * The two things the big surface can show: the network that is drawn, or the notebook
- * about it. The console pane stays docked below either.
+ * How the big surface is arranged: the network that is drawn, the notebook about it, or
+ * both at once. The console pane stays docked below whichever is showing.
+ *
+ * A short named set rather than free splitting, because the arrangement is a choice made
+ * once and then left alone.
  */
-export type WorkspaceTab = 'canvas' | 'results';
+export type WorkspaceLayout = 'canvas' | 'split' | 'notebook';
+
+/** What the app opens with, until someone chooses otherwise. */
+export const WORKSPACE_LAYOUT_DEFAULT: WorkspaceLayout = 'canvas';
+
+/** The choices offered, in the order they are shown. */
+export const WORKSPACE_LAYOUT_OPTIONS: { value: WorkspaceLayout; label: string }[] = [
+  { value: 'canvas', label: 'Canvas' },
+  { value: 'split', label: 'Both' },
+  { value: 'notebook', label: 'Results' },
+];
+
+/**
+ * The canvas's share of the width when both are showing, as a fraction.
+ *
+ * Slightly more than half: the drawing is what is being worked on, and the notebook
+ * beside it is being read as much as written.
+ */
+export const WORKSPACE_SPLIT_DEFAULT = 0.6;
+
+/** Neither pane is dragged narrower than this, in pixels. */
+export const WORKSPACE_PANE_MIN_WIDTH = 280;
 
 export const CONSOLE_DEFAULT_HEIGHT = 200;
 export const CONSOLE_MIN_HEIGHT = 120;

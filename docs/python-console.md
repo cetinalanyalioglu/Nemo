@@ -1,9 +1,9 @@
 # The Python console and the Results tab
 
-There are two surfaces. The **Results** tab, beside the canvas, is a notebook about the
-drawn network. The **console pane** below either is a prompt for one-liners. They share
-one interpreter and one set of names, so a network built in a cell is there at the
-prompt and the other way round.
+There are two surfaces. **Results** is a notebook about the drawn network, and it can sit
+beside the canvas or take the viewing area to itself. The **console pane** below is a
+prompt for one-liners. They share one interpreter and one set of names, so a network
+built in a cell is there at the prompt and the other way round.
 
 The console pane has three tabs.
 **Messages** is what the app has reported.
@@ -206,6 +206,30 @@ Two consequences worth expecting:
 
 - **Switching models starts a new session.** The canvas, any loaded results, the notebook and the interpreter all belong to the model they were made under, so all four are cleared; the Messages tab is kept, being the record of how the session got where it did. You are asked first when there is something to lose.
 - **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.build()` says plainly that there is nothing to build with.
+
+## How the viewing area is arranged
+
+Three arrangements, chosen at the top of the viewing area: **Canvas**, **Both**, or
+**Results**.
+_Both_ puts them side by side with a divider that can be dragged, and neither side goes
+below about 280 pixels wide.
+The divider takes focus and moves under the arrow keys, with **Home** and **End** going
+as far either way as that minimum allows.
+
+The divider holds a share of the width rather than a number of pixels, so the
+arrangement survives a window being resized: two panes given fractions keep their
+proportions, where a fixed width would eat the other pane as the window narrowed.
+
+The console pane stays docked below all three and spans the full width, so the prompt is
+there whatever is being looked at.
+Both surfaces stay loaded whichever arrangement is showing: an arrangement that leaves
+one out hides it rather than tearing it down, so the canvas keeps where it was scrolled
+to and a half-typed cell keeps what was typed.
+
+The arrangement and the divider's position are remembered between sessions, beside the
+theme and the save choices. Where someone put their panes is a fact about them rather
+than about the network they drew, so it never travels in a saved case and opening one
+does not move it.
 
 ## The Results tab
 
@@ -434,23 +458,25 @@ The console installs whatever the manifest lists, in order.
 
 ## Where the pieces are
 
-| File                                      | What it holds                                                    |
-| ----------------------------------------- | ---------------------------------------------------------------- |
-| `src/python/protocol.ts`                  | The messages the console and the interpreter exchange            |
-| `src/python/runtime.worker.ts`            | The interpreter itself, off the main thread                      |
-| `src/python/python-runtime.ts`            | Starting it, feeding it lines, routing what comes back           |
-| `src/python/bridge.ts`                    | What Python is allowed to do to the canvas, and the checks on it |
-| `src/python/nemo-module.py`               | The `nemo` module, as Python sees it                             |
-| `src/python/transport.ts`                 | The two places Python can run, behind one interface              |
-| `src/python/console_server.py`            | The local interpreter, served over HTTP                          |
-| `public/models/*.yaml`                    | Each model's own solver: its packages and its adapter            |
-| `src/store/pythonStore.ts`                | The transcript, the prompt state, the recall list                |
-| `src/store/notebookStore.ts`              | The cells, in the shape a `.ipynb` holds them                    |
-| `src/python/ipynb.ts`                     | Reading and writing that file                                    |
-| `src/python/display-shims.py`             | The display protocol, and what makes notebook code run unchanged |
-| `src/python/hints.py`                     | What could finish a name, and what a call takes; used by both    |
-| `src/components/notebook/python-hints.ts` | The same, as the editor asks for it                              |
-| `src/python/pin-figure.ts`                | Turning a figure output into an annotation                       |
-| `src/components/notebook/`                | The Results tab: cells, the editor, the output renderers         |
+| File                                         | What it holds                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `src/python/protocol.ts`                     | The messages the console and the interpreter exchange            |
+| `src/python/runtime.worker.ts`               | The interpreter itself, off the main thread                      |
+| `src/python/python-runtime.ts`               | Starting it, feeding it lines, routing what comes back           |
+| `src/python/bridge.ts`                       | What Python is allowed to do to the canvas, and the checks on it |
+| `src/python/nemo-module.py`                  | The `nemo` module, as Python sees it                             |
+| `src/python/transport.ts`                    | The two places Python can run, behind one interface              |
+| `src/python/console_server.py`               | The local interpreter, served over HTTP                          |
+| `public/models/*.yaml`                       | Each model's own solver: its packages and its adapter            |
+| `src/store/pythonStore.ts`                   | The transcript, the prompt state, the recall list                |
+| `src/store/notebookStore.ts`                 | The cells, in the shape a `.ipynb` holds them                    |
+| `src/python/ipynb.ts`                        | Reading and writing that file                                    |
+| `src/python/display-shims.py`                | The display protocol, and what makes notebook code run unchanged |
+| `src/python/hints.py`                        | What could finish a name, and what a call takes; used by both    |
+| `src/components/notebook/python-hints.ts`    | The same, as the editor asks for it                              |
+| `src/python/pin-figure.ts`                   | Turning a figure output into an annotation                       |
+| `src/components/notebook/`                   | The Results tab: cells, the editor, the output renderers         |
+| `src/components/workspace-layout-picker.tsx` | Which of the three arrangements is showing                       |
+| `src/hooks/use-split-resize.ts`              | The divider between the canvas and the notebook                  |
 
 `src/python/nemo-module.test.ts` runs the Python module under a real interpreter and skips where there is none; point `PYTHON` at one that has Nefes in it to include it.

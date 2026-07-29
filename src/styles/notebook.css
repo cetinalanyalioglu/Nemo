@@ -1,6 +1,6 @@
 /* The Results tab: a notebook over the drawn network. */
 
-.workspace-tabs {
+.workspace-layouts {
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -11,7 +11,7 @@
   background: var(--color-surface-subtle);
 }
 
-.workspace-tab {
+.workspace-layout {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -30,29 +30,34 @@
     border-color 0.15s ease;
 }
 
-.workspace-tab svg {
+.workspace-layout svg {
   font-size: 15px;
 }
 
-.workspace-tab:hover {
+.workspace-layout:hover {
   color: var(--color-text-primary);
 }
 
-.workspace-tab.active {
+.workspace-layout.active {
   color: var(--color-text-primary);
   border-bottom-color: var(--color-accent);
 }
 
-.workspace-tab-dot {
+.workspace-layout-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--color-accent);
+  flex-shrink: 0;
 }
 
+/* The other side of the split; see `.canvas-area` for why the share is in hundredths. */
 .results-area {
-  flex: 1;
+  flex-grow: calc(100 - var(--workspace-split-ratio, 0.6) * 100);
+  flex-shrink: 1;
+  flex-basis: 0;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -70,19 +75,46 @@
   background: var(--color-surface);
 }
 
+/* Beside the canvas the notebook can be half the width it had to itself, and five named
+   buttons and a state do not fit on one line there. The buttons give up their words
+   first, since each keeps its picture and its description; only below that does the row
+   wrap, which is the last resort rather than the ordinary case. */
 .results-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   padding: 5px 10px;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
 
+.results-toolbar .python-status {
+  white-space: nowrap;
+}
+
+/* Measured against the notebook's own width rather than the window's, since what is
+   short of room is the pane and the window may be as wide as you like. */
+.results-tab {
+  container-type: inline-size;
+}
+
+@container (max-width: 560px) {
+  .results-actions button span {
+    display: none;
+  }
+
+  .results-actions button {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
 .results-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   flex-shrink: 0;
 }
@@ -103,6 +135,14 @@
   margin: 8px auto 20px;
   color: var(--color-text-secondary);
   font-size: 13px;
+}
+
+/* A line of code is as long as it is, and a narrow notebook must not cut it off or push
+   the page sideways: the block scrolls on its own instead. */
+.results-opening pre,
+.notebook-cell-prose pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /*

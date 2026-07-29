@@ -87,13 +87,18 @@ const AnnotationsPane = React.memo(() => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const viewportCenter = () =>
-    reactFlowInstance
-      ? reactFlowInstance.screenToFlowPosition({
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2,
-        })
-      : { x: 0, y: 0 };
+  // The middle of the canvas, which is not the middle of the window: with the notebook
+  // beside it, the window's centre can be somewhere the drawing does not reach, and a
+  // note put there would arrive off-screen.
+  const viewportCenter = () => {
+    if (!reactFlowInstance) return { x: 0, y: 0 };
+    const pane = document.querySelector('.canvas-area')?.getBoundingClientRect();
+    const middle =
+      pane && pane.width > 0
+        ? { x: pane.left + pane.width / 2, y: pane.top + pane.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    return reactFlowInstance.screenToFlowPosition(middle);
+  };
 
   const addAtViewportCenter = () => {
     addAnnotation({ position: viewportCenter() });

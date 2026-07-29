@@ -51,6 +51,7 @@ const ResultsTab = React.memo(() => {
   const selectedId = useNotebookStore((s) => s.selectedId);
   const running = useNotebookStore((s) => s.running);
   const carrying = useNotebookStore((s) => s.dragId !== null);
+  const dirty = useNotebookStore((s) => s.dirty);
   const status = usePythonStore((s) => s.status);
   const detail = usePythonStore((s) => s.detail);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -144,10 +145,17 @@ const ResultsTab = React.memo(() => {
             type="button"
             className="console-logs-clear"
             onClick={() => save(true)}
-            title="Save as a .ipynb notebook, with its outputs"
+            title={
+              dirty
+                ? 'Save as a .ipynb notebook, with its outputs — there are unsaved changes'
+                : 'Save as a .ipynb notebook, with its outputs'
+            }
           >
             <IoDownloadOutline aria-hidden />
             <span>Save</span>
+            {/* The same dot the layout picker shows while the notebook is out of sight,
+                put where it can still be seen once the notebook is on screen. */}
+            {dirty && <span className="workspace-layout-dot" aria-hidden />}
           </button>
           <input
             ref={fileInput}

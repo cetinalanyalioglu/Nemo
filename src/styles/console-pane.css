@@ -6,10 +6,70 @@
   min-height: 0;
 }
 
-.canvas-area {
+/* The two surfaces, side by side when both are showing. `min-width: 0` on all of them,
+   because a flex child will not shrink below the width of what is inside it without it,
+   and both React Flow and a notebook cell are wider than half a pane. */
+.workspace-split {
+  display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+}
+
+/* The canvas takes its share and the notebook the rest, written as grow factors against
+   a zero basis so the two divide exactly what the divider leaves.
+
+   The share is counted in hundredths rather than as a fraction, because grow factors
+   adding up to less than one hand out only that much of the space: a pane left on its
+   own with a factor of 0.6 would fill three fifths of the row and leave the rest
+   blank. In hundredths every factor is over one, so whichever panes are showing fill
+   the row between them. */
+.canvas-area {
+  flex-grow: calc(var(--workspace-split-ratio, 0.6) * 100);
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  min-width: 0;
   position: relative;
+}
+
+.workspace-divider {
+  flex: 0 0 5px;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.workspace-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--color-border-light);
+  transition: background-color 0.15s ease;
+}
+
+.workspace-divider:hover::after,
+.workspace-divider:focus-visible::after,
+.workspace-divider.dragging::after {
+  background: var(--color-accent);
+}
+
+.workspace-divider:focus-visible {
+  outline: none;
+}
+
+.workspace-divider:focus-visible::after {
+  width: 3px;
+  left: 1px;
+}
+
+body.workspace-split-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .console-pane {
