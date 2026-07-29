@@ -309,7 +309,25 @@ print(json.dumps({"names": [n for n in dir(nemo) if not n.startswith("_")]}))`,
   });
 });
 
-describe.skipIf(!usable)('the reserved names the app validates against', () => {
+describe('the reserved names the app validates against', () => {
+  it('are the names the module declares, checked without an interpreter', () => {
+    // Deliberately outside the skip. Everything else here needs an interpreter with the
+    // model's solver installed, which most machines are not — and a safety net that only
+    // exists on some machines is not a safety net. Checking for drift needs neither a
+    // solver nor a canvas nor Python at all: the list is a literal in the source.
+    const source = readFileSync(MODULE, 'utf8');
+    const declaration = /__all__\s*=\s*\[([^\]]*)\]/.exec(source);
+    expect(declaration, 'nemo-module.py declares no __all__').not.toBeNull();
+
+    const declared = [...declaration![1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+    expect(declared.length).toBeGreaterThan(0);
+    // `nemo` is not in `__all__` — it is the module's own name rather than something in
+    // it — but a model may not take that one either, so the app's list carries it.
+    expect([...declared].sort()).toEqual([...NEMO_NAMES].filter((n) => n !== 'nemo').sort());
+  });
+});
+
+describe.skipIf(!usable)('the reserved names, against a running module', () => {
   it('are the names the module actually answers to', () => {
     // The app refuses a model whose `handle` would hide one of these, and keeps its own
     // list because it never parses the Python. This is what keeps the two in step: a
