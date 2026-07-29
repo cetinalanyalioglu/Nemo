@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   CONSOLE_VERBOSITY_DEFAULT,
+  CONSOLE_VERBOSITY_OPTIONS,
   LOG_LEVEL_RANK,
   type ConsoleLogEntry,
   type ConsoleLogLevel,
@@ -16,7 +17,11 @@ export const VERBOSITY_KEY = 'nemo.console.verbosity';
 const readStoredVerbosity = (): ConsoleVerbosity => {
   try {
     const stored = localStorage.getItem(VERBOSITY_KEY);
-    return stored !== null && stored in LOG_LEVEL_RANK
+    // Checked against the choices that are actually offered, not against the levels a
+    // message can have. Those are not the same set — `error` is a level but not a
+    // choice — and a stored `error`, which nothing here writes but a later version or
+    // a hand-edited store might, would quietly drop the warnings too.
+    return CONSOLE_VERBOSITY_OPTIONS.some((option) => option.value === stored)
       ? (stored as ConsoleVerbosity)
       : CONSOLE_VERBOSITY_DEFAULT;
   } catch {

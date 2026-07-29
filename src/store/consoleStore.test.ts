@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConsoleStore, VERBOSITY_KEY } from './consoleStore';
 import { CONSOLE_VERBOSITY_DEFAULT } from '../types/console';
 
@@ -98,5 +98,28 @@ describe('consoleStore verbosity', () => {
   it('remembers the choice between sessions', () => {
     useConsoleStore.getState().setVerbosity('warn');
     expect(localStorage.getItem(VERBOSITY_KEY)).toBe('warn');
+  });
+});
+
+describe('the verbosity remembered between sessions', () => {
+  it('refuses a stored value that is a level but not a choice', () => {
+    // `error` is a level a message can have; it is not one of the choices offered, and
+    // taken as one it would drop the warnings too. Nothing here writes it — a later
+    // version or a hand-edited store might.
+    localStorage.setItem(VERBOSITY_KEY, 'error');
+    vi.resetModules();
+    return import('./consoleStore').then(({ useConsoleStore: fresh }) => {
+      expect(fresh.getState().verbosity).toBe(CONSOLE_VERBOSITY_DEFAULT);
+      localStorage.removeItem(VERBOSITY_KEY);
+    });
+  });
+
+  it('keeps a stored value that is one of the choices', () => {
+    localStorage.setItem(VERBOSITY_KEY, 'warn');
+    vi.resetModules();
+    return import('./consoleStore').then(({ useConsoleStore: fresh }) => {
+      expect(fresh.getState().verbosity).toBe('warn');
+      localStorage.removeItem(VERBOSITY_KEY);
+    });
   });
 });
