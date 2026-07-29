@@ -19,6 +19,18 @@ jobs:
 
       - run: npm ci
 
+      # The console, the completions and the session are exercised under a real
+      # interpreter rather than a stand-in, so the run needs one.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Check the interpreter those tests need
+        # Each of those suites skips itself where there is nothing to run it in, so a
+        # runner that stopped shipping one would take them out of the run and still
+        # report green. Fail here instead, where the reason is legible.
+        run: python3 -c "import codeop, http.server, rlcompleter, types"
+
       - name: Lint
         run: npm run lint:check
 
