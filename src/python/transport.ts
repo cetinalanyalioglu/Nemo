@@ -55,7 +55,15 @@ export const browserTransport = (onMessage: MessageHandler): Transport => {
  */
 export const localTransport = (address: string, onMessage: MessageHandler): Transport => {
   let stopped = false;
-  let inFlight: AbortController | null = null;
+  /**
+   * Every request still open.
+   *
+   * More than one can be. A question about what names the session holds is asked while
+   * a solve is still streaming its output back, and each is a request of its own. Held
+   * as a single controller, a later request overwrote the record of an earlier one, so
+   * stopping abandoned whichever happened to be last and left the rest running.
+   */
+  const inFlight = new Set<AbortController>();
 
   const endpoint = (path: string): { url: string; token: string } => {
     const parsed = new URL(address);
@@ -63,70 +71,81 @@ export const localTransport = (address: string, onMessage: MessageHandler): Tran
     return { url: new URL(path, parsed).href, token };
   };
 
-  /** Posts one message and feeds every reply it streams back to the handler. */
+  /**
+   * Posts one message and feeds every reply it streams back to the handler.
+   *
+   * Nothing waits on this — it is called and dropped — so a failure that escaped would
+   * be an unhandled rejection and, worse, silent: a console left sitting at "starting"
+   * with nothing said about why. Everything is therefore inside the one try, including
+   * the address, which is read from a field someone typed into and need not parse.
+   */
   const exchange = async (path: string, message: HostMessage): Promise<void> => {
-    const { url, token } = endpoint(path);
     const controller = new AbortController();
-    inFlight = controller;
-    let response: Response;
+    inFlight.add(controller);
     try {
-      response = await fetch(url, {
+      const { url, token } = endpoint(path);
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-nemo-token': token },
         body: JSON.stringify(message),
         signal: controller.signal,
       });
-    } catch (error) {
-      if (stopped) return;
-      onMessage({
-        kind: 'boot-failed',
-        error:
-          `could not reach a local interpreter at ${address} (${String(error)}). ` +
-          'Start one with: python src/python/console_server.py',
-      });
-      return;
-    }
-    if (!response.ok || !response.body) {
-      onMessage({
-        kind: 'boot-failed',
-        error:
-          response.status === 403
-            ? 'the local interpreter refused this address: its token is wrong or has changed'
-            : `the local interpreter answered ${response.status}`,
-      });
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let pending = '';
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      pending += decoder.decode(value, { stream: true });
-      // Replies are one JSON document per line, so a partial last line waits for more.
-      const lines = pending.split('\n');
-      pending = lines.pop() ?? '';
-      for (const line of lines) {
-        if (line.trim().length === 0) continue;
-        if (!stopped) onMessage(JSON.parse(line) as WorkerMessage);
+      if (!response.ok || !response.body) {
+        onMessage({
+          kind: 'boot-failed',
+          error:
+            response.status === 403
+              ? 'the local interpreter refused this address: its token is wrong or has changed'
+              : `the local interpreter answered ${response.status}`,
+        });
+        return;
       }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let pending = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        pending += decoder.decode(value, { stream: true });
+        // Replies are one JSON document per line, so a partial last line waits for more.
+        const lines = pending.split('\n');
+        pending = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.trim().length === 0) continue;
+          if (!stopped) onMessage(JSON.parse(line) as WorkerMessage);
+        }
+      }
+    } catch (error) {
+      // Stopping aborts what is open, so the failure that follows is this side's own
+      // doing and not worth reporting. A restart during a solve goes through here every
+      // time, since the read of a stream that is still arriving is what gets abandoned.
+      if (stopped || controller.signal.aborted) return;
+      onMessage({
+        kind: 'boot-failed',
+        error:
+          `the exchange with a local interpreter at ${address} failed (${String(error)}). ` +
+          'Check the address, and that one is running: python src/python/console_server.py',
+      });
+    } finally {
+      inFlight.delete(controller);
     }
-    inFlight = null;
   };
 
   return {
     send: (message) => {
       if (stopped) return;
+      // The server dispatches on the message's own `kind` and pays the path no
+      // attention, so this only has to be a path it will answer at all.
       const path = message.kind === 'boot' ? 'boot' : message.kind === 'run' ? 'run' : 'reset';
       void exchange(path, message);
     },
     stop: () => {
       stopped = true;
-      // Abandoning the request is all this side can do; the server notices the
-      // connection go and abandons the run with it.
-      inFlight?.abort();
-      inFlight = null;
+      // Abandoning the requests is all this side can do; the server notices the
+      // connections go and abandons the runs with them.
+      for (const controller of inFlight) controller.abort();
+      inFlight.clear();
     },
   };
 };
