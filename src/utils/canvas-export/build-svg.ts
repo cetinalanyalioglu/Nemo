@@ -582,6 +582,46 @@ function themeColor(name: string, fallback: string): string {
   return value || fallback;
 }
 
+/** The marker properties, which SVG accepts as attributes and as CSS alike. */
+const MARKER_PROPS = ['marker-start', 'marker-mid', 'marker-end'] as const;
+
+const IRI_REFERENCE = /^url\(["']?#([^"')]+)["']?\)$/;
+
+/**
+ * Removes marker references that point at an id this SVG does not carry.
+ *
+ * A browser ignores a reference it cannot resolve and simply draws no marker, so one
+ * can sit in an asset for a long time without anyone noticing. The PDF writer does
+ * not ignore it: it looks the id up, gets nothing back, and calls a method on it —
+ * which fails the whole export with a message that says nothing about markers. Since
+ * the reference draws nothing either way, dropping it costs no ink and takes the
+ * export's fate out of the hands of whatever an SVG editor left behind.
+ *
+ * Only markers are worth this. A dangling paint or clip reference is handled by the
+ * writer itself; these are the ones that are not.
+ */
+export function dropDanglingMarkers(svg: SVGSVGElement): void {
+  const ids = new Set<string>();
+  svg.querySelectorAll('[id]').forEach((element) => ids.add(element.id));
+
+  const dangles = (value: string): boolean => {
+    const match = IRI_REFERENCE.exec(value.trim());
+    return match !== null && !ids.has(match[1]);
+  };
+
+  svg.querySelectorAll('*').forEach((element) => {
+    const style = (element as SVGElement).style;
+    for (const prop of MARKER_PROPS) {
+      const attribute = element.getAttribute(prop);
+      if (attribute && dangles(attribute)) element.removeAttribute(prop);
+      // The style property is checked separately: it is set independently of the
+      // attribute and wins over it, so a dangling one there survives on its own.
+      const declared = style?.getPropertyValue(prop);
+      if (declared && dangles(declared)) style.removeProperty(prop);
+    }
+  });
+}
+
 /**
  * Makes the SVG self-contained by defining, on the root element, concrete values
  * for the dynamic paints that survive per-element inlining: `currentColor` (the
@@ -960,6 +1000,8 @@ function buildCanvasSvgInner(
   // Data-driven paints (contour fills, the legend colormap) don't come from a
   // theme token, so the override above can't reach them; flatten them to gray.
   if (options.monochrome) grayscaleResidualColors(svg);
+
+  dropDanglingMarkers(svg);
 
   const minX = full.x - PADDING;
   const minY = full.y - PADDING;
