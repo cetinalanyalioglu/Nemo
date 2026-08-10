@@ -2,22 +2,66 @@ import { memo, useCallback } from 'react';
 import type { Node, NodeChange } from 'reactflow';
 import { useReactFlow } from '../context/ReactFlowContext';
 import { useGraphStore } from '../store/graphStore';
+import { alignToAnchor, pickAnchor } from '../utils/align-nodes';
+import type { AlignAxis, AlignCandidate } from '../utils/align-nodes';
 import '../styles/canvas-align.css';
 
-/** Which axis of the selected nodes' centers gets equalized. */
-type AlignAxis = 'horizontal' | 'vertical';
+/** Sizes to fall back on when a node's real one cannot be had; mirrors the layout engine. */
+const DEFAULT_NODE_WIDTH = 150;
+const DEFAULT_NODE_HEIGHT = 50;
+
+/** An explicit style size as a number, where it is one: `150` and `'150px'` both read. */
+const styleLength = (value: string | number | undefined): number => {
+  const length = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  return Number.isFinite(length) ? length : 0;
+};
+
+/** Every node React Flow currently has on the canvas, by id. */
+const renderedNodes = (): Map<string, HTMLElement> => {
+  const byId = new Map<string, HTMLElement>();
+  document.querySelectorAll<HTMLElement>('.react-flow__node').forEach((element) => {
+    const id = element.dataset.id;
+    if (id) byId.set(id, element);
+  });
+  return byId;
+};
 
 /**
- * A node's rendered size. Prefers ReactFlow's measured dimensions (so centers
- * use the real on-canvas size), falling back to an explicit style size then a
- * default — mirroring the layout engine's `nodeSize`.
+ * The selected nodes, each with the size its center has to be worked out from.
+ *
+ * React Flow measures a node once it has rendered and hands the result back on the
+ * node itself, which is the answer whenever there is one. A node added moments ago
+ * has none yet, and a guess is not harmless there: the size is what places the center,
+ * so a wrong one drops that node off the line everything else landed on. The DOM is
+ * asked instead — `offsetWidth` is the layout size, which the canvas's zoom transform
+ * scales on screen but does not change, so it is already in the units positions are
+ * written in. Collected in one pass, and only when something is actually missing, so
+ * the usual case costs nothing.
+ *
+ * A node the canvas is not rendering at all — a hidden note — reaches neither, and
+ * falls back to whatever size it declares and then to the default.
  */
-const nodeSize = (node: Node): { width: number; height: number } => ({
-  width: (typeof node.width === 'number' ? node.width : Number(node.style?.width)) || 150,
-  height: (typeof node.height === 'number' ? node.height : Number(node.style?.height)) || 50,
-});
+const alignCandidates = (nodes: Node[]): AlignCandidate[] => {
+  const measured = (node: Node): boolean =>
+    typeof node.width === 'number' && typeof node.height === 'number';
+  const elements = nodes.every(measured) ? null : renderedNodes();
 
-const mean = (values: number[]): number => values.reduce((sum, v) => sum + v, 0) / values.length;
+  return nodes.map((node) => {
+    const element = elements?.get(node.id);
+    return {
+      id: node.id,
+      position: node.position,
+      width:
+        typeof node.width === 'number'
+          ? node.width
+          : element?.offsetWidth || styleLength(node.style?.width) || DEFAULT_NODE_WIDTH,
+      height:
+        typeof node.height === 'number'
+          ? node.height
+          : element?.offsetHeight || styleLength(node.style?.height) || DEFAULT_NODE_HEIGHT,
+    };
+  });
+};
 
 /** Rows aligned on a shared horizontal centerline (equalizes the vertical centers). */
 const AlignHorizontalIcon = () => (
@@ -40,15 +84,18 @@ const AlignVerticalIcon = () => (
 /**
  * On-canvas control that aligns the centers of the selected nodes. Horizontal
  * alignment drops every selection onto a shared horizontal centerline (a row);
- * vertical alignment onto a shared vertical centerline (a column). The target
- * line is the mean of the selected centers, so the group stays put on average.
- * Enabled only when two or more nodes are selected.
+ * vertical alignment onto a shared vertical centerline (a column). Enabled only
+ * when two or more nodes are selected.
+ *
+ * The line is one of the selected nodes' own — the last one clicked, where that is
+ * among them (see `pickAnchor`). Aligning to a node rather than to the selection's
+ * average means the element already placed where it belongs is the one that stays
+ * there, the result does not shift when another node joins the selection, and the
+ * row lands wherever that node was: on the grid, if it was.
  *
  * Mirrors `AutoLayoutControl`: it reads measured geometry from the ReactFlow
  * instance, then commits one batch of position changes behind a single
- * `recordHistory()` so the whole align is a single undo step. Centers are
- * rotation-invariant (rotation pivots on the center), so rotated nodes need no
- * special handling.
+ * `recordHistory()` so the whole align is a single undo step.
  */
 const CanvasAlignControls = memo(() => {
   const { reactFlowInstance } = useReactFlow();
@@ -65,30 +112,18 @@ const CanvasAlignControls = memo(() => {
       const selected = reactFlowInstance.getNodes().filter((node) => node.selected);
       if (selected.length < 2) return;
 
-      const centers = selected.map((node) => {
-        const { width, height } = nodeSize(node);
-        return {
-          node,
-          width,
-          height,
-          cx: node.position.x + width / 2,
-          cy: node.position.y + height / 2,
-        };
-      });
-      const targetX = mean(centers.map((c) => c.cx));
-      const targetY = mean(centers.map((c) => c.cy));
+      const candidates = alignCandidates(selected);
+      // Read at click time rather than subscribed to: which node is the anchor only
+      // matters the moment the button is pressed, and nothing here re-renders on it.
+      const lastClicked = useGraphStore.getState().selectedNodeId;
+      const anchor = pickAnchor(candidates, axis, lastClicked);
+      if (!anchor) return;
 
-      const changes: NodeChange[] = [];
-      for (const c of centers) {
-        const position =
-          axis === 'vertical'
-            ? { x: targetX - c.width / 2, y: c.node.position.y }
-            : { x: c.node.position.x, y: targetY - c.height / 2 };
-        // Skip nodes already on the line so an aligned selection adds no undo step.
-        if (position.x !== c.node.position.x || position.y !== c.node.position.y) {
-          changes.push({ type: 'position', id: c.node.id, position });
-        }
-      }
+      const changes: NodeChange[] = alignToAnchor(candidates, axis, anchor).map((move) => ({
+        type: 'position',
+        id: move.id,
+        position: move.position,
+      }));
       if (changes.length === 0) return;
 
       recordHistory();
@@ -106,7 +141,7 @@ const CanvasAlignControls = memo(() => {
         className="canvas-align-button"
         onClick={() => align('horizontal')}
         disabled={disabled}
-        title="Align selected nodes horizontally (centers to a shared row)"
+        title="Align selected nodes horizontally (centers to a shared row, on the last one clicked)"
         aria-label="Align selected nodes horizontally"
       >
         <AlignHorizontalIcon />
@@ -116,7 +151,7 @@ const CanvasAlignControls = memo(() => {
         className="canvas-align-button"
         onClick={() => align('vertical')}
         disabled={disabled}
-        title="Align selected nodes vertically (centers to a shared column)"
+        title="Align selected nodes vertically (centers to a shared column, on the last one clicked)"
         aria-label="Align selected nodes vertically"
       >
         <AlignVerticalIcon />
