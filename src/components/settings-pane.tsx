@@ -12,6 +12,7 @@ import '../styles/sidebar.css';
 import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
+import { NOTEBOOK, PYTHON_CONSOLE } from '../config/features';
 import { useConsoleStore } from '../store/consoleStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
@@ -379,18 +380,25 @@ const SettingsPane = React.memo(() => {
             onToggle={() => actions.save.toggle('results')}
             title="Carry the loaded result sets in the case, so a reopened one is coloured without solving again. Which of them is still each set's own switch, in the Data pane."
           />
-          <SettingsBooleanField
-            label="Figure descriptions"
-            checked={save.figures}
-            onToggle={() => actions.save.toggle('figures')}
-            title="Carry what each pinned figure was drawn from, so it can be drawn again after reopening — for a theme change, and for an export. Without it the picture still travels, fixed in the colours it was pinned in."
-          />
-          <SettingsBooleanField
-            label="Notebook"
-            checked={save.notebook}
-            onToggle={() => actions.save.toggle('notebook')}
-            title="Carry the Results tab's cells. Their source only; outputs belong in a .ipynb export."
-          />
+          {/* Both of these describe something only Python makes, so a build without it
+              has nothing to offer here — and a switch for what a case cannot carry
+              would be a promise the build does not keep. */}
+          {PYTHON_CONSOLE && (
+            <SettingsBooleanField
+              label="Figure descriptions"
+              checked={save.figures}
+              onToggle={() => actions.save.toggle('figures')}
+              title="Carry what each pinned figure was drawn from, so it can be drawn again after reopening — for a theme change, and for an export. Without it the picture still travels, fixed in the colours it was pinned in."
+            />
+          )}
+          {NOTEBOOK && (
+            <SettingsBooleanField
+              label="Notebook"
+              checked={save.notebook}
+              onToggle={() => actions.save.toggle('notebook')}
+              title="Carry the Results tab's cells. Their source only; outputs belong in a .ipynb export."
+            />
+          )}
         </div>
       </div>
 

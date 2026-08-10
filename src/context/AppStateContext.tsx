@@ -11,6 +11,7 @@ import {
   type WorkspaceLayout,
 } from '../types/console';
 import { SAVE_CONTENTS_DEFAULTS, type SaveContents } from '../types/flow';
+import { NOTEBOOK, PYTHON_CONSOLE } from '../config/features';
 
 /** Where the save-contents choices are remembered between sessions. */
 const SAVE_CONTENTS_KEY = 'nemo.save.contents';
@@ -27,13 +28,26 @@ const WORKSPACE_KEY = 'nemo.workspace';
 const readStoredSaveContents = (): SaveContents => {
   try {
     const stored = localStorage.getItem(SAVE_CONTENTS_KEY);
-    if (!stored) return SAVE_CONTENTS_DEFAULTS;
+    if (!stored) return withoutMissingParts(SAVE_CONTENTS_DEFAULTS);
     const parsed = JSON.parse(stored) as Partial<SaveContents>;
-    return { ...SAVE_CONTENTS_DEFAULTS, ...parsed };
+    return withoutMissingParts({ ...SAVE_CONTENTS_DEFAULTS, ...parsed });
   } catch {
-    return SAVE_CONTENTS_DEFAULTS;
+    return withoutMissingParts(SAVE_CONTENTS_DEFAULTS);
   }
 };
+
+/**
+ * The save choices this build can honour.
+ *
+ * Two of the three describe things only Python produces. A build without it cannot put
+ * them in a case whatever is stored — and a stored `true` is likely, since the choice
+ * outlives the build that offered it.
+ */
+const withoutMissingParts = (contents: SaveContents): SaveContents => ({
+  results: contents.results,
+  figures: contents.figures && PYTHON_CONSOLE,
+  notebook: contents.notebook && NOTEBOOK,
+});
 
 /** How the big surface is arranged, and how the two panes divide it when both show. */
 export type WorkspaceState = { layout: WorkspaceLayout; splitRatio: number };
@@ -52,6 +66,10 @@ const WORKSPACE_DEFAULTS: WorkspaceState = {
  * later version of the app may no longer recognise.
  */
 const readStoredWorkspace = (): WorkspaceState => {
+  // Without the notebook there is only one surface to arrange, so there is nothing a
+  // stored arrangement could say. Checked before the read rather than after it, so the
+  // choice made in a build that had two is still there if that build comes back.
+  if (!NOTEBOOK) return WORKSPACE_DEFAULTS;
   try {
     const stored = localStorage.getItem(WORKSPACE_KEY);
     if (!stored) return WORKSPACE_DEFAULTS;

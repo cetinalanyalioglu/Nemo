@@ -6,3 +6,4 @@ Beside the canvas, or in place of it, is a [Results notebook](docs/python-consol
 `nemo.case()` reads the canvas, `nemo.show(...)` colours it, and where the model brings a solver `nemo.publish(net, solution=net.solve())` sends a solve straight back onto it.
 A figure can be pinned to the canvas, where it exports with the drawing.
 It runs in the browser, so there is nothing to install — or on your own machine, for full speed.
+Both halves are optional: `VITE_FEATURE_NOTEBOOK=false` builds the prompt without the Results tab, and `VITE_FEATURE_PYTHON_CONSOLE=false` builds the canvas alone ([details](docs/python-console.md#leaving-it-out)).

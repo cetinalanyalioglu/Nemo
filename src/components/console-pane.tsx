@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { IoChevronUpOutline, IoTerminalOutline } from 'react-icons/io5';
+import { PYTHON_CONSOLE } from '../config/features';
 import { useAppState } from '../context/AppStateContext';
 import { useConsoleResize } from '../hooks/use-console-resize';
 import { useConsoleStore } from '../store/consoleStore';
@@ -9,11 +10,23 @@ import ConsolePythonTab from './console-python-tab';
 import ConsoleVariablesTab from './console-variables-tab';
 import '../styles/console-pane.css';
 
-const TABS: { id: ConsoleTab; label: string }[] = [
+const ALL_TABS: { id: ConsoleTab; label: string }[] = [
   { id: 'logs', label: 'Messages' },
   { id: 'python', label: 'Python' },
   { id: 'variables', label: 'Variables' },
 ];
+
+/**
+ * The names this build offers.
+ *
+ * Both Python and Variables are the interpreter's: one is the prompt, the other is
+ * what the prompt is holding. A build without the console has neither, and is left
+ * with the message log the console pane has always carried.
+ */
+export const tabsFor = (pythonConsole: boolean): { id: ConsoleTab; label: string }[] =>
+  pythonConsole ? ALL_TABS : ALL_TABS.filter((tab) => tab.id === 'logs');
+
+const TABS = tabsFor(PYTHON_CONSOLE);
 
 /** A tab and the panel it opens each need a name the other can point at. */
 const tabId = (tab: ConsoleTab): string => `console-tab-${tab}`;
@@ -139,24 +152,28 @@ const ConsolePane = React.memo(() => {
         >
           <ConsoleLogsTab />
         </div>
-        <div
-          className="console-pane-tab-panel"
-          hidden={activeTab !== 'python'}
-          role="tabpanel"
-          id={panelId('python')}
-          aria-labelledby={tabId('python')}
-        >
-          <ConsolePythonTab />
-        </div>
-        <div
-          className="console-pane-tab-panel"
-          hidden={activeTab !== 'variables'}
-          role="tabpanel"
-          id={panelId('variables')}
-          aria-labelledby={tabId('variables')}
-        >
-          <ConsoleVariablesTab active={isOpen && activeTab === 'variables'} />
-        </div>
+        {PYTHON_CONSOLE && (
+          <>
+            <div
+              className="console-pane-tab-panel"
+              hidden={activeTab !== 'python'}
+              role="tabpanel"
+              id={panelId('python')}
+              aria-labelledby={tabId('python')}
+            >
+              <ConsolePythonTab />
+            </div>
+            <div
+              className="console-pane-tab-panel"
+              hidden={activeTab !== 'variables'}
+              role="tabpanel"
+              id={panelId('variables')}
+              aria-labelledby={tabId('variables')}
+            >
+              <ConsoleVariablesTab active={isOpen && activeTab === 'variables'} />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

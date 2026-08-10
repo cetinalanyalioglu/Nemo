@@ -131,6 +131,38 @@ Two properties worth keeping true, since both fail only once deployed:
 Both were checked by deploying rather than by reading: the built app served under a sub-path, driven through a boot and a line of Python, with every address it asked for recorded.
 The interpreter came up, installed the wheel from the sub-path, and reported its compiled kernels; nothing was requested from the root and no request failed.
 
+## Leaving it out
+
+Both halves are optional, and a build says which it is leaving out:
+
+```bash
+npm run build                                     # both
+VITE_FEATURE_NOTEBOOK=false npm run build         # the prompt, no Results tab
+VITE_FEATURE_PYTHON_CONSOLE=false npm run build   # the canvas alone
+```
+
+They come in that order because the second is built on the first: a notebook cell runs in the console's interpreter, so a notebook without a console is a tab that cannot do anything.
+Asking for one anyway gets a notebook that is off, decided once in `src/config/features.ts` rather than by every caller.
+`false`, `0`, `off` and `no` all turn one off; anything unset is on.
+
+What each switch takes with it:
+
+|                                                       | Python console | Notebook |
+| ----------------------------------------------------- | -------------- | -------- |
+| Python and Variables tabs in the console pane         | ✗              | ✓        |
+| Results tab, the split, the arrangement picker        | ✗              | ✗        |
+| `Figure descriptions` / `Notebook` in Settings → Save | ✗ / ✗          | ✓ / ✗    |
+| A notebook written into a saved case                  | ✗              | ✗        |
+
+A case is never damaged by opening it in a build that is missing a part.
+Cells arrive, are held aside, and are written back on save (`carriedNotebook` in the graph store), so someone who cannot see the Results tab can still open a colleague's case, move an element and save without quietly dropping the work.
+
+The switches are literals substituted at build time (`define` in `vite.config.ts`), not a lookup made while the app runs, so `PYTHON_CONSOLE &&` in front of a component is a branch the bundler can see is dead.
+What that removes today is the branches themselves — a couple of kilobytes.
+The heavy parts still travel, because the modules holding them are reachable from paths that are always live: the canvas export reaches `pin-figure`, which reaches the output renderer.
+Plotly is the exception and needs no help, being loaded on demand already (`loadPlotly`), so it is a chunk that is never fetched rather than one that is never built.
+Making a switched-off build genuinely smaller means cutting those static edges — importing the two tabs and the Results tab through `React.lazy` behind the same constants — which is worth doing when initial download becomes the thing to improve.
+
 ## What the session is holding
 
 The **Variables** tab lists every name defined at the prompt or in a cell — what it is,

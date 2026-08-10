@@ -3,6 +3,7 @@ import { addEdge, applyEdgeChanges, applyNodeChanges } from 'reactflow';
 import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from 'reactflow';
 import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import yaml from 'js-yaml';
+import { NOTEBOOK } from '../config/features';
 import { fromCaseNotebook, toCaseNotebook } from '../python/ipynb';
 import { useNotebookStore } from './notebookStore';
 import { joinLines } from '../types/notebook';
@@ -126,6 +127,17 @@ export interface GraphStore extends GraphData {
   models: ModelSummary[];
   requestModelSwitch: (id: string) => void;
   pendingLoad: SaveFilePayload | null;
+
+  /**
+   * The notebook a case arrived carrying, in a build that has no notebook to open it
+   * in.
+   *
+   * Held so that saving the case again writes it back out. Someone whose build cannot
+   * show the Results tab can still open a colleague's case, move an element and save,
+   * and the cells they never saw are still in the file. Always null where the notebook
+   * is on, since there the cells are in the notebook store instead.
+   */
+  carriedNotebook: SaveFilePayload['notebook'] | null;
 
   /**
    * Bumped whenever a saved case is applied to the canvas. The canvas watches
@@ -596,6 +608,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     models: [],
     requestModelSwitch: () => {},
     pendingLoad: null,
+    carriedNotebook: null,
     viewFitNonce: 0,
 
     // Graph state
@@ -1298,6 +1311,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         selectedEdgeId: null,
         activePort: null,
         title: DEFAULT_CASE_TITLE,
+        // Belonged to the case that is being cleared away.
+        carriedNotebook: null,
       }));
       get().clearHistory();
       debugLog('All nodes and states have been cleared');
@@ -1680,17 +1695,28 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       });
 
       // The notebook travels with the case, but only what was written in it: outputs
-      // are the bulk of a notebook and are not a description of the network.
-      const notebook = toCaseNotebook(useNotebookStore.getState().toNotebook({ outputs: false }));
-      const hasNotebook =
-        contents.notebook &&
-        notebook.cells.some((cell) => joinLines(cell.source).trim().length > 0);
+      // are the bulk of a notebook and are not a description of the network. A build
+      // without the notebook writes none, whatever `contents` was handed: the store is
+      // still there and still empty, and an empty notebook in a case is noise.
+      //
+      // Where there is no notebook to write, whatever the case arrived carrying is
+      // written back instead — unconditionally, since the switch that would decide it
+      // is one this build does not offer, and dropping someone's cells is not a
+      // default to reach for on their behalf.
+      let notebook: SaveFilePayload['notebook'];
+      if (NOTEBOOK) {
+        const written = toCaseNotebook(useNotebookStore.getState().toNotebook({ outputs: false }));
+        const anyWritten = written.cells.some((cell) => joinLines(cell.source).trim().length > 0);
+        notebook = contents.notebook && anyWritten ? written : undefined;
+      } else {
+        notebook = state.carriedNotebook ?? undefined;
+      }
 
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
         meta: { title: state.title },
-        ...(hasNotebook ? { notebook } : {}),
+        ...(notebook ? { notebook } : {}),
         ...(contents.results && savedDatasets.length > 0
           ? { data: { datasets: savedDatasets } }
           : {}),
@@ -1795,8 +1821,13 @@ export const useGraphStore = create<GraphStore>((set, get) => {
 
       // A case that carries a notebook opens with it; one that does not leaves the
       // Results tab as it was, so loading a plain case does not silently wipe work.
-      const notebook = fromCaseNotebook(saveData.notebook);
+      // A build without the notebook has no tab to open one in, so it holds the cells
+      // aside instead and writes them back on save: someone whose build cannot show
+      // them can still open a case, work on the drawing and save without quietly
+      // throwing away what they never saw.
+      const notebook = NOTEBOOK ? fromCaseNotebook(saveData.notebook) : null;
       if (notebook) useNotebookStore.getState().open(notebook);
+      if (!NOTEBOOK) set({ carriedNotebook: saveData.notebook ?? null });
 
       const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
       const elementInfo = get().model?.elementInfo ?? EMPTY_ELEMENT_INFO;

@@ -13,6 +13,7 @@ import ConsolePane from './components/console-pane';
 import WorkspaceLayoutPicker from './components/workspace-layout-picker';
 import ResultsTab from './components/notebook/ResultsTab';
 import { redrawPinnedFigures } from './python/redraw-figures';
+import { NOTEBOOK, PYTHON_CONSOLE } from './config/features';
 import PropertiesPanel from './components/PropertiesPanel';
 import DatasetLoadDialog from './components/DatasetLoadDialog';
 import NavigationControls from './components/NavigationControls';
@@ -26,8 +27,11 @@ import { useSplitResize } from './hooks/use-split-resize';
 function AppContent() {
   const { sidebar, workspace, appearance, actions } = useAppState();
   const { layout, splitRatio } = workspace;
-  const showCanvas = layout !== 'notebook';
-  const showResults = layout !== 'canvas';
+  // Without the notebook there is one surface, and it is the canvas — whatever a
+  // stored arrangement from a build that had two says.
+  const showCanvas = !NOTEBOOK || layout !== 'notebook';
+  const showResults = NOTEBOOK && layout !== 'canvas';
+  const showDivider = NOTEBOOK && layout === 'split';
   const { splitRef, onDividerPointerDown, onDividerKeyDown } = useSplitResize(
     splitRatio,
     actions.workspace.setSplitRatio
@@ -43,6 +47,8 @@ function AppContent() {
   const theme = appearance.theme;
   const firstRender = React.useRef(true);
   React.useEffect(() => {
+    // Only Python produces a figure, so a build without it has none to redraw.
+    if (!PYTHON_CONSOLE) return;
     if (firstRender.current) {
       firstRender.current = false;
       return;
@@ -67,7 +73,7 @@ function AppContent() {
       {renderPane()}
       <div className="canvas-container">
         <div className="canvas-workspace">
-          <WorkspaceLayoutPicker />
+          {NOTEBOOK && <WorkspaceLayoutPicker />}
           {/* Both surfaces stay mounted. React Flow loses its viewport when it is torn
               down, and a notebook cell loses what is half-typed into it, so an
               arrangement that leaves one out hides it rather than replacing it.
@@ -82,7 +88,7 @@ function AppContent() {
             <div className="canvas-area" hidden={!showCanvas}>
               <Canvas />
             </div>
-            {layout === 'split' && (
+            {showDivider && (
               <div
                 className="workspace-divider"
                 role="separator"
@@ -96,9 +102,11 @@ function AppContent() {
                 onKeyDown={onDividerKeyDown}
               />
             )}
-            <div className="results-area" hidden={!showResults}>
-              <ResultsTab />
-            </div>
+            {NOTEBOOK && (
+              <div className="results-area" hidden={!showResults}>
+                <ResultsTab />
+              </div>
+            )}
           </div>
           <ConsolePane />
         </div>
