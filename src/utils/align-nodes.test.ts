@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { alignToAnchor, pickAnchor } from './align-nodes';
 import type { AlignCandidate } from './align-nodes';
+import { useGraphStore } from '../store/graphStore';
 
 /** A node of the default size, at a given top-left. */
 const at = (id: string, x: number, y: number, width = 150, height = 50): AlignCandidate => ({
@@ -100,5 +101,43 @@ describe('alignToAnchor', () => {
     const moves = alignToAnchor([anchor, at('other', 0, 300)], 'horizontal', anchor);
 
     expect(moves.some((move) => move.id === 'anchor')).toBe(false);
+  });
+});
+
+/**
+ * Which id the control hands to {@link pickAnchor}.
+ *
+ * It is the last element *clicked*, which is not the last element selected: dropping
+ * an element onto the canvas selects it too, and an element dropped a minute ago is
+ * nothing anyone would expect a later marquee-and-align to pivot on. The two were the
+ * same field until a run through the browser showed the difference.
+ */
+describe('the anchor the canvas offers', () => {
+  beforeEach(() => {
+    useGraphStore.setState({ nodes: [], edges: [], model: null, past: [], future: [] });
+    useGraphStore.getState().setLastClickedNodeId(null);
+  });
+
+  it('is not set by putting an element on the canvas', () => {
+    // Adding one selects it — that is how the properties panel comes up on what was
+    // just dropped — but selecting is not clicking, and only clicking nominates.
+    useGraphStore.getState().addAnnotation({ position: { x: 0, y: 0 }, text: 'a' });
+
+    expect(useGraphStore.getState().nodes).toHaveLength(1);
+    expect(useGraphStore.getState().lastClickedNodeId).toBeNull();
+  });
+
+  it('is set by clicking one', () => {
+    const note = useGraphStore.getState().addAnnotation({ position: { x: 0, y: 0 }, text: 'a' })!;
+    useGraphStore.getState().setLastClickedNodeId(note.id);
+
+    expect(useGraphStore.getState().lastClickedNodeId).toBe(note.id);
+  });
+
+  it('is let go of with the case it belonged to', () => {
+    useGraphStore.getState().setLastClickedNodeId('gone');
+    useGraphStore.getState().reset();
+
+    expect(useGraphStore.getState().lastClickedNodeId).toBeNull();
   });
 });

@@ -115,7 +115,7 @@ const CanvasAlignControls = memo(() => {
       const candidates = alignCandidates(selected);
       // Read at click time rather than subscribed to: which node is the anchor only
       // matters the moment the button is pressed, and nothing here re-renders on it.
-      const lastClicked = useGraphStore.getState().selectedNodeId;
+      const lastClicked = useGraphStore.getState().lastClickedNodeId;
       const anchor = pickAnchor(candidates, axis, lastClicked);
       if (!anchor) return;
 

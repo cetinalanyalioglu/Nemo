@@ -56,6 +56,7 @@ const Canvas = () => {
   const deleteAnnotation = useGraphStore((s) => s.deleteAnnotation);
   const deleteEdge = useGraphStore((s) => s.deleteEdge);
   const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
+  const setLastClickedNodeId = useGraphStore((s) => s.setLastClickedNodeId);
   const setSelectedEdgeId = useGraphStore((s) => s.setSelectedEdgeId);
   const setActivePort = useGraphStore((s) => s.setActivePort);
   const isValidConnection = useGraphStore((s) => s.isValidConnection);
@@ -152,6 +153,9 @@ const Canvas = () => {
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      // Every click, annotations included: this is the element an alignment holds
+      // still, and a note is as alignable as anything else on the canvas.
+      setLastClickedNodeId(node.id);
       // Annotations have no parameters: keep the properties panel out of it and
       // let the note's own floating toolbar handle styling.
       if (node.type === ANNOTATION_NODE_TYPE) {
@@ -160,7 +164,7 @@ const Canvas = () => {
       }
       setSelectedNodeId(node.id);
     },
-    [setSelectedNodeId]
+    [setSelectedNodeId, setLastClickedNodeId]
   );
 
   const handleEdgeClick = useCallback(
@@ -172,9 +176,10 @@ const Canvas = () => {
 
   const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
+    setLastClickedNodeId(null);
     setSelectedEdgeId(null);
     setActivePort(null);
-  }, [setSelectedNodeId, setSelectedEdgeId, setActivePort]);
+  }, [setSelectedNodeId, setLastClickedNodeId, setSelectedEdgeId, setActivePort]);
 
   // Record a snapshot before a drag so the move can be undone as a single step.
   const onNodeDragStart = useCallback(() => {

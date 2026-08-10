@@ -167,6 +167,14 @@ export interface GraphStore extends GraphData {
   // Selection.
   setSelectedNodeId: (id: string | null) => void;
   setSelectedEdgeId: (id: string | null) => void;
+  /**
+   * The last element the pointer went down on, or null once the canvas background is
+   * clicked. Not the same as {@link GraphData.selectedNodeId}, which a freshly dropped
+   * or pasted element also takes: this one answers only to a click, which is what makes
+   * it usable as the element an alignment holds still (see `canvas-align-controls`).
+   */
+  lastClickedNodeId: string | null;
+  setLastClickedNodeId: (id: string | null) => void;
 
   // Transient validity highlighting (not part of undo history). Cleared as soon
   // as the user selects anything.
@@ -609,6 +617,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     requestModelSwitch: () => {},
     pendingLoad: null,
     carriedNotebook: null,
+    lastClickedNodeId: null,
     viewFitNonce: 0,
 
     // Graph state
@@ -658,6 +667,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         ...(s.highlightedNodeIds.length ? { highlightedNodeIds: [] } : {}),
         ...(s.highlightedEdgeIds.length ? { highlightedEdgeIds: [] } : {}),
       })),
+    setLastClickedNodeId: (id) => set({ lastClickedNodeId: id }),
     setSelectedEdgeId: (id) =>
       set((s) => ({
         selectedEdgeId: id,
@@ -1311,6 +1321,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         selectedEdgeId: null,
         activePort: null,
         title: DEFAULT_CASE_TITLE,
+        lastClickedNodeId: null,
         // Belonged to the case that is being cleared away.
         carriedNotebook: null,
       }));
