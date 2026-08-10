@@ -1,0 +1,124 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import yaml from 'js-yaml';
+import { describe, expect, it } from 'vitest';
+import { validateSolverDefinition } from '../models/model-builder';
+import type { ModelDefinition } from '../types/flow';
+import { PYODIDE_INDEX_URL, PYODIDE_VERSION, resolvePackage } from './python-runtime';
+
+const ROOT = resolve(__dirname, '../..');
+const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+
+describe('which interpreter the console fetches', () => {
+  it('is the one the types are checked against', () => {
+    // The distribution is fetched at run time and only its types are installed, so
+    // nothing else would notice the two drifting apart -- the console would be typed
+    // against one build of Pyodide and running another.
+    const declared: string = packageJson.devDependencies.pyodide;
+    expect(declared.replace(/^[\^~]/, '')).toBe(PYODIDE_VERSION);
+  });
+
+  it('is fetched from a version-pinned address', () => {
+    expect(PYODIDE_INDEX_URL).toContain(`v${PYODIDE_VERSION}`);
+    expect(PYODIDE_INDEX_URL.endsWith('/')).toBe(true);
+  });
+});
+
+describe('the packages a model brings', () => {
+  const models = (
+    JSON.parse(readFileSync(resolve(ROOT, 'public/models/manifest.json'), 'utf8')) as {
+      models: { id: string; file: string }[];
+    }
+  ).models;
+
+  const solverOf = (file: string) => {
+    const definition = yaml.load(
+      readFileSync(resolve(ROOT, 'public/models', file), 'utf8')
+    ) as ModelDefinition;
+    return validateSolverDefinition(definition.id, definition.solver);
+  };
+
+  it('is declared by the model, not named anywhere in the app', () => {
+    // The whole point of the solver living in the model file: the app is free of any
+    // particular one, and a grep for it in the source should come back empty.
+    const declared = models.map((m) => solverOf(m.file)).filter(Boolean);
+    expect(declared.length).toBeGreaterThan(0);
+  });
+
+  it('ships the files it names, and names the rest as requirements', () => {
+    // Two kinds. A path is something this app serves, and the app is served as static
+    // files, so one the tree does not carry is a console that starts with nothing in
+    // it. A bare name is a requirement the installer resolves for itself.
+    for (const model of models) {
+      for (const pkg of solverOf(model.file)?.packages ?? []) {
+        if (!pkg.includes('/')) {
+          // A requirement, not a path: `plotly`, or `plotly==6.9.0`.
+          expect(pkg, `${model.id}: ${pkg}`).toMatch(/^[A-Za-z0-9._-]+(\[.*\])?([<>=!~].*)?$/);
+          continue;
+        }
+        expect(
+          () => readFileSync(resolve(ROOT, 'public', pkg)),
+          `${model.id}: ${pkg}`
+        ).not.toThrow();
+      }
+    }
+  });
+
+  it('names a path relative to the app, so it can be served from any base', () => {
+    for (const model of models) {
+      for (const pkg of solverOf(model.file)?.packages ?? []) {
+        expect(pkg.startsWith('/'), `${model.id}: ${pkg}`).toBe(false);
+        expect(pkg).not.toContain('://');
+      }
+    }
+  });
+
+  it('carries an adapter with the calls the console makes into it', () => {
+    for (const model of models) {
+      const adapter = solverOf(model.file)?.adapter;
+      if (!adapter) continue;
+      // nemo.network() and nemo.publish() are these two and nothing else.
+      expect(adapter, `${model.id}`).toMatch(/^def build\(/m);
+      expect(adapter, `${model.id}`).toMatch(/^def results\(/m);
+    }
+  });
+});
+
+describe('where a model’s packages are looked for', () => {
+  // A published copy lives under a sub-path, so an address built from the root works in
+  // development and breaks once deployed. Both forms below only differ there.
+  const PAGES = new URL('https://someone.github.io/Nemo/');
+
+  it('looks for a file the app is serving under the app’s own base', () => {
+    expect(resolvePackage('wheels/thing.whl', PAGES)).toBe(
+      'https://someone.github.io/Nemo/wheels/thing.whl'
+    );
+  });
+
+  it('leaves a bare requirement alone, so it is resolved where requirements are', () => {
+    // Turning `plotly` into an address of this app asks the site for a file that is not
+    // there, which is a failure only a deployed copy would ever show.
+    expect(resolvePackage('plotly', PAGES)).toBe('plotly');
+  });
+
+  it('takes an absolute address as written', () => {
+    expect(resolvePackage('https://elsewhere.example/x.whl', PAGES)).toBe(
+      'https://elsewhere.example/x.whl'
+    );
+  });
+
+  it('resolves the shipped model’s own packages, each to the right kind of address', () => {
+    const definition = yaml.load(
+      readFileSync(resolve(ROOT, 'public/models/nefes.yaml'), 'utf8')
+    ) as ModelDefinition;
+    const solver = validateSolverDefinition(definition.id, definition.solver);
+    const resolved = (solver?.packages ?? []).map((pkg) => resolvePackage(pkg, PAGES));
+
+    // The wheel is a file this app serves, so it moves with the app.
+    expect(resolved.some((url) => url.startsWith('https://someone.github.io/Nemo/wheels/'))).toBe(
+      true
+    );
+    // The requirement is not, so it must not.
+    expect(resolved).toContain('plotly');
+  });
+});

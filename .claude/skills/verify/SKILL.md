@@ -37,6 +37,23 @@ Then drive `http://localhost:5199/` with Playwright (browser MCP tools work).
 - **Left rail panes**: `.nav-button` index 4 opens ANNOTATIONS (check
   `.panel-title` text after clicking).
 
+## Driving the Python console
+
+Fastest way to put a real network on the canvas:
+`useGraphStore.getState().openCase(doc, 'label')` with a case document — the
+same mapping `nefes.io.case_to_dict(net)` returns.
+
+- Open it with `page.getByRole('tab', { name: 'Python' }).click()`, then wait for
+  `.console-python-input` to be **visible**, not merely present. Both tabs stay
+  mounted, so the prompt exists while the Messages tab is showing.
+- Submit with `input.fill(line)` + `press('Enter')`, then wait for
+  `.python-status` to carry `ready` or `failed`. The first submission also boots
+  the interpreter — allow a few minutes on a cold network, ~5 s warm.
+- The transcript is `.python-line`; the live prompt marker (`>>>` vs `...`) is
+  `.console-python-prompt .python-line-prompt`.
+- `nemo.replace(doc)` on a document carrying result sets opens the dataset
+  chooser, which blocks later clicks. Dismiss `.dataset-load-overlay` first.
+
 ## Measuring edge/port alignment
 
 Edge endpoint vs port: take each `.react-flow__edge-path`, map

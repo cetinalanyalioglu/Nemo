@@ -12,17 +12,21 @@ import '../styles/sidebar.css';
 import SidebarShell from './sidebar-shell';
 import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
+import { useConsoleStore } from '../store/consoleStore';
 import { useGraphStore } from '../store/graphStore';
 import { selectIndicesReady } from '../store/graph-selectors';
+import { CONSOLE_VERBOSITY_OPTIONS, type ConsoleVerbosity } from '../types/console';
 import { THEME_OPTIONS } from '../types/theme';
 import type { ThemeId } from '../types/theme';
 import type { EdgePathStyle } from '../context/AppStateContext';
 import type { LayoutDirection, LayoutEngine } from '../utils/layoutUtils';
 
 const SETTINGS_APPEARANCE_GROUP = '__settings_appearance__';
+const SETTINGS_MESSAGES_GROUP = '__settings_messages__';
 const SETTINGS_LAYOUT_GROUP = '__settings_layout__';
 const SETTINGS_ROTATION_GROUP = '__settings_rotation__';
 const SETTINGS_EXPORT_GROUP = '__settings_export__';
+const SETTINGS_SAVE_GROUP = '__settings_save__';
 
 const ROTATION_INCREMENT_MIN = 1;
 const ROTATION_INCREMENT_MAX = 90;
@@ -195,6 +199,7 @@ const SettingsPane = React.memo(() => {
     layout: { edgePathStyle, layoutEngine, layoutDirection, nodeSep, rankSep, showMinimap },
     rotation: { snap: rotationSnap, increment: rotationIncrement },
     export: { monochrome },
+    save,
     sidebar: { isOpen, collapsedGroups },
     actions,
   } = useAppState();
@@ -202,6 +207,14 @@ const SettingsPane = React.memo(() => {
   // Indices only exist once the user has run Renumber (Tools > Connectivity),
   // so the toggle stays inert until then rather than switching on nothing.
   const indicesReady = useGraphStore(selectIndicesReady);
+
+  const verbosity = useConsoleStore((s) => s.verbosity);
+  const setVerbosity = useConsoleStore((s) => s.setVerbosity);
+
+  const handleVerbosityChange = useCallback(
+    (value: string) => setVerbosity(value as ConsoleVerbosity),
+    [setVerbosity]
+  );
 
   const handleThemeChange = useCallback(
     (value: string) => actions.appearance.setTheme(value as ThemeId),
@@ -301,6 +314,33 @@ const SettingsPane = React.memo(() => {
       </div>
 
       <div
+        className={`parameter-group ${collapsedGroups[SETTINGS_MESSAGES_GROUP] ? 'collapsed' : ''}`}
+      >
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_MESSAGES_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>MESSAGES</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsSelectField
+            id="console-verbosity-select"
+            label="Detail"
+            value={verbosity}
+            options={CONSOLE_VERBOSITY_OPTIONS}
+            onChange={handleVerbosityChange}
+          />
+          <p className="settings-note">
+            How much the message log records. It applies to messages from here on; what is already
+            listed stays, and everything reaches the browser&rsquo;s own console regardless.
+          </p>
+        </div>
+      </div>
+
+      <div
         className={`parameter-group ${collapsedGroups[SETTINGS_EXPORT_GROUP] ? 'collapsed' : ''}`}
       >
         <div
@@ -318,6 +358,38 @@ const SettingsPane = React.memo(() => {
             checked={monochrome}
             onToggle={actions.export.toggleMonochrome}
             title="Export SVG/PNG/PDF as true black-and-white line art instead of the theme colours"
+          />
+        </div>
+      </div>
+
+      <div className={`parameter-group ${collapsedGroups[SETTINGS_SAVE_GROUP] ? 'collapsed' : ''}`}>
+        <div
+          className="group-header"
+          onClick={() => actions.sidebar.toggleGroup(SETTINGS_SAVE_GROUP)}
+        >
+          <div className="group-header-content">
+            <span>SAVE</span>
+            <IoChevronDown className="group-collapse-icon" />
+          </div>
+        </div>
+        <div className="group-content">
+          <SettingsBooleanField
+            label="Result sets"
+            checked={save.results}
+            onToggle={() => actions.save.toggle('results')}
+            title="Carry the loaded result sets in the case, so a reopened one is coloured without solving again. Which of them is still each set's own switch, in the Data pane."
+          />
+          <SettingsBooleanField
+            label="Figure descriptions"
+            checked={save.figures}
+            onToggle={() => actions.save.toggle('figures')}
+            title="Carry what each pinned figure was drawn from, so it can be drawn again after reopening — for a theme change, and for an export. Without it the picture still travels, fixed in the colours it was pinned in."
+          />
+          <SettingsBooleanField
+            label="Notebook"
+            checked={save.notebook}
+            onToggle={() => actions.save.toggle('notebook')}
+            title="Carry the Results tab's cells. Their source only; outputs belong in a .ipynb export."
           />
         </div>
       </div>

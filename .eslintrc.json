@@ -6,6 +6,15 @@
     "react/prop-types": "off",
     "prettier/prettier": "error"
   },
+  "overrides": [
+    {
+      "files": ["*.worker.ts"],
+      "env": { "worker": true },
+      "rules": {
+        "no-restricted-globals": "off"
+      }
+    }
+  ],
   "settings": {
     "react": {
       "version": "detect"

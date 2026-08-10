@@ -356,7 +356,9 @@ export const ScaleToVisibleBridge = memo(() => {
 
     useDataStore.getState().setRange(target, min, max);
     const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toPrecision(4));
-    logger.info(
+    // The outcome of asking for it, and the only place the chosen bounds are written
+    // down, so it belongs with the messages a turned-down log still keeps.
+    logger.success(
       `Scaled ${target} colormap to visible range [${fmt(min)}, ${fmt(max)}] ` +
         `(${values.length} element${values.length === 1 ? '' : 's'}).`
     );

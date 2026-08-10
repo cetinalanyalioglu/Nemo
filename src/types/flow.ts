@@ -297,9 +297,93 @@ export interface ModelDefinition {
    * omitted, all parameter sections sort alphabetically.
    */
   categoryPrecedence?: Record<string, number>;
+  /**
+   * How the Python console reaches this model's solver, if it has one. Omitted
+   * where the model is a drawing only; the console then offers the canvas with
+   * nothing to compute it with.
+   */
+  solver?: ModelSolverDefinition;
   nodes: Record<string, ModelNodeDefinition>;
   edges: Record<string, ModelEdgeDefinition>;
 }
+
+/**
+ * A model's solver, as the model file declares it.
+ *
+ * This is what keeps the app free of any particular solver. It knows that a model may
+ * name packages, and some Python to reach them by; it knows nothing about what either
+ * does. The console calls the adapter's functions, and the adapter is the only place a
+ * solver's own names appear.
+ */
+export interface ModelSolverDefinition {
+  /**
+   * Packages installed into the console's interpreter, in order. Each is resolved
+   * against the app's base, so `wheels/thing.whl` is the usual form; an absolute
+   * URL is taken as written.
+   */
+  packages?: string[];
+  /**
+   * Python run once when the interpreter starts, adapting the case document to this
+   * solver. It is expected to define:
+   *
+   * - `build(doc)` — a case document in, whatever the solver models it as out;
+   * - `results(model, **kwargs)` — that back out as a case document to draw;
+   * - `describe()` — optional; one line naming the solver, for the status line.
+   */
+  adapter?: string;
+  /**
+   * A second name for `nemo.build()`, suiting what this model models.
+   *
+   * `build` says what the call does and is always there; a model that works on networks
+   * would rather write `nemo.network()`, and one that works on circuits `nemo.circuit()`.
+   * Naming it here is what keeps that convenience without the app having to know any of
+   * those words. The name carries the adapter's own `build()` documentation, so
+   * `help(nemo.network)` describes that model's networks.
+   *
+   * Must be a Python identifier, and not one of the names the module already answers to.
+   * Omitted where `build` reads well enough on its own.
+   */
+  handle?: string;
+  /**
+   * A short worked example, shown on an empty prompt and an empty notebook.
+   *
+   * It belongs to the model because what a first line looks like depends entirely on
+   * what the model's solver is: `net.solve()` means nothing to a model that solves
+   * nothing. A model that offers none gets the generic lines about reading the canvas,
+   * which are true of every model.
+   */
+  example?: string;
+}
+
+/**
+ * What a saved case carries beyond the drawing itself.
+ *
+ * The network, its layout and the annotations are the drawing and always travel. These
+ * three are the things a case *can* carry, each of which is useful to someone and heavy
+ * to someone else, so each is a choice:
+ *
+ * - `results` — the result sets loaded on the canvas, so a reopened case is coloured
+ *   without solving again. The per-dataset switch in the Data pane still decides which
+ *   of them; this decides whether any go at all.
+ * - `figures` — the description behind each pinned figure, which is what lets it be
+ *   drawn again after reopening: for a theme change, and for an export. Without it the
+ *   picture still travels and still exports, but it is fixed in the colours it was
+ *   pinned in. A swept figure's description can be a few hundred kilobytes.
+ * - `notebook` — the Results tab's source cells. Never its outputs, which belong in a
+ *   `.ipynb` export.
+ */
+export interface SaveContents {
+  results: boolean;
+  figures: boolean;
+  notebook: boolean;
+}
+
+/** Everything, which is what a case carries unless told otherwise. */
+export const SAVE_CONTENTS_DEFAULTS: SaveContents = {
+  results: true,
+  figures: true,
+  notebook: true,
+};
 
 /** Entry in the model manifest used to populate the model selector. */
 export interface ModelSummary {
@@ -379,4 +463,9 @@ export interface SaveFilePayload {
   data?: {
     datasets: Dataset[];
   };
+  /**
+   * The Results-tab notebook, as source cells only. Outputs are the bulk of a notebook
+   * and are not a description of the network, so they are left for a `.ipynb` export.
+   */
+  notebook?: { cells: unknown[] };
 }

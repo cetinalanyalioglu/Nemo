@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { useModel } from '../context/ModelContext';
 import { useGraphStore } from './graphStore';
+import { startFresh } from './start-fresh';
 
 /**
  * Bridges ModelContext into the graph store. Keeps the active model, model list
- * and model switcher in sync, resets the canvas when the model changes, and
- * applies a deferred file load once its target model has finished loading.
+ * and model switcher in sync, starts the session again when the model changes,
+ * and applies a deferred file load once its target model has finished loading.
  *
  * Renders nothing; it only wires effects.
  */
@@ -27,10 +28,12 @@ const GraphStoreBridge = () => {
     useGraphStore.getState().setModelSwitcher(setActiveModelId);
   }, [setActiveModelId]);
 
-  // Reset the canvas whenever the active model changes.
+  // Start the session again whenever the active model changes: the canvas, the
+  // results, the notebook and the interpreter all belong to the model they were
+  // made under. The message log is kept, being the record of how we got here.
   useEffect(() => {
     if (!modelId) return;
-    useGraphStore.getState().resetForModel();
+    startFresh();
   }, [modelId]);
 
   // Apply a deferred load once its target model is active. Declared after the

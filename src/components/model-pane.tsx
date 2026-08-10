@@ -6,6 +6,7 @@ import '../styles/properties-panel.css';
 import { useAppState } from '../context/AppStateContext';
 import { useModel } from '../context/ModelContext';
 import { useGraphStore } from '../store/graphStore';
+import { hasWorkInProgress } from '../store/start-fresh';
 import { ParameterFormFields } from './parameter-form-fields';
 import type { ParameterInfo } from '../types/flow';
 
@@ -15,7 +16,6 @@ const ModelPane = React.memo(() => {
     actions,
   } = useAppState();
   const { models, activeModelId, model, isLoading, error, setActiveModelId } = useModel();
-  const nodeCount = useGraphStore((s) => s.nodes.length);
   const modelParameters = useGraphStore((s) => s.modelParameters);
   const updateModelParameter = useGraphStore((s) => s.updateModelParameter);
 
@@ -27,9 +27,13 @@ const ModelPane = React.memo(() => {
   const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newId = event.target.value;
     if (newId === activeModelId) return;
-    if (nodeCount > 0) {
+    // Everything a session holds is about the model it was made under, so a switch
+    // discards all of it. Asked only when there is something to lose — and asked
+    // about all three, since the notebook is the one behind the other tab.
+    if (hasWorkInProgress()) {
       const confirmed = window.confirm(
-        'Switching the model will clear the current canvas. Continue?'
+        'Switching the model starts a new session: the canvas, any loaded results and ' +
+          'the notebook will be cleared. Continue?'
       );
       if (!confirmed) return;
     }

@@ -70,6 +70,16 @@ export interface AnnotationData {
   style: AnnotationStyle;
   /** Image content as a data URI (`image` kind). */
   src?: string;
+  /**
+   * The figure `src` was drawn from, where it came from one: the description a
+   * plotting library produced, kept so the picture can be drawn again.
+   *
+   * A picture cannot be recoloured, and a drawing is looked at in one theme and
+   * exported in another. Keeping what it was drawn *from* is what lets a pinned
+   * figure follow the canvas on screen and still come out in document colours on a
+   * page. Absent on an image that was not a figure — an uploaded photograph.
+   */
+  figure?: unknown;
   /** Stacking relative to the model layer. Defaults to `front`. */
   layer?: AnnotationLayer;
   /** Display name shown in the annotations pane instead of the text preview. */
@@ -123,6 +133,8 @@ export interface SaveFileAnnotation {
   text?: string;
   /** Image content as a data URI (`image` kind). */
   src?: string;
+  /** The figure `src` was drawn from; omitted when the image was not one. */
+  figure?: unknown;
   /** Stacking relative to the model layer; omitted when `front` (the default). */
   layer?: AnnotationLayer;
   /** Display name for the annotations pane; omitted when unset. */

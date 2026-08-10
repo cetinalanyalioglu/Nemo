@@ -3,7 +3,11 @@ import { addEdge, applyEdgeChanges, applyNodeChanges } from 'reactflow';
 import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from 'reactflow';
 import type { ChangeEvent as ReactChangeEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import yaml from 'js-yaml';
+import { fromCaseNotebook, toCaseNotebook } from '../python/ipynb';
+import { useNotebookStore } from './notebookStore';
+import { joinLines } from '../types/notebook';
 import { debugLog } from '../utils/debug';
+import { downloadBlob } from '../utils/download-blob';
 import { logger } from '../utils/logger';
 import { isSourceConnectionToTargetAllowed, type RuntimeModel } from '../models/model-builder';
 import { isPortCountParameter, remapPortsAfterCountChange } from '../utils/ports';
@@ -17,6 +21,7 @@ import type {
   AnnotationStyle,
   SaveFileAnnotation,
 } from '../types/annotations';
+import { SAVE_CONTENTS_DEFAULTS, type SaveContents } from '../types/flow';
 import type {
   EditingState,
   EdgeRuntimeState,
@@ -38,6 +43,17 @@ import type {
 
 /** Maximum number of undo steps retained in history. */
 export const MAX_HISTORY_DEPTH = 100;
+
+/**
+ * How a case is opened.
+ *
+ * `askAboutDatasets` is the one difference between a file someone chose to open and a
+ * case handed over from the console: the second was asked for by the line that handed it
+ * over, so asking again is a question with only one answer.
+ */
+export interface LoadOptions {
+  askAboutDatasets?: boolean;
+}
 
 /** When true, indices are recomputed and applied to state before writing a save file. */
 export const RENUMBER_ON_SAVE = true;
@@ -222,6 +238,8 @@ export interface GraphStore extends GraphData {
     kind?: AnnotationKind;
     text?: string;
     src?: string;
+    /** What `src` was drawn from, for an image that came from a figure. */
+    figure?: unknown;
     style?: AnnotationStyle;
     layer?: AnnotationLayer;
   }) => Node | undefined;
@@ -238,6 +256,8 @@ export interface GraphStore extends GraphData {
     annotationId: string,
     patch: {
       text?: string;
+      /** A fresh picture for an image annotation — a pinned figure, drawn again. */
+      src?: string;
       style?: AnnotationStyle;
       layer?: AnnotationLayer;
       name?: string;
@@ -283,10 +303,28 @@ export interface GraphStore extends GraphData {
   finishEditing: (nodeId: string, opts?: { fromBlur?: boolean }) => void;
 
   // Save / load.
-  generateSaveData: () => SaveFilePayload;
-  saveToFile: () => void;
+  /**
+   * The case as a document. `contents` decides which of the optional parts come with
+   * it; everything is included when it is not given, since anything reading the case
+   * in memory — the console — should see the whole of it.
+   */
+  generateSaveData: (contents?: SaveContents) => SaveFilePayload;
+  /**
+   * The case as anything outside the canvas should read it: element indices brought
+   * up to date first, because result data binds to elements by index and a stale one
+   * would land a series on the wrong element.
+   */
+  captureCase: () => SaveFilePayload;
+  /** Writes the case to a file, carrying the parts `contents` asks for. */
+  saveToFile: (contents?: SaveContents) => void;
   loadFromFile: (file: File) => void;
-  applySaveData: (saveData: SaveFilePayload) => void;
+  /**
+   * Opens a case document that arrived from somewhere other than a file: validates it,
+   * switches models when it targets a different one, and reports failures against
+   * `label`. Returns whether the document was accepted.
+   */
+  openCase: (document: unknown, label: string, options?: LoadOptions) => boolean;
+  applySaveData: (saveData: SaveFilePayload, options?: LoadOptions) => void;
 
   // History.
   recordHistory: () => void;
@@ -982,6 +1020,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       kind = 'text',
       text = '',
       src,
+      figure,
       style = {},
       layer = 'front',
     } = {}) => {
@@ -993,7 +1032,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         id = `annotation-${generateRandomSuffix(6)}`;
       }
 
-      const annotation: AnnotationData = { kind, text, style, ...(src ? { src } : {}), layer };
+      const annotation: AnnotationData = {
+        kind,
+        text,
+        style,
+        ...(src ? { src } : {}),
+        ...(figure ? { figure } : {}),
+        layer,
+      };
       const newNode: Node = {
         id,
         type: ANNOTATION_NODE_TYPE,
@@ -1039,6 +1085,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       const next: AnnotationData = {
         ...current,
         text: patch.text ?? current.text,
+        ...(patch.src ? { src: patch.src } : {}),
         style,
         layer,
         name,
@@ -1051,8 +1098,12 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       if (!hidden) delete next.hidden;
       if (!rotation) delete next.rotation;
 
+      // Nothing actually changed: leave the node alone rather than churn a render and
+      // a history entry. Every field the patch can carry has to be checked here, or a
+      // change to the one that is missing looks like no change at all.
       if (
         next.text === current.text &&
+        next.src === current.src &&
         layer === (current.layer ?? 'front') &&
         locked === (current.locked ?? false) &&
         hidden === (current.hidden ?? false) &&
@@ -1596,7 +1647,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
-    generateSaveData: () => {
+    generateSaveData: (contents = SAVE_CONTENTS_DEFAULTS) => {
       const state = get();
 
       // Embed only the datasets the user ticked for saving (Data pane / Document
@@ -1615,6 +1666,10 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           position: node.position,
           ...(kind === 'text' ? { text: annotation.text } : {}),
           ...(kind === 'image' && annotation.src ? { src: annotation.src } : {}),
+          // A pinned figure travels with what it was drawn from, so a reopened case can
+          // draw it again -- for its theme, and for an export. Without it the picture
+          // still travels; it is simply fixed in the colours it was pinned in.
+          ...(contents.figures && annotation.figure ? { figure: annotation.figure } : {}),
           ...(annotation.layer === 'back' ? { layer: 'back' as const } : {}),
           ...(annotation.name ? { name: annotation.name } : {}),
           ...(annotation.locked ? { locked: true } : {}),
@@ -1624,11 +1679,21 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         };
       });
 
+      // The notebook travels with the case, but only what was written in it: outputs
+      // are the bulk of a notebook and are not a description of the network.
+      const notebook = toCaseNotebook(useNotebookStore.getState().toNotebook({ outputs: false }));
+      const hasNotebook =
+        contents.notebook &&
+        notebook.cells.some((cell) => joinLines(cell.source).trim().length > 0);
+
       return {
         version: SAVE_FILE_VERSION,
         timestamp: new Date().toISOString(),
         meta: { title: state.title },
-        ...(savedDatasets.length > 0 ? { data: { datasets: savedDatasets } } : {}),
+        ...(hasNotebook ? { notebook } : {}),
+        ...(contents.results && savedDatasets.length > 0
+          ? { data: { datasets: savedDatasets } }
+          : {}),
         model: {
           id: state.model?.id,
           globalAttributes: { ...state.modelParameters },
@@ -1664,7 +1729,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       };
     },
 
-    saveToFile: () => {
+    captureCase: () => {
+      if (RENUMBER_ON_SAVE) {
+        applyIndices();
+      }
+      return get().generateSaveData();
+    },
+
+    saveToFile: (contents = SAVE_CONTENTS_DEFAULTS) => {
       try {
         // Verify on save: surface any validity problems before writing the file
         // and block on hard errors (e.g. a missing required parameter the solver
@@ -1704,29 +1776,27 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         if (RENUMBER_ON_SAVE) {
           applyIndices();
         }
-        const saveData = get().generateSaveData();
+        const saveData = get().generateSaveData(contents);
         const yamlString = yaml.dump(saveData, { noRefs: true, sortKeys: false, lineWidth: -1 });
 
         const blob = new Blob([yamlString], { type: 'application/x-yaml' });
-        const url = URL.createObjectURL(blob);
+        const filename = 'canvas.yaml';
+        downloadBlob(blob, filename);
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'canvas.yaml';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        logger.success(`Saved canvas to "${link.download}".`);
+        logger.success(`Saved canvas to "${filename}".`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to save canvas: ${message}`);
       }
     },
 
-    applySaveData: (saveData) => {
+    applySaveData: (saveData, options = {}) => {
       get().reset();
+
+      // A case that carries a notebook opens with it; one that does not leaves the
+      // Results tab as it was, so loading a plain case does not silently wipe work.
+      const notebook = fromCaseNotebook(saveData.notebook);
+      if (notebook) useNotebookStore.getState().open(notebook);
 
       const edgeInfo = get().model?.edgeInfo ?? EMPTY_EDGE_INFO;
       const elementInfo = get().model?.elementInfo ?? EMPTY_ELEMENT_INFO;
@@ -1811,6 +1881,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
           text: a.text ?? '',
           style: a.style ?? {},
           ...(a.src ? { src: a.src } : {}),
+          ...(a.figure ? { figure: a.figure } : {}),
           layer,
           ...(a.name ? { name: a.name } : {}),
           ...(a.locked ? { locked: true } : {}),
@@ -1842,8 +1913,16 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       // Let the user choose which embedded datasets to import. (The Document
       // pane clears existing datasets before loading, so this is the
       // authoritative set.) The dialog imports the chosen subset.
+      //
+      // Unless the case did not come from a file. A case handed over from the console
+      // was asked for by the line that handed it over -- being asked again, about
+      // result sets the same line produced, is a question with only one answer.
       if (saveData.data?.datasets && saveData.data.datasets.length > 0) {
-        useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
+        if (options.askAboutDatasets === false) {
+          useDataStore.getState().loadDatasetsFromObject(saveData.data.datasets);
+        } else {
+          useDataStore.getState().presentDatasetChoice(saveData.data.datasets);
+        }
       }
 
       logger.success(
@@ -1856,61 +1935,75 @@ export const useGraphStore = create<GraphStore>((set, get) => {
       }
     },
 
+    openCase: (document, label, options = {}) => {
+      try {
+        const saveData = document as SaveFilePayload | null;
+
+        if (!saveData || !saveData.version) {
+          throw new Error('Invalid save file: Missing version information');
+        }
+
+        const [major] = saveData.version.split('.');
+        if (parseInt(major) > 2) {
+          throw new Error('This save file was created with a newer version and is not compatible.');
+        }
+
+        if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
+          throw new Error('Invalid save file: Missing model data');
+        }
+
+        // When the document carries no explicit title, fall back to where it came
+        // from. Set it on the payload so both the immediate and deferred
+        // (model-switch) load paths pick it up in applySaveData.
+        if (!saveData.meta?.title) {
+          saveData.meta = { ...(saveData.meta ?? {}), title: label };
+        }
+
+        const state = get();
+        const targetModelId = saveData.model.id;
+        if (targetModelId && !state.models.some((m) => m.id === targetModelId)) {
+          set({ pendingLoad: null });
+          throw new Error(
+            `The model "${targetModelId}" required by this file is not available. Load cancelled.`
+          );
+        }
+
+        if (!targetModelId || targetModelId === state.model?.id) {
+          set({ pendingLoad: null });
+          state.applySaveData(saveData, options);
+        } else {
+          set({ pendingLoad: saveData });
+          state.requestModelSwitch(targetModelId);
+        }
+        return true;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to load "${label}": ${message}`);
+        return false;
+      }
+    },
+
     loadFromFile: (file) => {
       const reader = new FileReader();
+      // The filename, extension stripped, is the title a file gets when it carries none.
+      const label = file.name.replace(/\.[^./\\]+$/, '');
 
       reader.onload = (event: ProgressEvent<FileReader>) => {
+        let saveData: unknown;
         try {
           const raw = event.target?.result;
           if (typeof raw !== 'string') {
             throw new Error('Invalid file contents');
           }
-
-          const saveData = yaml.load(raw) as SaveFilePayload | null;
-
-          if (!saveData || !saveData.version) {
-            throw new Error('Invalid save file: Missing version information');
-          }
-
-          const [major] = saveData.version.split('.');
-          if (parseInt(major) > 2) {
-            throw new Error(
-              'This save file was created with a newer version and is not compatible.'
-            );
-          }
-
-          if (!saveData.model || !Array.isArray(saveData.model.nodes)) {
-            throw new Error('Invalid save file: Missing model data');
-          }
-
-          // When the file carries no explicit title, default to the filename
-          // (extension stripped). Set it on the payload so both the immediate
-          // and deferred (model-switch) load paths pick it up in applySaveData.
-          if (!saveData.meta?.title) {
-            const fallbackTitle = file.name.replace(/\.[^./\\]+$/, '');
-            saveData.meta = { ...(saveData.meta ?? {}), title: fallbackTitle };
-          }
-
-          const state = get();
-          const targetModelId = saveData.model.id;
-          if (targetModelId && !state.models.some((m) => m.id === targetModelId)) {
-            set({ pendingLoad: null });
-            throw new Error(
-              `The model "${targetModelId}" required by this file is not available. Load cancelled.`
-            );
-          }
-
-          if (!targetModelId || targetModelId === state.model?.id) {
-            set({ pendingLoad: null });
-            state.applySaveData(saveData);
-          } else {
-            set({ pendingLoad: saveData });
-            state.requestModelSwitch(targetModelId);
-          }
+          saveData = yaml.load(raw);
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           logger.error(`Failed to load file "${file.name}": ${message}`);
           alert('Error loading file: ' + message);
+          return;
+        }
+        if (!get().openCase(saveData, label)) {
+          alert(`Error loading file "${file.name}" — see the console for details.`);
         }
       };
 
@@ -1998,6 +2091,8 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         selectedEdgeId: null,
         nodeCounters: initialCounters,
         totalNodeCounters: { ...initialCounters },
+        // The elements the title named are gone with it, so the name goes too.
+        title: DEFAULT_CASE_TITLE,
       });
       get().clearHistory();
     },

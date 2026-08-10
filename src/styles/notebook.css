@@ -1,0 +1,591 @@
+/* The Results tab: a notebook over the drawn network. */
+
+.workspace-layouts {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  min-height: 34px;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-surface-subtle);
+}
+
+.workspace-layout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.workspace-layout svg {
+  font-size: 15px;
+}
+
+.workspace-layout:hover {
+  color: var(--color-text-primary);
+}
+
+.workspace-layout.active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+.workspace-layout-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+/* The other side of the split; see `.canvas-area` for why the share is in hundredths. */
+.results-area {
+  flex-grow: calc(100 - var(--workspace-split-ratio, 0.6) * 100);
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.results-area[hidden],
+.canvas-area[hidden] {
+  display: none;
+}
+
+.results-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-surface);
+}
+
+/* Beside the canvas the notebook can be half the width it had to itself, and five named
+   buttons and a state do not fit on one line there. The buttons give up their words
+   first, since each keeps its picture and its description; only below that does the row
+   wrap, which is the last resort rather than the ordinary case. */
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.results-toolbar .python-status {
+  white-space: nowrap;
+}
+
+/* Measured against the notebook's own width rather than the window's, since what is
+   short of room is the pane and the window may be as wide as you like. */
+.results-tab {
+  container-type: inline-size;
+}
+
+@container (max-width: 560px) {
+  .results-actions button span {
+    display: none;
+  }
+
+  .results-actions button {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+.results-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.results-file-input {
+  display: none;
+}
+
+.results-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 64px;
+}
+
+.results-opening {
+  max-width: 62ch;
+  margin: 8px auto 20px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+/* A line of code is as long as it is, and a narrow notebook must not cut it off or push
+   the page sideways: the block scrolls on its own instead. */
+.results-opening pre,
+.notebook-cell-prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/*
+ * Adding a cell: a hairline where the next one would go, with the two choices resting
+ * on it. Quiet until the pointer is near, so the end of a notebook reads as the end of
+ * the writing rather than as a control.
+ */
+.results-add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 900px;
+  margin: 14px auto 0;
+  padding: 2px 0;
+}
+
+.results-add::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--color-border-subtle);
+}
+
+.results-add-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.results-add:hover .results-add-button {
+  opacity: 1;
+}
+
+.results-add-button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ------------------------------------------------------------------ a cell */
+
+/*
+ * A cell is three columns: the run mark, the cell itself, and a gutter on the right that
+ * holds the delete button. The gutter is there whether or not the button is showing, so
+ * nothing the cell holds ever sits under it and nothing shifts when it appears.
+ */
+.notebook-cell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 26px;
+  gap: 4px;
+  max-width: 940px;
+  margin: 0 auto 10px;
+  padding: 4px 0;
+  border-left: 2px solid transparent;
+}
+
+/*
+ * The selected cell is marked at its edge rather than by tinting it. A wash behind the
+ * whole cell also lands behind its outputs, and a figure or a table has a background of
+ * its own to sit on -- it should not be reading through a colour that means "selected".
+ */
+.notebook-cell.selected {
+  border-left-color: var(--color-accent);
+}
+
+/*
+ * Also the handle a cell is carried by. The rest of a cell is text, and dragging text
+ * should select it, so the one part of a cell that holds none is the part to pick it up
+ * by.
+ */
+.notebook-cell-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 4px;
+  user-select: none;
+  cursor: grab;
+}
+
+.notebook-cell-gutter:active {
+  cursor: grabbing;
+}
+
+/* Faded while it is in the air, so what is being carried is the thing that looks lifted. */
+.notebook-cell.dragging {
+  opacity: 0.4;
+}
+
+/* The gap it would fall into, drawn across the cell rather than the gutter. */
+.notebook-cell-drop {
+  position: absolute;
+  left: 48px;
+  right: 26px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.notebook-cell-drop.above {
+  top: -4px;
+}
+
+.notebook-cell-drop.below {
+  bottom: -4px;
+}
+
+/*
+ * An editor takes the pointer for its own text drag, and would take a cell dropped on it
+ * as text. While a cell is being carried it stops taking it at all, and the drag reaches
+ * the cell underneath.
+ */
+.results-scroll.dragging .cell-editor,
+.results-scroll.dragging .notebook-cell-outputs {
+  pointer-events: none;
+}
+
+.notebook-cell-run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.notebook-cell-run:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+}
+
+.notebook-cell-run:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.notebook-cell-mark {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-icon-secondary);
+}
+
+.notebook-cell-mark.running,
+.notebook-cell-mark.queued {
+  color: var(--color-accent);
+}
+
+.notebook-cell-mark.failed {
+  color: var(--color-error);
+}
+
+.notebook-cell-body {
+  min-width: 0;
+}
+
+.notebook-cell-prose {
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: text;
+}
+
+.notebook-cell-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.notebook-cell-actions button {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  /* Out of the way until the cell is being worked on, but always taking its space. */
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+.notebook-cell:hover .notebook-cell-actions button,
+.notebook-cell.selected .notebook-cell-actions button,
+.notebook-cell-actions button:focus-visible {
+  opacity: 1;
+}
+
+.notebook-cell-actions button:hover {
+  color: var(--color-error);
+}
+
+/* --------------------------------------------------------------- the editor */
+
+.cell-editor {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  background: var(--color-surface-subtle);
+  overflow: hidden;
+}
+
+/* Drawn a shade harder when selected, to go with the rail rather than repeat it. */
+.notebook-cell.selected .cell-editor {
+  border-color: var(--color-border);
+}
+
+/* ------------------------------------------- what the interpreter offers while typing */
+
+/*
+ * CodeMirror brings its own look for these, which is nobody's design language. They are
+ * restated in the app's own, so a list of names reads as part of the same program as the
+ * panel behind it.
+ */
+.cm-tooltip.cm-tooltip-autocomplete,
+.cm-tooltip:has(> .cm-signature) {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/*
+ * Written against the same shape CodeMirror states its own theme in, since a rule that
+ * only ties as hard as theirs loses to it.
+ */
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  max-height: 220px;
+  font-family: var(--font-mono);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  color: var(--color-text-primary);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionLabel {
+  flex: none;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionMatchedText {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* What it takes, or what type it is: there to be glanced at, not read first. */
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail {
+  overflow: hidden;
+  margin-left: auto;
+  max-width: 60%;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete .cm-completionIcon {
+  width: 1em;
+  opacity: 0.7;
+  color: var(--color-text-secondary);
+}
+
+.cm-signature {
+  padding: 6px 8px;
+  max-width: 460px;
+}
+
+.cm-signature-label {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* The documentation of the argument being written, where there is any. */
+.cm-signature-doc {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-subtle);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.cell-editor .cm-editor {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: transparent;
+}
+
+.cell-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.cell-editor .cm-scroller {
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.cell-editor .cm-gutters {
+  border: none;
+  background: transparent;
+  color: var(--color-text-icon-secondary);
+}
+
+.cell-editor .cm-activeLine,
+.cell-editor .cm-activeLineGutter {
+  background: transparent;
+}
+
+.cell-editor .cm-content {
+  caret-color: var(--color-text-primary);
+  color: var(--color-text-primary);
+}
+
+.cell-editor .cm-selectionBackground,
+.cell-editor .cm-focused .cm-selectionBackground,
+.cell-editor .cm-content ::selection {
+  background: var(--color-surface-hover);
+}
+
+/* -------------------------------------------------------------- the outputs */
+
+.notebook-cell-outputs {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notebook-cell-output {
+  position: relative;
+  padding: 2px 8px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.notebook-cell-pin {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.notebook-cell-output:hover .notebook-cell-pin {
+  display: inline-flex;
+}
+
+.notebook-cell-pin:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.cell-output-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text-body);
+}
+
+.cell-output-text.error {
+  color: var(--color-error);
+}
+
+.cell-output-figure {
+  width: 100%;
+  min-height: 320px;
+}
+
+.cell-output-image {
+  max-width: 100%;
+}
+
+.cell-output-html {
+  font-size: 12px;
+  color: var(--color-text-body);
+  overflow-x: auto;
+}
+
+.cell-output-html table {
+  border-collapse: collapse;
+}
+
+.cell-output-html th,
+.cell-output-html td {
+  padding: 3px 8px;
+  border: 1px solid var(--color-border-subtle);
+  text-align: right;
+}

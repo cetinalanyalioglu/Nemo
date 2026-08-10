@@ -8,6 +8,7 @@ import { buildCanvasSvg } from './build-svg';
 import type { CanvasExportOptions } from './build-svg';
 import { downloadSvg, downloadPng, downloadPdf } from './export-formats';
 import { prerenderMath } from './math-svg';
+import { printableFigures } from '../../python/redraw-figures';
 import { logger } from '../logger';
 
 export type ExportFormat = 'svg' | 'png' | 'pdf';
@@ -27,8 +28,11 @@ export async function exportCanvas(
   // Typeset any formulas first: MathJax is async, the SVG build is not.
   const flowEl = document.querySelector('.react-flow');
   const math = flowEl ? await prerenderMath(flowEl) : undefined;
+  // And draw any pinned figure again for the page rather than for the screen. Also
+  // async, and for the same reason it has to happen before the build rather than during.
+  const figures = await printableFigures();
 
-  const built = buildCanvasSvg(instance, { ...options, math });
+  const built = buildCanvasSvg(instance, { ...options, math, figures });
   if (!built) return false;
 
   try {

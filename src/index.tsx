@@ -4,7 +4,6 @@ import './styles/index.css';
 import { readStoredTheme } from './types/theme';
 import { readStoredModelTheme } from './types/model-theme';
 import App from './App';
-import { isDebugMode } from './utils/debug';
 
 document.documentElement.setAttribute('data-theme', readStoredTheme());
 
@@ -14,10 +13,6 @@ document.documentElement.setAttribute('data-theme', readStoredTheme());
 const storedModelTheme = readStoredModelTheme();
 if (storedModelTheme) {
   document.documentElement.setAttribute('data-model-theme', storedModelTheme);
-}
-
-if (isDebugMode()) {
-  console.log('Debug mode is enabled.');
 }
 
 const isResizeObserverNoise = (message: unknown): boolean => {

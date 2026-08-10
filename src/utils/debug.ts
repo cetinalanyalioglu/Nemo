@@ -1,8 +1,13 @@
-import { logToConsole } from './console-log';
+/**
+ * Tracing helpers for paths that report what they did rather than what came of it.
+ *
+ * These are the logger's `debug` and `error` with the arguments joined into one line,
+ * which is the only thing they add: whether a trace is worth recording is the message
+ * log's verbosity to decide (see {@link ConsoleStore.verbosity}), in one place, rather
+ * than a flag here that every call site would have to be trusted to respect.
+ */
 
-export const isDebugMode = (): boolean => {
-  return true;
-};
+import { logger } from './logger';
 
 const formatDebugArgs = (args: unknown[]): string =>
   args
@@ -16,16 +21,6 @@ const formatDebugArgs = (args: unknown[]): string =>
     })
     .join(' ');
 
-export const debugLog = (...args: unknown[]): void => {
-  if (isDebugMode()) {
-    console.debug(...args);
-    logToConsole(formatDebugArgs(args), 'debug');
-  }
-};
+export const debugLog = (...args: unknown[]): void => logger.debug(formatDebugArgs(args));
 
-export const debugError = (...args: unknown[]): void => {
-  if (isDebugMode()) {
-    console.error(...args);
-    logToConsole(formatDebugArgs(args), 'error');
-  }
-};
+export const debugError = (...args: unknown[]): void => logger.error(formatDebugArgs(args));

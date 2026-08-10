@@ -23,6 +23,9 @@
  * frame and the on-screen canvas does not flicker.
  */
 
+/** Where a legacy `xlink:href` lives; some renderers still read only that one. */
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
 const INK = '#000000';
 const PAPER = '#ffffff';
 
@@ -175,6 +178,16 @@ export function grayscaleResidualColors(svg: SVGSVGElement): void {
       if (parsedAttr && !isGray(parsedAttr)) node.setAttribute(prop, toGray(parsedAttr));
     }
   }
+
+  // Pictures placed in the drawing -- a pinned figure -- carry their own colours
+  // inside them, where neither the token override nor the walk above can reach.
+  for (const image of Array.from(svg.querySelectorAll('image'))) {
+    const href = image.getAttribute('href') ?? image.getAttributeNS(XLINK_NS, 'href');
+    const gray = href ? grayscaleEmbeddedSvg(href) : null;
+    if (!gray) continue;
+    image.setAttribute('href', gray);
+    image.setAttributeNS(XLINK_NS, 'href', gray);
+  }
 }
 
 /** Rec. 709 relative luminance, as an opaque gray. */
@@ -182,4 +195,71 @@ function toGray({ r, g, b }: { r: number; g: number; b: number }): string {
   const y = Math.max(0, Math.min(255, Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)));
   const h = y.toString(16).padStart(2, '0');
   return `#${h}${h}${h}`;
+}
+
+/** Every colour literal a document can carry: `#abc`, `#aabbcc`, `rgb()`, `rgba()`. */
+const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g;
+
+/** The alpha of an `rgba(...)`, or `null` for anything opaque. */
+function alphaOf(literal: string): number | null {
+  const match = /^rgba\(([^)]+)\)$/i.exec(literal.trim());
+  if (!match) return null;
+  const parts = match[1]
+    .split(/[,/\s]+/)
+    .filter(Boolean)
+    .map(parseFloat);
+  return parts.length >= 4 && Number.isFinite(parts[3]) && parts[3] < 1 ? parts[3] : null;
+}
+
+/**
+ * Every colour in a piece of source, mapped to its luminance.
+ *
+ * Transparency is kept: a fill under a curve is translucent on purpose, and turning it
+ * into a solid slab would hide the curve it was drawn to sit behind.
+ */
+function grayscaleSource(source: string): string {
+  return source.replace(COLOR_LITERAL, (literal) => {
+    const parsed = parseColor(literal);
+    if (!parsed || isGray(parsed)) return literal;
+    const gray = toGray(parsed);
+    const alpha = alphaOf(literal);
+    if (alpha === null) return gray;
+    const y = parseInt(gray.slice(1, 3), 16);
+    return `rgba(${y}, ${y}, ${y}, ${alpha})`;
+  });
+}
+
+/**
+ * A picture embedded in the drawing, in gray.
+ *
+ * A pinned figure arrives as a finished SVG behind a data URI, so it is past the point
+ * where a theme token could have reached it and past the point where walking elements
+ * finds anything: to the export it is one opaque `<image>`. Left alone it is a colour
+ * plot in the middle of black-and-white line art. Its source is read back out, mapped
+ * the same way as everything else, and packed up again.
+ *
+ * Returns `null` for anything that is not an SVG behind a data URI -- a photograph, a
+ * screenshot -- which cannot be recoloured this way and is better left as it is.
+ */
+function grayscaleEmbeddedSvg(href: string): string | null {
+  const match = /^data:image\/svg\+xml([^,]*),([\s\S]*)$/.exec(href);
+  if (!match) return null;
+  const [, params, payload] = match;
+  try {
+    const base64 = /;base64/i.test(params);
+    const source = base64
+      ? new TextDecoder().decode(Uint8Array.from(atob(payload), (c) => c.charCodeAt(0)))
+      : decodeURIComponent(payload);
+    const gray = grayscaleSource(source);
+    if (gray === source) return null;
+    if (!base64) return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(gray)}`;
+    const bytes = new TextEncoder().encode(gray);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return `data:image/svg+xml;base64,${btoa(binary)}`;
+  } catch {
+    // An image that cannot be decoded is one that cannot be recoloured; a colour
+    // picture in the export beats no picture at all.
+    return null;
+  }
 }

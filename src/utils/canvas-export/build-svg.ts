@@ -27,6 +27,7 @@ import { useDataStore, selectActiveItem, selectActiveDataset } from '../../store
 import type { DataDisplayConfig, DataTarget } from '../../types/data';
 import { logger } from '../logger';
 import { applyMonochromeTokens, grayscaleResidualColors } from './monochrome';
+import { applyPrintTheme } from './print-theme';
 import { hasMath, takeMath, texSourceOf } from './math-svg';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -49,6 +50,12 @@ export interface CanvasExportOptions {
    * `monochrome.ts` for why this remaps tokens rather than desaturating.
    */
   monochrome?: boolean;
+  /**
+   * Pictures to place instead of the ones the annotations carry, keyed by annotation id
+   * — a pinned figure drawn for the page rather than for the screen. Drawing one is
+   * async and this build is not, so they arrive ready.
+   */
+  figures?: Map<string, string>;
   /**
    * Formulas pre-typeset to SVG paths, keyed by TeX source (see `math-svg.ts`).
    * Prepared by `exportCanvas` before the build, since MathJax is async and the
@@ -114,7 +121,7 @@ const TEXT_PROPS = [
 const TEXT_TAGS = new Set(['text', 'tspan', 'textPath']);
 
 /** Copies resolved presentation styles from a live SVG element onto its clone. */
-function inlinePaint(live: Element, clone: Element): void {
+export function inlinePaint(live: Element, clone: Element): void {
   const cs = getComputedStyle(live);
   const style = (clone as SVGElement).style;
   if (TEXT_TAGS.has(clone.tagName)) {
@@ -142,7 +149,7 @@ function inlinePaint(live: Element, clone: Element): void {
 }
 
 /** Recursively inline paint styles across a cloned SVG subtree, in lockstep with the live tree. */
-function inlineTree(live: Element, clone: Element): void {
+export function inlineTree(live: Element, clone: Element): void {
   inlinePaint(live, clone);
   const liveKids = live.children;
   const cloneKids = clone.children;
@@ -162,7 +169,7 @@ const el = (name: string): SVGElement => document.createElementNS(SVG_NS, name);
  * re-applies node rotation itself, so only translations belong in the unrotated
  * local frame.
  */
-function translateOf(node: HTMLElement): { x: number; y: number } {
+export function translateOf(node: HTMLElement): { x: number; y: number } {
   const transform = getComputedStyle(node).transform;
   if (!transform || transform === 'none') return { x: 0, y: 0 };
   const match = /^matrix\(([^)]+)\)$/.exec(transform);
@@ -243,7 +250,12 @@ function textFrom(
 }
 
 /** Wraps children in a rotation group about (cx,cy) when the node is rotated. */
-function maybeRotate(children: SVGElement[], rotation: number, cx: number, cy: number): SVGElement {
+export function maybeRotate(
+  children: SVGElement[],
+  rotation: number,
+  cx: number,
+  cy: number
+): SVGElement {
   const g = el('g');
   if (rotation) g.setAttribute('transform', `rotate(${rotation} ${cx} ${cy})`);
   children.forEach((c) => g.appendChild(c));
@@ -251,7 +263,13 @@ function maybeRotate(children: SVGElement[], rotation: number, cx: number, cy: n
 }
 
 /** Reconstructs a bordered/filled HTML box as a native `<rect>`, or null if invisible. */
-function boxFrom(box: HTMLElement, x: number, y: number, w: number, h: number): SVGElement | null {
+export function boxFrom(
+  box: HTMLElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): SVGElement | null {
   const cs = getComputedStyle(box);
   const hasBg = !!cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
   const borderW = parseFloat(cs.borderTopWidth);
@@ -515,7 +533,9 @@ function harvestAnnotation(
   h: number,
   rotation: number,
   zoom: number,
-  math: Map<string, SVGSVGElement> | undefined
+  math: Map<string, SVGSVGElement> | undefined,
+  /** A picture drawn for the page, where one was prepared for this annotation. */
+  printable: string | undefined
 ): SVGElement | null {
   const parts: SVGElement[] = [];
   const cardEl = nodeEl.querySelector<HTMLElement>('.annotation-node') ?? nodeEl;
@@ -523,15 +543,18 @@ function harvestAnnotation(
   const card = boxFrom(cardEl, posX, posY, w, h);
   if (card) parts.push(card);
 
-  if (annotation.kind === 'image' && annotation.src) {
+  // A pinned figure was drawn for the screen; the export places the one drawn for the
+  // page instead, where there is one. Everything else places what it carries.
+  const source = printable ?? annotation.src;
+  if (annotation.kind === 'image' && source) {
     const img = el('image');
     img.setAttribute('x', String(posX));
     img.setAttribute('y', String(posY));
     img.setAttribute('width', String(w));
     img.setAttribute('height', String(h));
     // Data URI — self-contained, works in SVG/PNG/PDF.
-    img.setAttributeNS(XLINK_NS, 'href', annotation.src);
-    img.setAttribute('href', annotation.src);
+    img.setAttributeNS(XLINK_NS, 'href', source);
+    img.setAttribute('href', source);
     parts.push(img);
   } else {
     // Text note: reconstruct the rendered text natively. Markdown emphasis is not
@@ -629,7 +652,7 @@ export function dropDanglingMarkers(svg: SVGSVGElement): void {
  * anything inside <defs>/<pattern>/<marker> whose used value can't be read).
  * They resolve by inheritance, and reflect whichever theme is active now.
  */
-function bakeDynamicColors(svg: SVGSVGElement): void {
+export function bakeDynamicColors(svg: SVGSVGElement): void {
   // Glyph ink is authored as `currentColor`; anchor it to the frame ink color.
   svg.style.color = themeColor('--color-text-secondary', '#6c757d');
 
@@ -746,7 +769,7 @@ function inkBounds(
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-function fmtTick(value: number): string {
+export function fmtTick(value: number): string {
   if (!Number.isFinite(value)) return '—';
   if (Number.isInteger(value)) return String(value);
   return value.toPrecision(3);
@@ -874,13 +897,18 @@ export function buildCanvasSvg(
     return null;
   }
 
-  // Remap the theme tokens to true black/white before anything is harvested, so
-  // every paint below resolves monochrome. Restored in the outer `finally`.
+  // An export is a document, and a document is read on white, so it is built in the
+  // light theme whatever the session is using -- otherwise a dark session exports pale
+  // ink onto a page with nothing pale-ink was meant to sit on. Applied before anything
+  // is harvested; restored in the outer `finally`.
+  const restoreTheme = applyPrintTheme();
+  // Then, on top of that, the true black-and-white remap when it was asked for.
   const restoreTokens = options.monochrome ? applyMonochromeTokens() : null;
   try {
     return buildCanvasSvgInner(instance, flowEl, options);
   } finally {
     restoreTokens?.();
+    restoreTheme();
   }
 }
 
@@ -930,7 +958,8 @@ function buildCanvasSvgInner(
           h,
           rotation,
           zoom,
-          options.math
+          options.math,
+          options.figures?.get(node.id)
         );
         if (g) nodesG.appendChild(g);
       } else {

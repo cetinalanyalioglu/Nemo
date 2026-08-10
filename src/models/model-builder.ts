@@ -8,6 +8,7 @@ import type {
   EdgeInfoEntry,
   ElementInfoEntry,
   ModelDefinition,
+  ModelSolverDefinition,
   NodeConfigEntry,
 } from '../types/flow';
 
@@ -28,6 +29,8 @@ export interface RuntimeModel {
   modelParameters: Record<string, Record<string, unknown>>;
   /** Per-category display precedence for parameter sections (see ModelDefinition). */
   categoryPrecedence: Record<string, number>;
+  /** How the Python console reaches this model's solver, or null where it declares none. */
+  solver: ModelSolverDefinition | null;
   nodeConfig: Record<string, NodeConfigEntry>;
   edgeConfig: Record<string, EdgeConfigEntry>;
   elementInfo: Record<string, ElementInfoEntry>;
@@ -139,6 +142,80 @@ export const isSourceConnectionToTargetAllowed = (
 };
 
 /**
+ * A bare Python name. Anything else would become an attribute of the `nemo` module that
+ * no line of Python could reach, which is a silent way to lose a model's convenience.
+ */
+const PYTHON_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * What the `nemo` module already answers to.
+ *
+ * Kept beside the validation rather than imported from the Python, which the app never
+ * parses. `nemo-module.test.ts` checks the two against each other, so a name added there
+ * and forgotten here is a failing test rather than a model that quietly breaks the
+ * console it was loaded into.
+ */
+export const NEMO_NAMES = new Set([
+  'case',
+  'title',
+  'nodes',
+  'edges',
+  'counts',
+  'show',
+  'replace',
+  'log',
+  'build',
+  'draw',
+  'publish',
+  'nemo',
+]);
+
+/**
+ * Checks a model's `solver` section, if it declares one.
+ *
+ * What it declares is checked; what it means is not. The packages are strings the
+ * console fetches and the adapter is Python the console runs, and neither is anything
+ * this app can make sense of — which is the point of them living in the model file.
+ */
+export const validateSolverDefinition = (
+  modelId: string,
+  solver: unknown
+): ModelSolverDefinition | undefined => {
+  if (solver === undefined || solver === null) return undefined;
+  if (typeof solver !== 'object' || Array.isArray(solver)) {
+    throw new Error(`Model "${modelId}": "solver" must be a mapping.`);
+  }
+  const candidate = solver as Partial<ModelSolverDefinition>;
+  const packages = candidate.packages ?? [];
+  if (!Array.isArray(packages) || packages.some((p) => typeof p !== 'string' || p.length === 0)) {
+    throw new Error(`Model "${modelId}": "solver.packages" must be a list of non-empty strings.`);
+  }
+  if (candidate.adapter !== undefined && typeof candidate.adapter !== 'string') {
+    throw new Error(`Model "${modelId}": "solver.adapter" must be a string of Python.`);
+  }
+  if (candidate.example !== undefined && typeof candidate.example !== 'string') {
+    throw new Error(`Model "${modelId}": "solver.example" must be a string of Python.`);
+  }
+  if (candidate.handle !== undefined) {
+    if (typeof candidate.handle !== 'string' || !PYTHON_NAME.test(candidate.handle)) {
+      throw new Error(`Model "${modelId}": "solver.handle" must be a Python name.`);
+    }
+    if (NEMO_NAMES.has(candidate.handle)) {
+      throw new Error(
+        `Model "${modelId}": "solver.handle" cannot be "${candidate.handle}" — the nemo ` +
+          'module already answers to that, and taking it would hide what it names.'
+      );
+    }
+  }
+  return {
+    packages: [...packages],
+    adapter: candidate.adapter,
+    example: candidate.example,
+    handle: candidate.handle,
+  };
+};
+
+/**
  * Validates the shape of a parsed model definition, throwing a descriptive
  * error if required fields are missing.
  */
@@ -167,6 +244,7 @@ export const validateModelDefinition = (def: unknown): ModelDefinition => {
     forceUniqueNodeLabels: candidate.forceUniqueNodeLabels ?? false,
     parameters: candidate.parameters ?? {},
     categoryPrecedence: candidate.categoryPrecedence ?? {},
+    solver: validateSolverDefinition(candidate.id, candidate.solver),
     nodes: candidate.nodes,
     edges: candidate.edges ?? {},
   };
@@ -258,6 +336,7 @@ export const buildRuntimeModel = (def: ModelDefinition): RuntimeModel => {
     forceUniqueNodeLabels: def.forceUniqueNodeLabels ?? false,
     modelParameters: def.parameters ?? {},
     categoryPrecedence: def.categoryPrecedence ?? {},
+    solver: def.solver ?? null,
     nodeConfig,
     edgeConfig,
     elementInfo,

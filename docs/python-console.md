@@ -1,0 +1,489 @@
+# The Python console and the Results tab
+
+There are two surfaces. **Results** is a notebook about the drawn network, and it can sit
+beside the canvas or take the viewing area to itself. The **console pane** below is a
+prompt for one-liners. They share one interpreter and one set of names, so a network
+built in a cell is there at the prompt and the other way round.
+
+The console pane has three tabs.
+**Messages** is what the app has reported.
+**Python** is a prompt, running in the browser, with the drawn network in reach.
+**Variables** is what the session is holding.
+
+How much Messages records is set in **Settings › Messages › Detail**.
+It opens on _Normal_, which keeps outcomes and problems and leaves out the running commentary of what the app is doing; _Everything_ keeps the trace as well, and _Problems only_ keeps warnings and errors.
+The setting applies to messages from then on rather than filtering what is already listed, and everything reaches the browser's own console whatever it is set to.
+
+Clicking a name opens the pane on it, and clicking the name already showing puts the pane
+away again, so whichever name opened the console also closes it. The chevron on the right
+does the same, and remembers which name to come back to.
+
+Nothing is installed to use it.
+The interpreter is fetched the first time a line is entered — some tens of megabytes, four or five seconds on a warm connection — and whatever packages the model on the canvas declares are installed on top of it, so its solver is there as soon as the prompt is.
+
+## What is already there
+
+A `nemo` module is imported before the first prompt.
+It is the whole of the Python side of the boundary: reading what is drawn, and sending results back to be drawn on it.
+
+| Call                   | What it does                                                              |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `nemo.case()`          | The network as a case document — the same mapping the app saves and loads |
+| `nemo.title()`         | The case title shown above the canvas                                     |
+| `nemo.nodes()`         | The elements, each as `{index, id, type, name, attributes}`               |
+| `nemo.edges()`         | The connections, the same plus `source` and `target`                      |
+| `nemo.counts()`        | How many of each are drawn                                                |
+| `nemo.show(result)`    | Draws result sets on the network                                          |
+| `nemo.replace(doc)`    | Replaces the drawing with the network in a case document                  |
+| `nemo.log(message)`    | Writes a line to the Messages tab                                         |
+| `nemo.build()`         | Builds what the model's solver works on                                   |
+| `nemo.draw(net, …)`    | Draws a model built here on the canvas, in place of what is there         |
+| `nemo.publish(net, …)` | Sends that model's results back to the canvas                             |
+
+`help(nemo)` documents them at the prompt, and `help(nemo.publish)` names what results it takes.
+
+The last three are the only ones that depend on a solver, and even they do not name one — see [the model's solver](#the-models-solver) below. On a model that declares none they say so and the rest still works.
+
+A model may also give `build` a second name suiting what it builds, declared as `solver.handle` in the model file.
+The Nefes model asks for `network`, so `nemo.network()` is `nemo.build()` under a name that reads better beside one, and `help(nemo.network)` shows the adapter's own account of what it makes.
+The two are separate functions carrying separate documentation, so a model naming one does not reword the other.
+That name is the model's choice alone; nothing in the app knows the word.
+
+## The round trip
+
+```python
+net = nemo.network()   # nemo.build(), under the name this model asked for
+sol = net.solve()
+nemo.publish(net, solution=sol)
+```
+
+That is the whole loop: the network is read from the canvas, solved, and its fields land as a result set the Data pane can colour the network with.
+What `publish` accepts is the solver's business, not the console's: the keywords are handed to the model's adapter exactly as given, and `help(nemo.publish)` shows whatever that adapter documents about them.
+For the Nefes model it is whatever `nefes.io.case_to_dict` takes, so a forced response, an eigenmode, or a Nyquist summary go the same way:
+
+```python
+from nefes.perturbation import forced_response
+fr = forced_response(sol.problem, sol.x, [100.0, 200.0, 400.0])
+nemo.publish(net, solution=sol, forced=fr, forced_sweep=True)
+```
+
+That one lands as an animated result set with frequency as the frame variable, and the canvas offers playback over it.
+
+The trip also runs the other way. A notebook that builds its own network — from a script,
+a parameter sweep, a file it opened — hands it to the canvas to draw, results and all:
+
+```python
+net = build_something()
+nemo.draw(net, solution=net.solve())
+```
+
+Result sets that arrive with a case this way are taken rather than offered: the line that
+sent the case sent them too, so being asked about them is a question with one answer.
+
+None of that is built in.
+`nemo.show` takes any result set of the shape the case format declares, so a series worked out at the prompt draws just as well:
+
+```python
+import math
+edges = nemo.edges()
+nemo.show({"name": "Guesswork", "items": [
+    {"name": "Something", "target": "edge", "unit": "Pa",
+     "values": [100.0 * math.sin(e["index"]) for e in edges]},
+]})
+```
+
+## Where Python runs
+
+The toolbar chooses between two interpreters, and nothing else about the console changes with it — the same prompt, the same `nemo` module, the same case crossing and results coming back.
+
+**The browser** is the default and needs nothing installed. It fetches its own interpreter and the model's packages, and runs kernels compiled to WebAssembly.
+
+**This machine** uses the Python that is already here, with whatever is installed in it and its own compiler behind it. Start the server beside the app:
+
+```bash
+python src/python/console_server.py
+```
+
+It prints an address carrying a token. Paste that into the field beside the picker, and the prompt is served from there.
+
+Two things about that token. It is the whole of the access control, and it matters: the server executes what the prompt sends, and a browser will let _any_ page a user visits make requests to their own machine — so a request without the token is refused, and a page that was never given the address cannot reach an interpreter. The socket is bound to the loopback interface as well, so nothing off the machine can reach it at all.
+
+The server is standard library only, so it runs wherever the solver does, and it installs nothing: the model's packages are for the browser's interpreter, and this one is the machine's own.
+
+One thing to expect from a **published** copy of the app rather than a checkout: the page is served over https and the local interpreter is reached over plain http on the loopback interface, and whether a browser allows that is the browser's own rule.
+Chromium allows it — measured, from a page whose origin is not itself localhost — so the option works there.
+Other browsers were not measured, so a published copy is not the place to rely on it.
+The browser interpreter is unaffected, needs nothing running, and is what a published copy is for.
+
+## Serving it from a static host
+
+There is nothing to run behind the app: it is files, and GitHub Pages serves them.
+`.github/workflows/deploy.yml` builds with `VITE_BASE=/<repo>/` and publishes the result, since a project site lives under a sub-path rather than at the root.
+
+Everything the app fetches at runtime is resolved against that base — the model manifest, the model files, and the wheels a model names — so the sub-path does not have to be repeated anywhere.
+A package named without a slash (`plotly`) is left as written and resolved wherever the installer resolves requirements, which is what keeps it from being looked for on the site.
+
+Two properties worth keeping true, since both fail only once deployed:
+
+- **No cross-origin isolation.** The interpreter runs in an ordinary worker and shares no memory with the page, so no `Cross-Origin-Opener-Policy` or `Cross-Origin-Embedder-Policy` header is needed. That matters because a static host cannot set headers at all: anything requiring them could not be deployed this way. It is also why a running solve cannot be interrupted and is discarded instead.
+- **Nothing is looked for at the root.** A request the app builds from `/` rather than from its base works in development and breaks on a project site, where the root is not the app.
+
+Both were checked by deploying rather than by reading: the built app served under a sub-path, driven through a boot and a line of Python, with every address it asked for recorded.
+The interpreter came up, installed the wheel from the sub-path, and reported its compiled kernels; nothing was requested from the root and no request failed.
+
+## What the session is holding
+
+The **Variables** tab lists every name defined at the prompt or in a cell — what it is,
+and how big it is where that is knowable rather than printing it. Names the console put
+there itself (`nemo`, `display`) are left out; they are not yours to read in a list of
+your own names.
+
+**Forget all** empties it. That is not a restart: the interpreter, its imported modules
+and the seconds spent starting it all stay, and only the names go. Restart is the heavier
+one, and is what stops something that is still running.
+
+## Something to start from
+
+An empty prompt and an empty notebook both open with a worked example rather than a blank
+line. It is offered, not run — in the prompt it sits behind a rule instead of a `>>>`, and
+the up arrow recalls it a line at a time so it need not be retyped; in the notebook it
+stands above the first cell, to read or to copy.
+
+The example belongs to the **model**, beside its adapter, because what a useful first line
+looks like depends entirely on what the model's solver is — `net.solve()` means nothing to
+a model that solves nothing:
+
+```yaml
+solver:
+  example: |
+    net = nemo.network()
+    sol = net.solve()
+```
+
+A model that offers none falls back to lines about reading and colouring the canvas, which
+are true of every model.
+
+The same example is what `help(nemo)` closes with, and its first line is what an empty
+notebook cell suggests in grey. All three come from the one place, so a model that changes
+its example changes what it says about itself everywhere at once.
+
+## The model's solver
+
+Nemo has no solver in it, and this console did not put one there.
+A model is a YAML file describing an element library, and it may additionally describe how to compute with what is drawn:
+
+```yaml
+solver:
+  handle: network
+  packages:
+    - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+  adapter: |
+    from nefes.io import case_from_dict, case_to_dict
+
+    def build(doc):
+        """The drawn network, ready to solve."""
+        return case_from_dict(doc, source="<canvas>")
+
+    def results(net, **kwargs):
+        kwargs.setdefault("internal_edges", False)
+        return case_to_dict(net, **kwargs)
+
+    def describe():
+        import nefes
+        return f"nefes {nefes.__version__} ({nefes.backend()} kernels)"
+```
+
+`packages` are installed into the interpreter when it starts, resolved against the app's base.
+`adapter` is run once afterwards, and `nemo.build()` and `nemo.publish()` are calls into the `build` and `results` it defines; `describe()`, if present, is the line the status bar shows.
+`handle` is the model's own name for `build` — it must be a Python name, and not one `nemo` already answers to.
+
+The adapter's docstrings are not decoration: `build`'s becomes `help(nemo.network)`, and `results`' is added to `help(nemo.publish)` as this model's answer to what results it takes.
+That is how a model documents itself at the prompt without the app carrying a word about it.
+
+That is the whole of it. The app knows a model may name packages and some Python; it never knows what either is for, exactly as the data pane colours a network from whatever a file declares without knowing what the numbers mean.
+
+Two consequences worth expecting:
+
+- **Switching models starts a new session.** The canvas, any loaded results, the notebook and the interpreter all belong to the model they were made under, so all four are cleared; the Messages tab is kept, being the record of how the session got where it did. You are asked first when there is something to lose.
+- **A model with no solver still gets a console.** It boots in about a second rather than five, because there is nothing to install, and `nemo.build()` says plainly that there is nothing to build with.
+
+## How the viewing area is arranged
+
+Three arrangements, chosen at the top of the viewing area: **Canvas**, **Both**, or
+**Results**.
+_Both_ puts them side by side with a divider that can be dragged, and neither side goes
+below about 280 pixels wide.
+The divider takes focus and moves under the arrow keys, with **Home** and **End** going
+as far either way as that minimum allows.
+
+The divider holds a share of the width rather than a number of pixels, so the
+arrangement survives a window being resized: two panes given fractions keep their
+proportions, where a fixed width would eat the other pane as the window narrowed.
+
+The console pane stays docked below all three and spans the full width, so the prompt is
+there whatever is being looked at.
+Both surfaces stay loaded whichever arrangement is showing: an arrangement that leaves
+one out hides it rather than tearing it down, so the canvas keeps where it was scrolled
+to and a half-typed cell keeps what was typed.
+
+The arrangement and the divider's position are remembered between sessions, beside the
+theme and the save choices. Where someone put their panes is a fact about them rather
+than about the network they drew, so it never travels in a saved case and opening one
+does not move it.
+
+## The Results tab
+
+A notebook, in the ordinary sense: cells of Python or of prose, run in order, with what
+they produced kept beneath them.
+
+- **Shift+Enter** runs a cell. **Ctrl/Cmd+Enter** runs it and opens a fresh one below.
+  **Enter** is a newline — running is a decision, and a decision should not be what
+  happens when you reach for a new line mid-sentence.
+- **Run all** runs every code cell from the top and stops at the first failure, because
+  what follows one was written expecting it not to have happened.
+- Cells run **one at a time**, however many are asked for. There is one interpreter
+  holding one set of names, so a cell run while another is going waits for it rather
+  than joining it. What a cell prints appears as it is printed, gathered a frame at a
+  time — a loop printing thousands of lines should not cost a redraw per line.
+- A cell is compiled **whole**, not fed a line at a time. That is the difference between
+  a cell and a prompt: a prompt has to know when a block is still open, while a cell with
+  a blank line inside a loop is one block and reads as one.
+- Outputs are drawn by media type — a figure through plotly.js, a table through the HTML
+  sanitiser, prose and maths through the same markdown pipeline the canvas notes use, and
+  anything else as the text every value can offer.
+- A cell carries one control, to delete it, and it sits in a gutter to the right of the
+  cell rather than over it. The selected cell is marked by a rail down its left edge, so
+  a figure or a table beneath it keeps the background it was drawn to sit on.
+- **Cells are reordered by dragging the gutter on the left**, where the run arrow and the
+  count are, since the rest of a cell is text and dragging text should select it. A line
+  shows where it would land, and no line means the drop would move it nowhere.
+  **Ctrl/Cmd+Shift+Up** and **Down** do the same without leaving the editor.
+
+### What the interpreter knows about what you are writing
+
+Names are completed and calls describe themselves, and both answers come from the
+interpreter rather than from a reading of the text.
+
+- **In a cell**, names appear as you type and **Ctrl+Space** asks for them outright.
+  Beside each is what it takes, or what type it is.
+- **What a call takes** appears above the line while its arguments are being written,
+  together with what the documentation says about _that_ argument — which for a solver is
+  usually where the units are.
+- **At the prompt**, **Tab** finishes a name. Where several fit it writes them in as far
+  as they agree and lists them when they agree no further, as a terminal does. With
+  nothing half-typed it says what the call the caret is in takes.
+
+Asking the interpreter is what makes the answers the solver's own: `sol.` lists the
+fields of the solution in hand rather than of solutions in general, and it does so for
+whatever model is on the canvas without the app knowing one solver from another.
+
+It is also the limit, and worth expecting: a name exists once something has defined it, so
+a cell written before anything has run has little to offer, and the same cell after a run
+has the lot.
+
+Nothing being written is run to answer. Plain dotted names are evaluated and no more, so
+`net.solve().` completes nothing rather than solving anything, and attributes are read
+without waking the properties behind them.
+
+### Your existing notebooks open here
+
+**Open** takes a `.ipynb` and **Save** writes one, because the cells were already in the
+shape a notebook file holds them. What is written here opens in Jupyter, and what was
+written there opens here.
+
+Code written for a notebook runs without editing. `fig.show()` shows the figure in the
+cell; `display(x)` shows it where it is called; a value with `_repr_html_` renders as
+HTML. `IPython.display` is provided as a stand-in with the display half filled in — it
+is not the real IPython, and it is installed whichever runtime is in use so the two
+behave alike.
+
+**Not supported**, and worth knowing before relying on it: ipywidgets, magics
+(`%timeit`, `%matplotlib`), and matplotlib, which has no browser backend. Plotly is what
+the Nefes examples use and what is supported.
+
+### How a figure is styled
+
+A figure arrives as a description of what to draw and the plotting library's idea of how
+to draw it. Left alone that is a picture from another program sitting in this one, and in
+dark mode it is a white slab.
+
+So the interface supplies the styling and the figure supplies the data. Backgrounds,
+type, gridlines, axis and label colours and the series palette are read from the
+stylesheet **at the moment of drawing**, which means they are the colours the pane around
+the figure is using, they follow the active model's theme, and they follow a light/dark
+change — the figure is redrawn, since a picture does not restyle itself.
+
+What a figure asks for, a figure gets: these are applied _under_ whatever its own layout
+sets, so `fig.update_layout(paper_bgcolor="black")` still comes out black. What they do
+override is a **template** — the styling a library applies on the figure's behalf — since
+that is the thing most likely to disagree with the interface about which mode it is in. A
+figure themed light by its library still comes out dark in a dark app.
+
+The series colours live in `src/styles/theme.css` as `--color-series-1` … `-8`, beside
+the rest of the palette, so there is one place a colour is decided.
+
+A **pinned** figure keeps the figure it was drawn from beside the picture, so it can be
+drawn again: it follows a theme change on the canvas like everything else there, and is
+drawn once more in document colours when the canvas is exported. A picture cannot be
+recoloured; what it was made from can be used again.
+
+It goes into all three exported formats, each by its own route: SVG embeds it, PNG
+rasterises it with the rest of the drawing, and PDF comes out as **vectors** rather than
+a pasted picture, which is what a figure headed for a paper wants. Under **Black &
+white** it is mapped to grey along with everything else — by luminance, so two series
+stay apart instead of both going black, and a translucent band stays translucent.
+
+An export is always built in the **light** theme, whatever the session is using, because
+an export is a document and a document is read on white. Pale ink is pale only because
+there is a dark surface behind it; a page has none. The switch lasts as long as the
+harvest and the canvas on screen does not change. A pinned figure is drawn in those same
+colours for the same reason — in the Results tab a figure is part of the interface and
+follows it, but pinned to the drawing it becomes part of what the drawing exports.
+
+### Where the notebook is kept
+
+The case file carries the notebook's **source cells** and not its outputs — outputs are
+the bulk of a notebook and are not a description of a network. Export a `.ipynb` to keep
+them; **Save** offers that with or without.
+
+Opening a case that carries a notebook opens it. Opening one that does not leaves the
+Results tab alone, so loading a plain case never silently wipes work.
+
+A saved case carries the whole canvas: the network, the result sets, the annotations —
+including a pinned figure and the figure behind it — and the notebook's source cells.
+
+Three of those are optional, under **SAVE** in the Settings pane, because each is useful
+to someone and heavy to someone else:
+
+|                         | what turning it off costs                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| **Result sets**         | a reopened case has to be solved again before it is coloured                                  |
+| **Figure descriptions** | a pinned figure still travels and still exports, but is fixed in the colours it was pinned in |
+| **Notebook**            | the Results tab opens empty                                                                   |
+
+The network, its layout and the annotations are the drawing and always travel. The
+choices are remembered between sessions, and they are about the _file_: the case handed
+to the console is always the whole of it, whatever the file is set to carry.
+
+## Pinning a figure to the canvas
+
+A figure output has a **Pin** button. Pinning puts it on the canvas as an _annotation_ —
+the layer the canvas already keeps notes and images on — so it can be moved, resized,
+rotated, hidden and locked like any other, and it is written into the SVG and the PDF the
+canvas exports.
+
+It is pinned as a **picture** of the figure, not as a live one. That is deliberate twice
+over: a picture is what the export path already places, and a finding pinned to a drawing
+should keep saying what it said when it was pinned. Re-run the cell and pin again to
+bring it up to date.
+
+That completes a three-way split, decided by what the numbers are:
+
+| what it is                                            | where it goes                      |
+| ----------------------------------------------------- | ---------------------------------- |
+| one value per element                                 | a result set, colouring the canvas |
+| anything not element-bound — a locus, an FTF, a sweep | a figure in the Results tab        |
+| a finding worth keeping on the drawing                | a pinned figure, exported with it  |
+
+## What binds a series to the network
+
+Position, and nothing else: the _i_-th value of a series belongs to the element whose index is _i_.
+So a series has to carry exactly one value per element of its target, and one that does not is refused — with a message in the Messages tab naming how it did not fit, rather than landing on the wrong elements.
+
+The indices are brought up to date whenever the case is read, exactly as they are on save, so what `nemo.nodes()` reports is what a series will bind to.
+
+One element on the canvas is not always one element in the solver: an orifice, a nozzle or a segmented pipe expands into several joined by edges the drawing never shows.
+`nemo.publish` leaves that interior out, so what it sends is as long as what is drawn.
+Read it at the prompt instead — `net.composite("orf")` gives the interior of a solved one.
+
+A value that is not a number — an unconverged entry, the phase of something that is exactly zero — arrives as nothing rather than as `NaN`, which JSON has no word for.
+The colour scale already skips such entries.
+
+## What the case looks like on each side
+
+The canvas hands the case over as it stands when a line reaches the interpreter, and is not read again while that line runs.
+A submission that waited its turn behind another therefore reads the canvas the one in front of it left, which is what a notebook run in order means by "the canvas".
+So `nemo.case()` is a copy, and editing it changes nothing on the canvas; `nemo.replace(doc)` is how an edited one is put back, and it discards what was drawn.
+A document that carries result sets is offered for choosing on the way in, as any loaded case is.
+
+## Stopping something
+
+Restart discards the interpreter and starts a fresh one, and is also how a run that is taking too long is stopped.
+Every name defined at the prompt goes with it, wherever Python is running: the browser gets a fresh interpreter by terminating the worker, and the local server puts its session back to how it started, so the choice of runtime stays invisible.
+
+Anything that was waiting its turn goes too. A submission was written against the interpreter being dropped — its names, its imports — so it is answered with what happened rather than carried over to a fresh one that has none of it.
+
+There is no way to interrupt a running line and keep the session: that needs memory shared between the page and the worker, which browsers only grant a page served with headers a static host cannot set.
+
+## How fast it is
+
+Nefes carries three implementations of its kernels, and there is no compiler in a browser to build one with, so which is installed is decided when the wheel is built rather than when the page loads.
+The status line says which arrived:
+
+```
+READY  Python 3.14.2 · nefes 0.1.0 (accel kernels)
+```
+
+`accel` are the kernels compiled ahead of time to WebAssembly, and are what the committed wheel carries.
+`python` means the wheel had nothing compiled in it, which is correct and much slower.
+
+Measured through the console on a 42-element reacting network — a rich-quench-lean combustor with thirteen species in equilibrium:
+
+| where        | kernels               | one solve |
+| ------------ | --------------------- | --------- |
+| this machine | `numba`               | 127 ms    |
+| the browser  | `accel` (WebAssembly) | 1.7 s     |
+| the browser  | `python`              | 58 s      |
+
+So compiling the kernels is worth some thirty times, and running on the machine another thirteen on top of that. A browser is not in a different league from a workstation; it is one order behind it.
+
+The gap narrows sharply on small non-reacting networks, where the sparse solve rather than the kernels sets the pace: a four-element perfect-gas nozzle is 17 ms in the browser against 50 ms interpreted.
+Chemistry is what the compiled kernels are for.
+
+Connecting is the other difference. A local interpreter answers in under half a second; the browser's takes four or five while it fetches itself.
+
+## Refreshing the wheels
+
+The app is served as static files and a deploy has no way to build anything, so the wheels are committed.
+
+Which wheels are installed is declared by the model that needs them, in `public/models/*.yaml`; `npm run wheels` rebuilds them and leaves the naming alone.
+
+The browser's Python is WebAssembly, so a wheel with compiled parts is a _cross_-compile: the machine that builds it cannot run what it produces.
+That needs `pyodide build` from a Python of the same version as the browser's, and an Emscripten toolchain of the version its build environment names.
+Neither is installed by this repo. Once they are:
+
+```bash
+PYODIDE=~/.conda/envs/pyodide-build/bin/pyodide \
+EMSDK_ENV=~/emsdk/emsdk_env.sh \
+npm run wheels -- ../Nefes
+```
+
+That builds the wheel, drops it in `public/wheels`, removes the version it replaces, and repoints every model that named the old one.
+The console installs what a model declares — the `solver.packages` list in its own file — and that names the wheel by filename, version and all, so a rebuild that left those alone would point every model at a file that is no longer there.
+
+`npm run wheels -- ../Nefes --pure` skips the cross-compile and builds a wheel with nothing compiled in it, which needs only a plain Python and lands in the second row of the table above.
+
+## Where the pieces are
+
+| File                                         | What it holds                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `src/python/protocol.ts`                     | The messages the console and the interpreter exchange            |
+| `src/python/runtime.worker.ts`               | The interpreter itself, off the main thread                      |
+| `src/python/python-runtime.ts`               | Starting it, feeding it lines, routing what comes back           |
+| `src/python/bridge.ts`                       | What Python is allowed to do to the canvas, and the checks on it |
+| `src/python/nemo-module.py`                  | The `nemo` module, as Python sees it                             |
+| `src/python/transport.ts`                    | The two places Python can run, behind one interface              |
+| `src/python/console_server.py`               | The local interpreter, served over HTTP                          |
+| `public/models/*.yaml`                       | Each model's own solver: its packages and its adapter            |
+| `src/store/pythonStore.ts`                   | The transcript, the prompt state, the recall list                |
+| `src/store/notebookStore.ts`                 | The cells, in the shape a `.ipynb` holds them                    |
+| `src/python/ipynb.ts`                        | Reading and writing that file                                    |
+| `src/python/display-shims.py`                | The display protocol, and what makes notebook code run unchanged |
+| `src/python/hints.py`                        | What could finish a name, and what a call takes; used by both    |
+| `src/components/notebook/python-hints.ts`    | The same, as the editor asks for it                              |
+| `src/python/pin-figure.ts`                   | Turning a figure output into an annotation                       |
+| `src/components/notebook/`                   | The Results tab: cells, the editor, the output renderers         |
+| `src/components/workspace-layout-picker.tsx` | Which of the three arrangements is showing                       |
+| `src/hooks/use-split-resize.ts`              | The divider between the canvas and the notebook                  |
+
+`src/python/nemo-module.test.ts` runs the Python module under a real interpreter and skips where there is none; point `PYTHON` at one that has Nefes in it to include it.

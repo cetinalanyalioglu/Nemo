@@ -67,6 +67,72 @@ forceUniqueNodeLabels: true
 # Nefes documentation site. Omit this key to use Nemo's default theme pair.
 theme: nefes
 
+# How the Python console reaches this model's solver.  Nemo itself knows only that a
+# model may name packages and some Python to reach them by; everything below is what
+# "Nefes" means to it, and lives here so that nothing in the app has to.
+#
+# The adapter runs once when the interpreter starts and defines three names:
+#
+#   build(doc)               a case document in, a solvable network out
+#   results(net, **kwargs)   that network's results back out as a case document
+#   describe()               one line naming the solver, for the status line
+#
+# `nemo.build()` and `nemo.publish()` at the prompt are these; a model that declares no
+# solver simply does not have them.  `handle` below is what lets this model also call
+# `build` by the name that suits what it builds.
+solver:
+  handle: network
+  packages:
+    - wheels/nefes-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+    # Nefes keeps plotting optional, so the wheel above does not pull this in and the
+    # Results tab would have to be told to install it before it could draw anything.
+    # Named here instead: what the model needs is the model's business.
+    - plotly
+  adapter: |
+    from nefes.io import case_from_dict, case_to_dict
+
+
+    def build(doc):
+        """The drawn network, ready to solve."""
+        return case_from_dict(doc, source="<canvas>")
+
+
+    def results(net, **kwargs):
+        """A network as a case document: the drawing, and any results asked for.
+
+        With no results named this is just the network, which is what `nemo.draw()`
+        wants.  Otherwise it takes what `nefes.io.case_to_dict` takes, each of which
+        arrives on the canvas as a set of result series that can be coloured by:
+
+            solution=    a solved mean flow
+            forced=      a forced response, over frequency
+            eigenmodes=  the modes of the network, as an animation
+            nyquist=     a Nyquist sweep
+
+        An element that stands for several expands behind the drawing, so its interior
+        is left out: what is sent has to be as long as what it binds to.
+        """
+        kwargs.setdefault("internal_edges", False)
+        return case_to_dict(net, **kwargs)
+
+
+    def describe():
+        """What is installed, and which kernels it found.
+
+        The same package runs at very different speeds depending on that, so it is
+        worth a place on the status line.
+        """
+        import nefes
+
+        return f"nefes {nefes.__version__} ({nefes.backend()} kernels)"
+
+  # Shown on an empty prompt and an empty notebook: the shortest thing worth running.
+  example: |
+    net = nemo.network()          # the drawn network
+    sol = net.solve()             # the mean flow
+    print(sol.converged, sol.field("mdot"))
+    nemo.publish(net, solution=sol)   # colour the canvas with it
+
 parameters:
   thermoModel:
     label: Thermo model

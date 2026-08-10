@@ -6,10 +6,70 @@
   min-height: 0;
 }
 
-.canvas-area {
+/* The two surfaces, side by side when both are showing. `min-width: 0` on all of them,
+   because a flex child will not shrink below the width of what is inside it without it,
+   and both React Flow and a notebook cell are wider than half a pane. */
+.workspace-split {
+  display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+}
+
+/* The canvas takes its share and the notebook the rest, written as grow factors against
+   a zero basis so the two divide exactly what the divider leaves.
+
+   The share is counted in hundredths rather than as a fraction, because grow factors
+   adding up to less than one hand out only that much of the space: a pane left on its
+   own with a factor of 0.6 would fill three fifths of the row and leave the rest
+   blank. In hundredths every factor is over one, so whichever panes are showing fill
+   the row between them. */
+.canvas-area {
+  flex-grow: calc(var(--workspace-split-ratio, 0.6) * 100);
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  min-width: 0;
   position: relative;
+}
+
+.workspace-divider {
+  flex: 0 0 5px;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.workspace-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--color-border-light);
+  transition: background-color 0.15s ease;
+}
+
+.workspace-divider:hover::after,
+.workspace-divider:focus-visible::after,
+.workspace-divider.dragging::after {
+  background: var(--color-accent);
+}
+
+.workspace-divider:focus-visible {
+  outline: none;
+}
+
+.workspace-divider:focus-visible::after {
+  width: 3px;
+  left: 1px;
+}
+
+body.workspace-split-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .console-pane {
@@ -107,6 +167,42 @@ body.console-pane-resizing {
   letter-spacing: 0.5px;
 }
 
+.console-pane-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  align-self: stretch;
+}
+
+.console-pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.console-pane-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.console-pane-tab.active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
 .console-pane-unread-badge {
   display: inline-flex;
   align-items: center;
@@ -154,6 +250,17 @@ body.console-pane-resizing {
 .console-pane.open .console-pane-body {
   display: flex;
   flex-direction: column;
+}
+
+.console-pane-tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-pane-tab-panel[hidden] {
+  display: none;
 }
 
 .console-logs-tab {
@@ -281,4 +388,304 @@ body.console-pane-resizing {
   color: var(--color-text-secondary);
   font-size: 12px;
   font-family: var(--font-sans);
+}
+
+/* ---------------------------------------------------------------- Python tab */
+
+.console-python-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.console-python-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.console-python-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.python-runtime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.python-runtime-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.python-runtime-select,
+.python-runtime-address {
+  padding: 3px 6px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.python-runtime-address {
+  width: 22ch;
+  font-family: var(--font-mono);
+}
+
+.python-runtime-select:focus,
+.python-runtime-address:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.python-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
+}
+
+.python-status.ready {
+  color: var(--color-success);
+}
+
+.python-status.starting,
+.python-status.busy {
+  color: var(--color-accent);
+}
+
+.python-status.failed {
+  color: var(--color-error);
+}
+
+.python-status-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-secondary);
+}
+
+.console-python-transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.console-python-transcript::-webkit-scrollbar {
+  width: 6px;
+}
+
+.console-python-transcript::-webkit-scrollbar-track {
+  background: var(--color-surface-subtle);
+}
+
+.console-python-transcript::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.python-line {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+  color: var(--color-text-body);
+}
+
+.python-line-prompt {
+  flex-shrink: 0;
+  user-select: none;
+  color: var(--color-text-icon-secondary);
+}
+
+.python-line-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.python-line.error .python-line-text {
+  color: var(--color-error);
+}
+
+.python-line.value .python-line-text {
+  color: var(--color-accent);
+}
+
+.python-line.note .python-line-text {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/*
+ * An offered example: code, but nothing has run it. Set apart by a rule down the side
+ * rather than by a prompt, which would read as though it had been entered.
+ */
+.python-line.example {
+  padding-left: 12px;
+  margin-left: 16px;
+  border-left: 2px solid var(--color-border-subtle);
+}
+
+.python-line.example .python-line-text {
+  color: var(--color-text-secondary);
+}
+
+.console-python-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.console-python-input {
+  flex: 1;
+  min-width: 0;
+  /* One line, whatever a measurement of the growing prompt makes of it. */
+  min-height: 1.5em;
+  max-height: 40vh;
+  border: none;
+  outline: none;
+  padding: 0;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.console-python-input::placeholder {
+  color: var(--color-text-icon-secondary);
+}
+
+.console-python-run {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.console-python-run:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+}
+
+.console-python-run:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* -------------------------------------------------------------- Variables tab */
+
+.console-variables-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.variables-count {
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.variables-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.variables-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.variables-list::-webkit-scrollbar-track {
+  background: var(--color-surface-subtle);
+}
+
+.variables-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.variables-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 14rem) 6rem minmax(0, 1fr);
+  gap: 12px;
+  padding: 2px 16px;
+}
+
+.variables-row:hover {
+  background: var(--color-surface-muted);
+}
+
+.variables-name {
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variables-kind {
+  color: var(--color-text-icon-secondary);
+  font-size: 11px;
+}
+
+.variables-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
 }

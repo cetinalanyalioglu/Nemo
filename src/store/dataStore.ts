@@ -272,8 +272,14 @@ interface DataStore {
   scaleRequest: { target: DataTarget; seq: number } | null;
 
   loadDatasetsFromFile: (file: File, expected?: ExpectedCounts) => void;
-  /** Restores datasets embedded in a saved case file. */
-  loadDatasetsFromObject: (datasets: Dataset[]) => void;
+  /**
+   * Restores datasets embedded in a saved case file, or hands over ones produced
+   * live. Passing `expected` checks each dataset against the canvas element counts
+   * and refuses the ones that do not fit, which is what a dataset arriving from
+   * somewhere other than the case it was saved in needs; a dataset from the case
+   * itself matches by construction. Returns how many were taken.
+   */
+  loadDatasetsFromObject: (datasets: Dataset[], expected?: ExpectedCounts) => number;
   /** Opens the load-time selection dialog for embedded datasets. */
   presentDatasetChoice: (datasets: Dataset[]) => void;
   /** Imports the chosen subset of pending datasets and closes the dialog. */
@@ -441,8 +447,8 @@ export const useDataStore = create<DataStore>((set, get) => ({
     reader.readAsText(file);
   },
 
-  loadDatasetsFromObject: (datasets) => {
-    if (!Array.isArray(datasets) || datasets.length === 0) return;
+  loadDatasetsFromObject: (datasets, expected) => {
+    if (!Array.isArray(datasets) || datasets.length === 0) return 0;
     // Regenerate ids so embedded datasets never collide with anything loaded
     // in this session, and re-derive item ids the displays reference.
     const cloned: Dataset[] = datasets.map((dataset) => ({
@@ -462,10 +468,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
         values: item.values,
       })),
     }));
-    set((s) => ({ datasets: [...s.datasets, ...cloned], loadCount: s.loadCount + 1 }));
-    logger.info(
-      `Imported ${cloned.length} dataset${cloned.length === 1 ? '' : 's'} from saved case.`
-    );
+    const accepted = cloned.filter((dataset) => {
+      const mismatch = expected ? findCountMismatch(dataset, expected) : null;
+      if (mismatch) logger.error(`"${dataset.name}" — ${mismatch}`);
+      return !mismatch;
+    });
+    if (accepted.length === 0) return 0;
+    set((s) => ({ datasets: [...s.datasets, ...accepted], loadCount: s.loadCount + 1 }));
+    logger.success(`Imported ${accepted.length} dataset${accepted.length === 1 ? '' : 's'}.`);
+    return accepted.length;
   },
 
   presentDatasetChoice: (datasets) => {

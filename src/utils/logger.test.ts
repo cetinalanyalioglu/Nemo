@@ -7,6 +7,9 @@ const entries = () => useConsoleStore.getState().entries;
 
 describe('logger', () => {
   beforeEach(() => {
+    // These are about what the logger does with a message, not about which messages
+    // the log keeps, so nothing is filtered out from under them.
+    useConsoleStore.getState().setVerbosity('debug');
     useConsoleStore.getState().clear();
   });
 

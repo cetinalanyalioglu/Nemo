@@ -35,12 +35,14 @@ const dataFile = (contents: string, name = 'data.json'): File =>
 describe('dataStore logging', () => {
   beforeEach(() => {
     useDataStore.setState({ datasets: [], loadCount: 0, pendingDatasets: null });
+    // What gets logged is the subject here, so nothing is filtered out from under it.
+    useConsoleStore.getState().setVerbosity('debug');
     useConsoleStore.getState().clear();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
-  it('logs an info entry when importing datasets from a saved case', () => {
+  it('reports an import as an outcome, so a quiet log still keeps it', () => {
     useDataStore.getState().loadDatasetsFromObject([
       {
         id: 'ds-1',
@@ -50,7 +52,9 @@ describe('dataStore logging', () => {
       },
     ]);
     const entry = useConsoleStore.getState().entries.at(-1);
-    expect(entry).toMatchObject({ level: 'info' });
+    // Loading data is something the user asked for, so the line reporting it has to
+    // outlive the default verbosity rather than counting as the app's own commentary.
+    expect(entry).toMatchObject({ level: 'success' });
     expect(entry?.message).toContain('Imported 1 dataset');
   });
 
